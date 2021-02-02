@@ -65,13 +65,13 @@ def main():
         for exp_name, df in ass_exp_groups:
             filter_assay(crit_list, df, all_lines, output_folder, url_txt, df_filt)
     fin_df = pd.concat(df_filt)
-    fin_df.to_csv(os.path.join(base_dir, options.biosample+' filtered_df.csv'))
+    fin_df.to_csv(os.path.join(base_dir, options.biosample+'_filtered_df.csv'))
 
-    with open(os.path.join(base_dir, options.biosample+' sample_beds.txt'), 'w') as f:
+    with open(os.path.join(base_dir, options.biosample+'_sample_beds.txt'), 'w') as f:
         for item in all_lines:
             f.write("%s\n" % item)
 
-    with open(os.path.join(base_dir, options.biosample+' urls.txt'), 'w') as f:
+    with open(os.path.join(base_dir, options.biosample+'_urls.txt'), 'w') as f:
         for item in url_txt:
             f.write("%s\n" % item.strip())
 
@@ -131,8 +131,7 @@ def process_priority(c_name, df, txt_lines, output_dir,url_txt, df_filt):
 def download_metadata(metadata_url, output_folder):
     print("Downloading metadata.tsv for the project")
     metadata_path = os.path.join(output_folder, 'metadata.tsv')
-    #TODO: uncomment
-    # urllib.request.urlretrieve(metadata_url, metadata_path)
+    urllib.request.urlretrieve(metadata_url, metadata_path)
     metadata = pd.read_csv(metadata_path ,sep='\t')
     return metadata
 

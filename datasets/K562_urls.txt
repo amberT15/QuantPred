@@ -1,0 +1,16 @@
+https://www.encodeproject.org/files/ENCFF015PTS/@@download/ENCFF015PTS.bed.gz
+https://www.encodeproject.org/files/ENCFF460XQR/@@download/ENCFF460XQR.bed.gz
+https://www.encodeproject.org/files/ENCFF853VOT/@@download/ENCFF853VOT.bed.gz
+https://www.encodeproject.org/files/ENCFF820ZHR/@@download/ENCFF820ZHR.bed.gz
+https://www.encodeproject.org/files/ENCFF663HVK/@@download/ENCFF663HVK.bed.gz
+https://www.encodeproject.org/files/ENCFF593VVO/@@download/ENCFF593VVO.bed.gz
+https://www.encodeproject.org/files/ENCFF373FBG/@@download/ENCFF373FBG.bed.gz
+https://www.encodeproject.org/files/ENCFF568FLE/@@download/ENCFF568FLE.bed.gz
+https://www.encodeproject.org/files/ENCFF933ZIS/@@download/ENCFF933ZIS.bed.gz
+https://www.encodeproject.org/files/ENCFF906BNB/@@download/ENCFF906BNB.bed.gz
+https://www.encodeproject.org/files/ENCFF951UWN/@@download/ENCFF951UWN.bed.gz
+https://www.encodeproject.org/files/ENCFF032MDN/@@download/ENCFF032MDN.bed.gz
+https://www.encodeproject.org/files/ENCFF609XKW/@@download/ENCFF609XKW.bed.gz
+https://www.encodeproject.org/files/ENCFF148VLB/@@download/ENCFF148VLB.bed.gz
+https://www.encodeproject.org/files/ENCFF647EPQ/@@download/ENCFF647EPQ.bed.gz
+https://www.encodeproject.org/files/ENCFF766NVP/@@download/ENCFF766NVP.bed.gz
