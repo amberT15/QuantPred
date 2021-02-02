@@ -29,7 +29,7 @@ def main():
         metadata_url = file.readline()[1:-2] #remove " before and after url
 
     metadata = download_metadata(metadata_url, output_folder)
-    metadata['Experiment accession'] = metadata['Experiment accession']+'_'+ metadata['Biological replicate(s)']
+    metadata['Experiment accession and replicate'] = metadata['Experiment accession']+'_'+ metadata['Biological replicate(s)']
 
     assay_groups = metadata.groupby(by='Assay')
     #TODO: move this into a json file
@@ -59,20 +59,19 @@ def main():
         if options.biosample:
             assay_df = assay_df[(assay_df['Biosample term name'] == options.biosample)]
         if options.crispr:
-            # assay_df = assay_df[(assay_df['Biosample genetic modifications methods'] == '')]
             assay_df = assay_df[(assay_df['Biosample genetic modifications methods']).isnull().values]
-        ass_exp_groups = assay_df.groupby(by='Experiment accession')
+        ass_exp_groups = assay_df.groupby(by='Experiment accession and replicate')
         print("Processing {} {} experiments".format(len(ass_exp_groups), assay))
         for exp_name, df in ass_exp_groups:
             filter_assay(crit_list, df, all_lines, output_folder, url_txt, df_filt)
     fin_df = pd.concat(df_filt)
-    fin_df.to_csv(os.path.join(base_dir, 'filtered_df.csv'))
+    fin_df.to_csv(os.path.join(base_dir, options.biosample+' filtered_df.csv'))
 
-    with open(os.path.join(base_dir, 'sample_beds.txt'), 'w') as f:
+    with open(os.path.join(base_dir, options.biosample+' sample_beds.txt'), 'w') as f:
         for item in all_lines:
             f.write("%s\n" % item)
 
-    with open(os.path.join(base_dir, 'urls.txt'), 'w') as f:
+    with open(os.path.join(base_dir, options.biosample+' urls.txt'), 'w') as f:
         for item in url_txt:
             f.write("%s\n" % item.strip())
 
