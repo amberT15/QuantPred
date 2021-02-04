@@ -109,7 +109,7 @@ def main():
                 # adjust coordinates to midpoint
                 start = int(a[1])
                 end = int(a[2])
-                mid = find_midpoint(start, end)
+                mid = int(find_midpoint(start, end))
                 a[1] = str(mid)
                 a[2] = str(mid + 1)
 
@@ -175,7 +175,6 @@ def main():
         chrom,strand = chrom_key
         chrom_sbed = '%s_%s_%s_sort.bed' % (options.out_prefix,chrom,strand)
         sort_cmd = 'sortBed -i %s > %s' % (chrom_files[chrom_key], chrom_sbed)
-        print(sort_cmd)
         subprocess.call(sort_cmd, shell=True)
         os.remove(chrom_files[chrom_key])
         chrom_files[chrom_key] = chrom_sbed
@@ -246,32 +245,32 @@ def main():
 
     #################################################################
     # construct/update activity table
-    #################################################################
-    final_act_out = open('%s_act.txt' % options.out_prefix, 'w')
+#     #################################################################
+#     final_act_out = open('%s_act.txt' % options.out_prefix, 'w')
 
-    # print header
-    cols = [''] + db_targets
-    print('\t'.join(cols),file = final_act_out)
-    #print >> final_act_out, '\t'.join(cols)
+#     # print header
+#     cols = [''] + db_targets
+#     print('\t'.join(cols),file = final_act_out)
+#     #print >> final_act_out, '\t'.join(cols)
 
-    # print sequences
-    for line in open('%s.bed' % options.out_prefix):
-        a = line.rstrip().split('\t')
-        # index peak
-        peak_id = '%s:%s-%s(%s)' % (a[0], a[1], a[2], a[5])
+#     # print sequences
+#     for line in open('%s.bed' % options.out_prefix):
+#         a = line.rstrip().split('\t')
+#         # index peak
+#         peak_id = '%s:%s-%s(%s)' % (a[0], a[1], a[2], a[5])
 
-        # construct full activity vector
-        peak_act = [0]*len(db_targets)
-        for ai in a[6].split(','):
-            if ai != '.':
-                peak_act[int(ai)] = 1
+#         # construct full activity vector
+#         peak_act = [0]*len(db_targets)
+#         for ai in a[6].split(','):
+#             if ai != '.':
+#                 peak_act[int(ai)] = 1
 
-        # print line
-        cols = [peak_id] + peak_act
-        print('\t'.join([str(c) for c in cols]),file = final_act_out)
-        #print >> final_act_out, '\t'.join([str(c) for c in cols])
+#         # print line
+#         cols = [peak_id] + peak_act
+#         print('\t'.join([str(c) for c in cols]),file = final_act_out)
+#         #print >> final_act_out, '\t'.join([str(c) for c in cols])
 
-    final_act_out.close()
+#     final_act_out.close()
 
 
 def activity_set(act_cs):
@@ -297,7 +296,7 @@ def activity_set(act_cs):
 def find_midpoint(start, end):
     ''' Find the midpoint coordinate between start and end '''
     mid = (start + end)/2
-    return mid
+    return int(mid)
 
 
 def merge_peaks(peaks, peak_size, merge_overlap, chrom_len):
@@ -404,7 +403,7 @@ class Peak:
             act_str = '.'
         else:
             act_str = ','.join([str(ai) for ai in sorted(list(self.act))])
-        cols = (chrom, str(self.start), str(self.end), '.', '1', strand, act_str)
+        cols = (chrom, str(int(self.start)), str(int(self.end)), '.', '1', strand, act_str)
         return '\t'.join(cols)
 
     def merge(self, peak2, ext_len, chrom_len):
