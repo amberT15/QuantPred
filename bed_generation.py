@@ -90,7 +90,7 @@ def main():
 
     for bi in range(len(peak_beds)):
         if peak_beds[bi][-3:] == '.gz':
-            peak_bed_in = gzip.open(peak_beds[bi])
+            peak_bed_in = gzip.open(peak_beds[bi],'rt')
         else:
             peak_bed_in = open(peak_beds[bi])
 
@@ -175,6 +175,7 @@ def main():
         chrom,strand = chrom_key
         chrom_sbed = '%s_%s_%s_sort.bed' % (options.out_prefix,chrom,strand)
         sort_cmd = 'sortBed -i %s > %s' % (chrom_files[chrom_key], chrom_sbed)
+        print(sort_cmd)
         subprocess.call(sort_cmd, shell=True)
         os.remove(chrom_files[chrom_key])
         chrom_files[chrom_key] = chrom_sbed
@@ -189,7 +190,7 @@ def main():
         chrom, strand = chrom_key
 
         open_peaks = []
-        for line in open(chrom_files[chrom_key]):
+        for line in open(chrom_files[chrom_key],'rt'):
             a = line.split('\t')
             a[-1] = a[-1].rstrip()
 
