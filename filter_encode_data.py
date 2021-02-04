@@ -86,7 +86,7 @@ def main():
         for i,row in fin_df.iterrows():
             f.write("{}\t{}\n".format(row['label'], row['abs_path']))
     #
-    with open(os.path.join(output_folder, options.biosample+'_urls.txt'), 'w') as f:
+    with open(os.path.join(output_folder, 'urls.txt'), 'w') as f:
         for i,row in fin_df.iterrows():
             f.write("{}\n".format(row['File download URL']))
 
