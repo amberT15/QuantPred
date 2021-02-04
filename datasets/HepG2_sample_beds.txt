@@ -1,7 +1,0 @@
-TF-ChIP-seq_ZNF24-human_HepG2_ENCSR791AGT_ENCFF990DMH	/home/shush/profile/QuantPred/datasets/ENCFF990DMH.bed.gz
-TF-ChIP-seq_CREB1-human_HepG2_ENCSR112ALD_ENCFF835UPN	/home/shush/profile/QuantPred/datasets/ENCFF835UPN.bed.gz
-TF-ChIP-seq_SP1-human_HepG2_ENCSR334KIQ_ENCFF292SZD	/home/shush/profile/QuantPred/datasets/ENCFF292SZD.bed.gz
-TF-ChIP-seq_FOXA2-human_HepG2_ENCSR066EBK_ENCFF459HJZ	/home/shush/profile/QuantPred/datasets/ENCFF459HJZ.bed.gz
-TF-ChIP-seq_RFX1-human_HepG2_ENCSR928API_ENCFF076BOS	/home/shush/profile/QuantPred/datasets/ENCFF076BOS.bed.gz
-TF-ChIP-seq_FOXK2-human_HepG2_ENCSR171FUX_ENCFF851TZY	/home/shush/profile/QuantPred/datasets/ENCFF851TZY.bed.gz
-TF-ChIP-seq_FOXA1-human_HepG2_ENCSR267DFA_ENCFF324OAJ	/home/shush/profile/QuantPred/datasets/ENCFF324OAJ.bed.gz

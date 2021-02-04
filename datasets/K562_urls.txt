@@ -1,7 +1,0 @@
-https://www.encodeproject.org/files/ENCFF015PTS/@@download/ENCFF015PTS.bed.gz
-https://www.encodeproject.org/files/ENCFF460XQR/@@download/ENCFF460XQR.bed.gz
-https://www.encodeproject.org/files/ENCFF593VVO/@@download/ENCFF593VVO.bed.gz
-https://www.encodeproject.org/files/ENCFF647EPQ/@@download/ENCFF647EPQ.bed.gz
-https://www.encodeproject.org/files/ENCFF148VLB/@@download/ENCFF148VLB.bed.gz
-https://www.encodeproject.org/files/ENCFF032MDN/@@download/ENCFF032MDN.bed.gz
-https://www.encodeproject.org/files/ENCFF933ZIS/@@download/ENCFF933ZIS.bed.gz
