@@ -8,14 +8,17 @@ import subprocess
 
 def main():
     urls_path = sys.argv[1] # filepath
-    output_folder = sys.argv[2] # just foldername
-    exp_folder = utils.get_parent(urls_path) # split parent dir
-    urls_copy_path = os.path.join(exp_folder, "urls_copy.txt")
-    output_dir = os.path.join(exp_folder, output_folder)
-    utils.make_directory(output_dir)
+    output_dir = sys.argv[2]
+    # output_folder = sys.argv[2] # just foldername
+    # exp_folder = utils.get_parent(urls_path) # split parent dir
+    urls_copy_path = os.path.join(output_dir, "urls_copy.txt")
+    # output_dir = os.path.join(exp_folder, output_folder)
+    # utils.make_directory(output_dir)
+    assert os.path.isdir(output_dir), "Something is wrong in the pipeline!"
     # look for existing copy file urls_copy.txt
     # set paths and copy url file if not already present
     if not os.path.isfile(urls_copy_path):
+        print(urls_path, urls_copy_path)
         # use this in the function that does the rest
         try:
             copyfile(urls_path, urls_copy_path)
