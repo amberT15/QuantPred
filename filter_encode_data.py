@@ -4,7 +4,9 @@ import os
 import urllib.request
 import pandas as pd
 import sys
-import utils
+# import utils
+from pathlib import Path
+
 
 def main():
     usage = 'usage: %prog [options] <files_path> <output_folder>'
@@ -30,8 +32,9 @@ def main():
         files_path = args[0]
         output_folder = args[1]
 
-    utils.make_directory(output_folder)
-    base_dir = utils.get_parent(files_path)
+    # iteratively create output dataset path
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
+    # base_dir = utils.get_parent(files_path)
     # file from encode download
     with open(files_path, "r") as file:
         metadata_url = file.readline()[1:-2] #remove " before and after url
@@ -77,13 +80,13 @@ def main():
     #filter certain number of rows
     if options.limit:
         fin_df = fin_df.sample(n=options.limit, random_state=options.seed)
-    fin_df.to_csv(os.path.join(base_dir, options.biosample+'_filtered_df.csv'))
+    fin_df.to_csv(os.path.join(output_folder, options.biosample+'_filtered_df.csv'))
 
-    with open(os.path.join(base_dir, options.biosample+'_sample_beds.txt'), 'w') as f:
+    with open(os.path.join(output_folder, options.biosample+'_sample_beds.txt'), 'w') as f:
         for i,row in fin_df.iterrows():
             f.write("{}\t{}\n".format(row['label'], row['abs_path']))
     #
-    with open(os.path.join(base_dir, options.biosample+'_urls.txt'), 'w') as f:
+    with open(os.path.join(output_folder, options.biosample+'_urls.txt'), 'w') as f:
         for i,row in fin_df.iterrows():
             f.write("{}\n".format(row['File download URL']))
 
@@ -130,6 +133,8 @@ def process_priority(c_name, df, output_dir, df_filt):
     return found_c
 
 def download_metadata(metadata_url, output_folder):
+    print('~~~~~~~~~~~~')
+    print(output_folder)
     print("Downloading metadata.tsv for the project")
     metadata_path = os.path.join(output_folder, 'metadata.tsv')
     urllib.request.urlretrieve(metadata_url, metadata_path)
