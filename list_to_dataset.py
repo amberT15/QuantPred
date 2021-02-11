@@ -38,7 +38,7 @@ def process_exp(exp_accession, metadata, assembly):
   exp_df = metadata[(metadata['Experiment accession']==exp_accession) & (metadata['File assembly']==assembly)]
   assert exp_df.size > 0, 'Bad accession number, no records found'
 
-  bed = exp_df[(exp_df['File format'] == 'bigBed narrowPeak') &
+  bed = exp_df[(exp_df['File format'] == 'bed narrowPeak') &
                 (exp_df['Output type']=='conservative IDR thresholded peaks')]
   sign = exp_df[exp_df['Output type'] == 'signal p-value'] #check if signal bw exists
   fold = exp_df[exp_df['Output type'] == 'fold change over control'] #check if fold bw exists
@@ -64,7 +64,7 @@ def wget_list(urls, outdir):
 
 def save_dataset(res_dict, outdir):
   for prefix, filtered_list in res_dict.items():
-    print("Prcessing set labelled {}".format(prefix))
+    print("Processing set labelled {}".format(prefix))
     df = pd.concat(filtered_list, axis=1)
     prefix_dir = make_dir(os.path.join(outdir, prefix))
     df.to_csv(os.path.join(prefix_dir, '{}.csv'.format(prefix)))
@@ -84,8 +84,16 @@ def create_dataset(exp_accession_list, outdir, folder_label='summary'):
   sum_df = pd.DataFrame(summary, columns=cols)
   sum_df.to_csv(os.path.join(outdir, folder_label+'.csv'))
   for i in range(1, len(cols)):
-      data_subdir = make_dir(os.path.join(outdir, cols[i]))
-      wget_list(sum_df[cols[i]].values, data_subdir)
+    data_subdir = make_dir(os.path.join(outdir, cols[i]))
+    wget_list(sum_df[cols[i]].values, data_subdir)
+  #
+  bed_paths = ['{}\t{}'.format(sum_df['label'].values[i],
+              os.path.join(outdir, 'bed', sum_df['bed'].values[i].split('/')[-1]))
+              # sum_df['bed'].values[i].split('/')[-1])
+              for i in range(len(sum_df.index))]
+  with open(os.path.join(outdir, 'bed','sample_beds.txt'), 'w') as f:
+    for item in bed_paths:
+        f.write("%s\n" % item)
 
 
 
@@ -96,7 +104,7 @@ with open(files_path, "r") as file:
     metadata_url = file.readline()[1:-2] #remove " before and after url
 # file list metadata
 metadata = utils.download_metadata(metadata_url, output_folder)
-metadata = pd.read_csv(metadata_path, sep='\t')
+# metadata = pd.read_csv(metadata_path, sep='\t')
 
 
 # exp_accession_list_A549 = ['ENCSR544GUO', 'ENCSR000BUB']
