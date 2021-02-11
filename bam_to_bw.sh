@@ -1,15 +1,4 @@
 #!/bin/bash
-# filepath=$1
-# ref=$2
-# samtools sort $filepath.bam -o $filepath.sorted.bam
-# bedtools genomecov -ibam $filepath.sorted.bam -bg > $filepath.bedGraph
-# LC_COLLATE=C sort -k1,1 -k2,2n $filepath.bedGraph > $filepath.sorted.bedGraph
-# bedGraphToBigWig $filepath.sorted.bedGraph $2 $filepath.bw
-#
-# rm $filepath.sorted.bam
-# rm $filepath.bedGraph
-# rm $filepath.sorted.bedGraph
-
 
 folder_path=$1
 ref=$2
