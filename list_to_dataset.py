@@ -15,46 +15,44 @@ def make_label(df_row):
 
     '''
     Add label for each row selected:
-    Assay_
-    Experiment target_
-    Biosample term name_
-    Experiment accession_
+    Assay_Experiment target_Biosample term name_Experiment accession
     '''
     label_list = [str(c.values[0]) for c in [df_row['Assay'], df_row['Experiment target'], df_row['Biosample term name'],
                          df_row['Experiment accession']]]
     return('_'.join(label_list).replace(" ", "-"))
 
-def get_best(df):
-  l_bio_reps = [len(l) for l in df['Biological replicate(s)'].values]
-  all_same = all(element == l_bio_reps[0] for element in l_bio_reps)
-  if all_same:
-    l_tech_reps = [len(l) for l in df['Technical replicate(s)'].values]
-    i_best = np.argmax(l_tech_reps)
-  else:
-    i_best = np.argmax(l_bio_reps)
-    return i_best
+def get_same(df, tech_id):
+  '''
+  Get the same technical replicate as the bam file selected
+  '''
+
+  df_i_same = df[df['Technical replicate(s)'] == tech_id]
+  return df_i_same
 
 def process_exp(exp_accession, metadata, assembly):
   exp_df = metadata[(metadata['Experiment accession']==exp_accession) & (metadata['File assembly']==assembly)]
+  exp_df.to_csv('exp.csv')
   assert exp_df.size > 0, 'Bad accession number, no records found'
-
-  bed = exp_df[(exp_df['File format'] == 'bed narrowPeak') &
-                (exp_df['Output type']=='conservative IDR thresholded peaks')]
+  bed = exp_df[(exp_df['File type'] == 'bed') &
+                (exp_df['Output type']=='IDR thresholded peaks')]
   sign = exp_df[exp_df['Output type'] == 'signal p-value'] #check if signal bw exists
   fold = exp_df[exp_df['Output type'] == 'fold change over control'] #check if fold bw exists
+  fold.to_csv('fold0.csv')
   bam = exp_df[exp_df['Output type'] == 'alignments'] #check if bam exists
   # throw an error if any one absent
   outputs = [bed, sign, fold, bam]
   assert all([i.shape[0]>0 for i in outputs]), exp_accession+' has missing data types'
-  # check if multiple exist, which there shouldn't be?
-  assert bed.shape[0] == 1, 'Multiple conservative IDR thresholded peak bed files identified'
-  sign = sign.iloc[[get_best(sign)]]
-  fold = fold.iloc[[get_best(fold)]]
+  # pick the first bam file
   bam = bam.iloc[[0]]
-  summary_line = [make_label(bed)]
-  summary_line = summary_line + [i['File download URL'].values[0] for i in outputs]
-  return summary_line
+  id = bam['Technical replicate(s)'].values[0]
+  sign = get_same(sign, id)
+  fold = get_same(fold, id)
+  bed = get_same(bed, id)
 
+  summary_line = [make_label(bed)]
+  for output in [bed, sign, fold, bam]:
+    summary_line.append(output['File download URL'].values[0])
+  return summary_line
 
 
 def wget_list(urls, outdir):
@@ -64,7 +62,7 @@ def wget_list(urls, outdir):
 
 def save_dataset(res_dict, outdir):
   for prefix, filtered_list in res_dict.items():
-    print("Processing set labelled {}".format(prefix))
+    print("Prcessing set labelled {}".format(prefix))
     df = pd.concat(filtered_list, axis=1)
     prefix_dir = make_dir(os.path.join(outdir, prefix))
     df.to_csv(os.path.join(prefix_dir, '{}.csv'.format(prefix)))
@@ -73,27 +71,24 @@ def save_dataset(res_dict, outdir):
 
     wget_list(urls, prefix_dir)
 
-def create_dataset(exp_accession_list, outdir, folder_label='summary'):
+def create_dataset(exp_accession_list, outdir, folder_label='summary', complete=False, assembly = 'GRCh38'):
+  # include all files for generatign the summary file
   cols = ['label','bed', 'sign', 'fold', 'bam']
+  # init summary list to save the experiment ID - file relationship
   summary = []
-  if not os.path.isdir(outdir):
-    os.mkdir(outdir)
-  assembly = 'GRCh38'
+  # create output folder if not present
+  make_dir(outdir)
+  # loop over the list of experiments defined
   for exp_accession in exp_accession_list:
+    # filter files and save selection
     summary.append(process_exp(exp_accession, metadata, assembly))
   sum_df = pd.DataFrame(summary, columns=cols)
   sum_df.to_csv(os.path.join(outdir, folder_label+'.csv'))
+  if not complete:
+    cols = ['label', 'sign', 'fold'] # do not download bam and bed
   for i in range(1, len(cols)):
-    data_subdir = make_dir(os.path.join(outdir, cols[i]))
-    wget_list(sum_df[cols[i]].values, data_subdir)
-  #
-  bed_paths = ['{}\t{}'.format(sum_df['label'].values[i],
-              os.path.join(outdir, 'bed', sum_df['bed'].values[i].split('/')[-1]))
-              # sum_df['bed'].values[i].split('/')[-1])
-              for i in range(len(sum_df.index))]
-  with open(os.path.join(outdir, 'bed','sample_beds.txt'), 'w') as f:
-    for item in bed_paths:
-        f.write("%s\n" % item)
+      data_subdir = make_dir(os.path.join(outdir, cols[i])) # create file type dir
+      wget_list(sum_df[cols[i]].values, data_subdir) # download URLs
 
 
 
