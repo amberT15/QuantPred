@@ -1,15 +1,34 @@
 #!/usr/bin/env python
-
 import numpy as np
 import pandas as pd
 import os
 import utils
 
 
-def make_dir(outdir):
-  if not os.path.isdir(outdir):
-    os.mkdir(outdir)
-  return(outdir)
+def main():
+    files_path = 'datasets/QQ_encode_TF.txt'
+    output_folder = 'datasets'
+
+    with open(files_path, "r") as file:
+        metadata_url = file.readline()[1:-2] #remove " before and after url
+    # file list metadata
+    metadata = utils.download_metadata(metadata_url, output_folder)
+    # metadata = pd.read_csv(metadata_path, sep='\t')
+
+
+    # exp_accession_list_A549 = ['ENCSR544GUO', 'ENCSR000BUB']
+    # exp_accession_list_A549 = ['ENCSR544GUO', 'ENCSR000BUB', 'ENCSR035OXA', 'ENCSR886OEO', 'ENCSR593DGU', 'ENCSR192PBJ', 'ENCSR979IOT']
+    # outdir_A549 = 'datasets/A549'
+    # create_dataset(exp_accession_list_A549, outdir_A549)
+
+    exp_accession_list_HepG2 = ['ENCSR544GUO', 'ENCSR000BUB', 'ENCSR035OXA', 'ENCSR886OEO', 'ENCSR593DGU', 'ENCSR192PBJ', 'ENCSR979IOT']
+    outdir_HepG2 = 'datasets/HepG2'
+    create_dataset(exp_accession_list_HepG2, outdir_HepG2, metadata, include=['bam'])
+
+# def make_directory(outdir):
+#   if not os.path.isdir(outdir):
+#     os.mkdir(outdir)
+#   return(outdir)
 
 def make_label(df_row):
 
@@ -60,53 +79,49 @@ def wget_list(urls, outdir):
     h = os.popen('wget -P {} {}'.format(outdir, url))
     h.close()
 
+def get_filepaths(urls, filedir):
+    filepaths = []
+    for url in urls:
+        print(url.split('/')[-1])
+        filepaths.append(os.path.abspath(os.path.join(filedir, url.split('/')[-1])))
+    return filepaths
+
+
 def save_dataset(res_dict, outdir):
   for prefix, filtered_list in res_dict.items():
     print("Prcessing set labelled {}".format(prefix))
     df = pd.concat(filtered_list, axis=1)
-    prefix_dir = make_dir(os.path.join(outdir, prefix))
+    prefix_dir = utils.make_directory(os.path.join(outdir, prefix))
     df.to_csv(os.path.join(prefix_dir, '{}.csv'.format(prefix)))
 
     urls = df['File download URL'].values
 
     wget_list(urls, prefix_dir)
 
-def create_dataset(exp_accession_list, outdir, folder_label='summary', complete=False, assembly = 'GRCh38'):
+def create_dataset(exp_accession_list, outdir, metadata, folder_label='summary',
+                    include=['fold', 'sign'], assembly = 'GRCh38'):
   # include all files for generatign the summary file
   cols = ['label','bed', 'sign', 'fold', 'bam']
   # init summary list to save the experiment ID - file relationship
   summary = []
   # create output folder if not present
-  make_dir(outdir)
+  utils.make_directory(outdir)
   # loop over the list of experiments defined
   for exp_accession in exp_accession_list:
     # filter files and save selection
     summary.append(process_exp(exp_accession, metadata, assembly))
   sum_df = pd.DataFrame(summary, columns=cols)
   sum_df.to_csv(os.path.join(outdir, folder_label+'.csv'))
-  if not complete:
-    cols = ['label', 'sign', 'fold'] # do not download bam and bed
-  for i in range(1, len(cols)):
-      data_subdir = make_dir(os.path.join(outdir, cols[i])) # create file type dir
+  cols = include
+
+  for i in range(len(cols)):
+
+      data_subdir = utils.make_directory(os.path.join(outdir, cols[i])) # create file type dir
       wget_list(sum_df[cols[i]].values, data_subdir) # download URLs
+  filepaths = get_filepaths(sum_df['bed'].values, data_subdir)
+  with open(os.path.join(outdir, 'basset_sample_beds.txt'), 'w') as filehandle:
+      for i in range(len(filepaths)):
+          filehandle.write('{}\t{}\n'.format(sum_df['label'][i], filepaths[i]))
 
-
-
-files_path = 'datasets/QQ_encode_TF.txt'
-output_folder = 'datasets'
-
-with open(files_path, "r") as file:
-    metadata_url = file.readline()[1:-2] #remove " before and after url
-# file list metadata
-metadata = utils.download_metadata(metadata_url, output_folder)
-# metadata = pd.read_csv(metadata_path, sep='\t')
-
-
-# exp_accession_list_A549 = ['ENCSR544GUO', 'ENCSR000BUB']
-exp_accession_list_A549 = ['ENCSR544GUO', 'ENCSR000BUB', 'ENCSR035OXA', 'ENCSR886OEO', 'ENCSR593DGU', 'ENCSR192PBJ', 'ENCSR979IOT']
-outdir_A549 = 'datasets/A549'
-create_dataset(exp_accession_list_A549, outdir_A549)
-
-exp_accession_list_HepG2 = ['ENCSR544GUO', 'ENCSR000BUB', 'ENCSR035OXA', 'ENCSR886OEO', 'ENCSR593DGU', 'ENCSR192PBJ', 'ENCSR979IOT']
-outdir_HepG2 = 'datasets/HepG2'
-create_dataset(exp_accession_list_HepG2, outdir_HepG2)
+if __name__=='__main__':
+    main()
