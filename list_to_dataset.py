@@ -17,13 +17,13 @@ def main():
 
 
     # exp_accession_list_A549 = ['ENCSR544GUO', 'ENCSR000BUB']
-    # exp_accession_list_A549 = ['ENCSR544GUO', 'ENCSR000BUB', 'ENCSR035OXA', 'ENCSR886OEO', 'ENCSR593DGU', 'ENCSR192PBJ', 'ENCSR979IOT']
-    # outdir_A549 = 'datasets/A549'
-    # create_dataset(exp_accession_list_A549, outdir_A549)
+    exp_accession_list_A549 = ['ENCSR544GUO', 'ENCSR000BUB', 'ENCSR035OXA', 'ENCSR886OEO', 'ENCSR593DGU', 'ENCSR192PBJ', 'ENCSR979IOT']
+    outdir_A549 = 'datasets/A549'
+    create_dataset(exp_accession_list_A549, outdir_A549)
 
     exp_accession_list_HepG2 = ['ENCSR544GUO', 'ENCSR000BUB', 'ENCSR035OXA', 'ENCSR886OEO', 'ENCSR593DGU', 'ENCSR192PBJ', 'ENCSR979IOT']
     outdir_HepG2 = 'datasets/HepG2'
-    create_dataset(exp_accession_list_HepG2, outdir_HepG2, metadata, include=['bam'])
+    create_dataset(exp_accession_list_HepG2, outdir_HepG2, metadata, include=['bed', 'sign', 'fold', 'bam'])
 
 # def make_directory(outdir):
 #   if not os.path.isdir(outdir):
@@ -50,13 +50,11 @@ def get_same(df, tech_id):
 
 def process_exp(exp_accession, metadata, assembly):
   exp_df = metadata[(metadata['Experiment accession']==exp_accession) & (metadata['File assembly']==assembly)]
-  exp_df.to_csv('exp.csv')
   assert exp_df.size > 0, 'Bad accession number, no records found'
   bed = exp_df[(exp_df['File type'] == 'bed') &
                 (exp_df['Output type']=='IDR thresholded peaks')]
   sign = exp_df[exp_df['Output type'] == 'signal p-value'] #check if signal bw exists
   fold = exp_df[exp_df['Output type'] == 'fold change over control'] #check if fold bw exists
-  fold.to_csv('fold0.csv')
   bam = exp_df[exp_df['Output type'] == 'alignments'] #check if bam exists
   # throw an error if any one absent
   outputs = [bed, sign, fold, bam]
