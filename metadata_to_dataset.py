@@ -38,13 +38,11 @@ def get_same(df, tech_id):
 
 def process_exp(exp_accession, metadata, assembly):
   exp_df = metadata[(metadata['Experiment accession']==exp_accession) & (metadata['File assembly']==assembly)]
-  exp_df.to_csv('exp.csv')
   assert exp_df.size > 0, 'Bad accession number, no records found'
   bed = exp_df[(exp_df['File type'] == 'bed') &
                 (exp_df['Output type']=='IDR thresholded peaks')]
   sign = exp_df[exp_df['Output type'] == 'signal p-value'] #check if signal bw exists
   fold = exp_df[exp_df['Output type'] == 'fold change over control'] #check if fold bw exists
-  fold.to_csv('fold0.csv')
   bam = exp_df[exp_df['Output type'] == 'alignments'] #check if bam exists
   # throw an error if any one absent
   outputs = [bed, sign, fold, bam]
@@ -95,10 +93,12 @@ def create_dataset(metadata, outdir, folder_label='summary',
   # create output folder if not present
   utils.make_directory(outdir)
   # loop over the list of experiments
-  exp_accession_list = metadata['Experiment accession'].values
+  exp_accession_list = list(set(metadata['Experiment accession'].values))
+
   for exp_accession in exp_accession_list:
     # filter files and save selection
     summary.append(process_exp(exp_accession, metadata, assembly))
+
   sum_df = pd.DataFrame(summary, columns=cols)
   sum_df.to_csv(os.path.join(outdir, folder_label+'.csv'))
   cols = include
