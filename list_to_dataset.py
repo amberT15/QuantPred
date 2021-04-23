@@ -6,8 +6,8 @@ import utils
 
 
 def main():
-    files_path = 'datasets/QQ_encode_TF.txt'
-    output_folder = 'datasets'
+    files_path = 'QQ_encode_TF.txt'
+    output_folder = '.'
 
     with open(files_path, "r") as file:
         metadata_url = file.readline()[1:-2] #remove " before and after url
@@ -21,9 +21,6 @@ def main():
     outdir_A549 = 'datasets/A549'
     create_dataset(exp_accession_list_A549, outdir_A549)
 
-    exp_accession_list_HepG2 = ['ENCSR544GUO', 'ENCSR000BUB', 'ENCSR035OXA', 'ENCSR886OEO', 'ENCSR593DGU', 'ENCSR192PBJ', 'ENCSR979IOT']
-    outdir_HepG2 = 'datasets/HepG2'
-    create_dataset(exp_accession_list_HepG2, outdir_HepG2, metadata, include=['bed', 'sign', 'fold', 'bam'])
 
 # def make_directory(outdir):
 #   if not os.path.isdir(outdir):
