@@ -1,7 +1,7 @@
 # Config file for generating versions of 25TF dataset
 
 samplefile:
-  basenji:  /home/shush/profile/QuantPred/datasets/samplefiles/basenji_sample_top25_fold.txt
+  basenji:  /home/shush/profile/QuantPred/datasets/samplefiles/basenji_sample_top25_fold_mean.txt
   basset: /home/shush/profile/QuantPred/datasets/samplefiles/basset_sample_beds_top25.txt
 genomefile:
   size:  /home/shush/genomes/GRCh38_EBV.chrom.sizes.tsv
