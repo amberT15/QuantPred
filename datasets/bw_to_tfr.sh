@@ -67,5 +67,5 @@ rm merged_avoid_regions.bed
 mv $bedfile "$output_dir/$output_prefix/"
 mv "${o_prefix}_act.txt" "$output_dir/$output_prefix/"
 mv config.yaml "$output_dir/$output_prefix/"
-
-zip -r $output_dir/zip_datasets/${output_prefix}.zip $output_dir/$output_prefix -x *seqs_cov*
+mkdir -p $output_dir/zip_datasets
+zip -q -r $output_dir/zip_datasets/${output_prefix}.zip $output_dir/$output_prefix -x *seqs_cov*
