@@ -9,7 +9,7 @@ genomefile:
   unmap:  /home/shush/genomes/GRCh38_unmap.bed
 output:
   dir:  /home/shush/profile/QuantPred/datasets/top25
-  prefix:  ttt
+  prefix:  xxx
 input:
   downsample:  1
   size:  1024
