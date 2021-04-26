@@ -377,7 +377,7 @@ def main():
     if options.restart and os.path.isfile(seqs_cov_file):
       print('Skipping existing %s' % seqs_cov_file, file=sys.stderr)
     else:
-      cmd = '/home/shush/profile/tfprofile/bin/basenji_data_read.py'
+      cmd = './basenji_data_read.py'
       cmd += ' --crop %d' % options.crop_bp
       cmd += ' -w %d' % options.pool_width
       cmd += ' -u %s' % targets_df['sum_stat'].iloc[ti]
@@ -443,7 +443,7 @@ def main():
     while tfr_start <= fold_set_end:
       tfr_stem = '%s/%s-%d' % (tfr_dir, fold_set, tfr_i)
 
-      cmd = '/home/shush/profile/tfprofile/bin/basenji_data_write.py'
+      cmd = './basenji_data_write.py'
       cmd += ' -s %d' % tfr_start
       cmd += ' -e %d' % tfr_end
       cmd += ' --umap_clip %f' % options.umap_clip
