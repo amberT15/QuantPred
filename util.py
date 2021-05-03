@@ -1,8 +1,4 @@
 import sys
-import dataset
-import seqnn
-import trainer
-import basenji_model_for_model_zoo as model_zoo
 import json
 import os
 import time
@@ -16,17 +12,7 @@ from sklearn.metrics import r2_score
 import time
 import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
-
-
-import glob
-import json
-import os
-# import pdb
-# import sys
-
 from natsort import natsorted
-import numpy as np
 import tensorflow as tf
 
  ################################################################
@@ -113,36 +99,3 @@ def tfr_to_np(data, choose, array_shape):
         data_np[j:j+n_seqs,:,:] = i
         j+=n_seqs
     return data_np
-
-
-def load_data(data_dir, batch_size):
-  '''
-  Load TFrecords dataset and return training and validation sets
-  '''
-  # read datasets
-  train_data = []
-  eval_data = []
-  test_data = []
-
-  # load train data
-  train_data.append(dataset.SeqDataset(data_dir,
-  split_label='train',
-  batch_size=batch_size,
-  mode='train',
-  tfr_pattern=None))
-
-  # load eval data
-  eval_data.append(dataset.SeqDataset(data_dir,
-  split_label='valid',
-  batch_size=batch_size,
-  mode='eval',
-  tfr_pattern=None))
-
-
-  # load eval data
-  test_data.append(dataset.SeqDataset(data_dir,
-  split_label='test',
-  batch_size=batch_size,
-  mode='eval',
-  tfr_pattern=None))
-  return (train_data, eval_data, test_data)
