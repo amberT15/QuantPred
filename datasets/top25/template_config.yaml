@@ -1,0 +1,19 @@
+# Config file for generating versions of 25TF dataset
+
+samplefile:
+  basenji:  /home/shush/profile/QuantPred/datasets/samplefiles/basenji_sample_top25_fold_mean.txt
+  basset: /home/shush/profile/QuantPred/datasets/samplefiles/basset_sample_beds_top25.txt
+genomefile:
+  size:  /home/shush/genomes/GRCh38_EBV.chrom.sizes.tsv
+  fa:  /home/shush/genomes/hg38.fa
+  unmap:  /home/shush/genomes/GRCh38_unmap.bed
+output:
+  dir:  /home/shush/profile/QuantPred/datasets/top25
+  prefix:  xxx
+input:
+  downsample:  1
+  size:  1024
+  pool:  32
+  norm:  none
+  step:  0
+  padding:  none

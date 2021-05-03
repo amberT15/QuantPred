@@ -150,7 +150,7 @@ def main():
         for orient in '+-':
             chrom_key = ('chrY',orient)
             if chrom_key in chrom_files:
-                print('Ignoring chrY %s' % orient, file = sys.stderr) 
+                print('Ignoring chrY %s' % orient, file = sys.stderr)
                 #print >> sys.stderr, 'Ignoring chrY %s' % orient
                 os.remove(chrom_files[chrom_key])
                 del chrom_files[chrom_key]
@@ -245,32 +245,32 @@ def main():
 
     #################################################################
     # construct/update activity table
-#     #################################################################
-#     final_act_out = open('%s_act.txt' % options.out_prefix, 'w')
+    #################################################################
+    final_act_out = open('%s_act.txt' % options.out_prefix, 'w')
 
-#     # print header
-#     cols = [''] + db_targets
-#     print('\t'.join(cols),file = final_act_out)
-#     #print >> final_act_out, '\t'.join(cols)
+    # print header
+    cols = [''] + db_targets
+    print('\t'.join(cols),file = final_act_out)
+    #print >> final_act_out, '\t'.join(cols)
 
-#     # print sequences
-#     for line in open('%s.bed' % options.out_prefix):
-#         a = line.rstrip().split('\t')
-#         # index peak
-#         peak_id = '%s:%s-%s(%s)' % (a[0], a[1], a[2], a[5])
+    # print sequences
+    for line in open('%s.bed' % options.out_prefix):
+        a = line.rstrip().split('\t')
+        # index peak
+        peak_id = '%s:%s-%s(%s)' % (a[0], a[1], a[2], a[5])
 
-#         # construct full activity vector
-#         peak_act = [0]*len(db_targets)
-#         for ai in a[6].split(','):
-#             if ai != '.':
-#                 peak_act[int(ai)] = 1
+        # construct full activity vector
+        peak_act = [0]*len(db_targets)
+        for ai in a[6].split(','):
+            if ai != '.':
+                peak_act[int(ai)] = 1
 
-#         # print line
-#         cols = [peak_id] + peak_act
-#         print('\t'.join([str(c) for c in cols]),file = final_act_out)
-#         #print >> final_act_out, '\t'.join([str(c) for c in cols])
+        # print line
+        cols = [peak_id] + peak_act
+        print('\t'.join([str(c) for c in cols]),file = final_act_out)
+        #print >> final_act_out, '\t'.join([str(c) for c in cols])
 
-#     final_act_out.close()
+    final_act_out.close()
 
 
 def activity_set(act_cs):
