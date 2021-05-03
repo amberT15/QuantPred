@@ -71,7 +71,26 @@ def make_dataset(data_dir, split_label, data_stats, batch_size=64, seed=None):
     num_seqs = data_stats['%s_seqs' % split_label]
     tfr_files = natsorted(glob.glob(tfr_path))
     dataset = tf.data.Dataset.list_files(tf.constant(tfr_files), shuffle=False)
-    dataset = dataset.flat_map(file_to_records)
+
+    # train
+    if split_label == 'train':
+      # repeat
+      dataset = dataset.repeat()
+
+      # interleave files
+      dataset = dataset.interleave(map_func=file_to_records,
+        cycle_length=4,
+        num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+      # shuffle
+      dataset = dataset.shuffle(buffer_size=32,
+        reshuffle_each_iteration=True)
+
+    # valid/test
+    else:
+      # flat mix files
+      dataset = dataset.flat_map(file_to_records)
+
     dataset = dataset.map(generate_parser(seq_length, target_length, num_targets))
     if seed:
         dataset = dataset.shuffle(32, seed=seed)
@@ -84,6 +103,7 @@ def make_dataset(data_dir, split_label, data_stats, batch_size=64, seed=None):
     # prefetch
     dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
     return dataset
+
 
 def tfr_to_np(data, choose, array_shape):
     if choose=='x':
