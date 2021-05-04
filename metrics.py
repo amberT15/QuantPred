@@ -12,13 +12,57 @@ import pandas as pd
 import scipy
 import sklearn.metrics as skm
 
+
+def metrify(func):
+    def wrapper(y_true,y_pred, metric=False):
+        if metric:
+            y_true = tf.expand_dims(y_true, axis=-1)
+            y_pred = tf.expand_dims(y_pred, axis=-1)
+        return func(y_true,y_pred)
+    return wrapper
+
+
+
+def pearsonr_per_seq(y, pred):
+    y_true = tf.cast(y, 'float32')
+    y_pred = tf.cast(pred, 'float32')
+
+    product = tf.reduce_sum(tf.multiply(y_true, y_pred), axis=[1])
+
+    true_sum = tf.reduce_sum(y_true, axis=[1])
+    true_sumsq = tf.reduce_sum(tf.math.square(y_true), axis=[1])
+    pred_sum = tf.reduce_sum(y_pred, axis=[1])
+    pred_sumsq = tf.reduce_sum(tf.math.square(y_pred), axis=[1])
+
+    count = tf.ones_like(y_true)
+    count = tf.reduce_sum(count, axis=[1])
+
+    true_mean = tf.divide(true_sum, count)
+    true_mean2 = tf.math.square(true_mean)
+    pred_mean = tf.divide(pred_sum, count)
+    pred_mean2 = tf.math.square(pred_mean)
+
+    term1 = product
+    term2 = -tf.multiply(true_mean, pred_sum)
+    term3 = -tf.multiply(pred_mean, true_sum)
+    term4 = tf.multiply(count, tf.multiply(true_mean, pred_mean))
+    covariance = term1 + term2 + term3 + term4
+
+    true_var = true_sumsq - tf.multiply(count, true_mean2)
+    pred_var = pred_sumsq - tf.multiply(count, pred_mean2)
+    tp_var = tf.multiply(tf.math.sqrt(true_var), tf.math.sqrt(pred_var))
+    correlation = tf.divide(covariance, tp_var)
+
+    return tf.reduce_mean(correlation)
+
+
 def calculate_pearsonr(target,pred):
     pearson_profile =np.zeros((len(target[0]),len(target)))
-    
+
     for task_i in range(0,len(target[0])):
         for sample_i in range(0,len(target)):
             pearson_profile[task_i,sample_i]=(pearsonr(target[sample_i][task_i],pred[sample_i][task_i])[0])
- 
+
     return pearson_profile
 
 
@@ -26,12 +70,12 @@ def pearson_volin(pearson_profile,tasks,figsize=(20,5)):
     pd_dict = {}
     for i in range(0,len(tasks)):
         pd_dict[tasks[i]]=pearson_profile[i]
-        
+
     pearsonr_pd = pd.DataFrame.from_dict(pd_dict)
     fig, ax = plt.subplots(figsize=figsize)
     ax = sns.violinplot(data=pearsonr_pd)
-    
-    
+
+
 def permute_array(arr, axis=0):
     """Permute array along a certain axis
 
@@ -43,9 +87,9 @@ def permute_array(arr, axis=0):
         return np.random.permutation(arr)
     else:
         return np.random.permutation(arr.swapaxes(0, axis)).swapaxes(0, axis)
-    
-    
-    
+
+
+
 def bin_counts_amb(x, binsize=2):
     """Bin the counts
     """
