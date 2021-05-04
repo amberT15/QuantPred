@@ -73,7 +73,8 @@ def make_dataset(data_dir, split_label, data_stats, batch_size=64, seed=None):
     dataset = tf.data.Dataset.list_files(tf.constant(tfr_files), shuffle=False)
 
     # train
-    if split_label == 'train':
+    # if split_label == 'train':
+    if (split_label == 'train'):
       # repeat
       dataset = dataset.repeat()
 
