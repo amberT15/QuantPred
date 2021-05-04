@@ -222,8 +222,8 @@ def dense_layer(inputs, units, activation='linear', kernel_initializer='he_norma
 
 class StochasticReverseComplement(tf.keras.layers.Layer):
   """Stochastically reverse complement a one hot encoded DNA sequence."""
-  def __init__(self):
-    super(StochasticReverseComplement, self).__init__()
+  def __init__(self, **kwargs):
+    super(StochasticReverseComplement, self).__init__(**kwargs)
   def call(self, seq_1hot, training=None):
     # if training:
     #   rc_seq_1hot = tf.gather(seq_1hot, [3, 2, 1, 0], axis=-1)
@@ -238,8 +238,8 @@ class StochasticReverseComplement(tf.keras.layers.Layer):
 
 class StochasticShift(tf.keras.layers.Layer):
   """Stochastically shift a one hot encoded DNA sequence."""
-  def __init__(self, shift_max=0, pad='uniform'):
-    super(StochasticShift, self).__init__()
+  def __init__(self, shift_max=0, pad='uniform',  **kwargs):
+    super(StochasticShift, self).__init__(**kwargs)
     self.shift_max = shift_max
     self.augment_shifts = tf.range(-self.shift_max, self.shift_max+1)
     self.pad = pad
@@ -266,8 +266,8 @@ class StochasticShift(tf.keras.layers.Layer):
 
 class SwitchReverse(tf.keras.layers.Layer):
   """Reverse predictions if the inputs were reverse complemented."""
-  def __init__(self):
-    super(SwitchReverse, self).__init__()
+  def __init__(self, **kwargs):
+    super(SwitchReverse, self).__init__(**kwargs)
   def call(self, x_reverse):
     x = x_reverse[0]
     reverse = x_reverse[1]
@@ -341,13 +341,13 @@ def activate(current, activation, verbose=False):
   return current
 
 class GELU(tf.keras.layers.Layer):
-    def __init__(self, **kwargs):
+    def __init__(self, name=None, **kwargs):
         super(GELU, self).__init__(**kwargs)
     def call(self, x):
         # return tf.keras.activations.sigmoid(1.702 * x) * x
         return tf.keras.activations.sigmoid(tf.constant(1.702) * x) * x
-    
-    
+
+
 def bpnet(tasks,input_shape,strand_num = 1):
     #body
     input = keras.layers.Input(shape=input_shape)
@@ -355,7 +355,7 @@ def bpnet(tasks,input_shape,strand_num = 1):
     for i in range(1,10):
         conv_x = keras.layers.Conv1D(64,kernel_size = 3, padding = 'same', activation = 'relu', dilation_rate = 2**i)(x)
         x = keras.layers.Add()([conv_x,x])
-    
+
     bottleneck = x
 
     #heads
@@ -365,7 +365,7 @@ def bpnet(tasks,input_shape,strand_num = 1):
         px = keras.layers.Conv2DTranspose(strand_num,kernel_size = (25,1),padding = 'same')(px)
         px = keras.layers.Reshape((-1,strand_num),name=task+'/profile')(px)
         outputs.append(px)
-        
+
     outputs = tf.keras.layers.concatenate(outputs)
     outputs = keras.layers.Reshape((1024,25))(outputs)
     model = keras.models.Model([input],outputs)
