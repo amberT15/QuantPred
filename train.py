@@ -46,7 +46,7 @@ def main():
     input_size = params['seq_length']
     num_targets = params['num_targets']
     n_seqs = params['valid_seqs']
-
+    output_length = int(params['seq_length']/params['pool_width'])
     #precompute batch sizes
     train_n_batches = util.batches_per_epoch(params['train_seqs'], batch_size)
     valid_n_batches = util.batches_per_epoch(params['valid_seqs'], batch_size)
@@ -60,7 +60,7 @@ def main():
     #get the model architecture from the model zoo
     # if model_name=='basenji_small':
     #     model = modelzoo.basenji_small((input_size, 4), num_targets)
-    model = model_name((input_size, 4), num_targets)
+    model = model_name((input_size, 4), (output_length, num_targets))
 
     model.compile(tf.keras.optimizers.Adam(lr=options.l_rate),
                   loss=loss_type)
@@ -92,7 +92,7 @@ def main():
               validation_steps=valid_n_batches
              )
 
-    test_y = util.tfr_to_np(test_data, 'y', (params['test_seqs'], int(params['seq_length']/params['pool_width']), params['num_targets']))
+    test_y = util.tfr_to_np(test_data, 'y', (params['test_seqs'], output_length, params['num_targets']))
     test_x = util.tfr_to_np(test_data, 'x', (params['test_seqs'], params['seq_length'], 4))
     test_pred = model.predict(test_x)
     hf = h5py.File(out_pred_path, 'w')
