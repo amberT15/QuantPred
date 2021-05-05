@@ -13,11 +13,11 @@ import scipy
 import sklearn.metrics as skm
 
 def calculate_pearsonr(target,pred):
-    pearson_profile =np.zeros((len(target[0]),len(target)))
+    pearson_profile =np.zeros((target.shape[2],len(target)))
     
-    for task_i in range(0,len(target[0])):
+    for task_i in range(0,target.shape[2]):
         for sample_i in range(0,len(target)):
-            pearson_profile[task_i,sample_i]=(pearsonr(target[sample_i][task_i],pred[sample_i][task_i])[0])
+            pearson_profile[task_i,sample_i]=(pearsonr(target[sample_i][:,task_i],pred[sample_i][:,task_i])[0])
  
     return pearson_profile
 
@@ -30,7 +30,19 @@ def pearson_volin(pearson_profile,tasks,figsize=(20,5)):
     pearsonr_pd = pd.DataFrame.from_dict(pd_dict)
     fig, ax = plt.subplots(figsize=figsize)
     ax = sns.violinplot(data=pearsonr_pd)
-    
+    return fig
+ 
+
+def pearson_box(pearson_profile,tasks,figsize=(20,5)):
+    pd_dict = {}
+    for i in range(0,len(tasks)):
+        pd_dict[tasks[i]]=pearson_profile[i]
+        
+    pearsonr_pd = pd.DataFrame.from_dict(pd_dict)
+    fig, ax = plt.subplots(figsize=figsize)
+    ax = sns.boxplot(data=pearsonr_pd)
+    return fig
+
     
 def permute_array(arr, axis=0):
     """Permute array along a certain axis
