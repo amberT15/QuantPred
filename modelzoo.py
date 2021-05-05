@@ -372,14 +372,14 @@ def bpnet(input_shape,task_num = 25,strand_num = 1):
 
 def custom_lstm (input_shape,output_shape)
     input_layer= keras.layers.Input(input_shape)
-    conv1 = modelzoo.conv_layer(input_layer,
+    conv1 = conv_layer(input_layer,
                        num_filters=64, 
                        kernel_size=25, 
                        padding='same', 
                        activation='exponential', 
                        dropout=0.1,
                        l2=1e-5)
-    conv1_residual = modelzoo.dilated_residual_block(conv1, 
+    conv1_residual = dilated_residual_block(conv1, 
                                             num_filters=64, 
                                             filter_size=7, 
                                             activation='relu',
@@ -393,14 +393,14 @@ def custom_lstm (input_shape,output_shape)
 
 
 
-    conv2 = modelzoo.conv_layer(conv1_residual,
+    conv2 = conv_layer(conv1_residual,
                        num_filters= 64, 
                        kernel_size=11, 
                        padding='same', 
                        activation='relu', 
                        dropout=0.1,
                        l2=1e-6)
-    conv2_residual = modelzoo.dilated_residual_block2(conv2, 
+    conv2_residual =dilated_residual_block2(conv2, 
                                             num_filters=64, 
                                             filter_size=11, 
                                             activation='relu',
@@ -423,3 +423,110 @@ def custom_lstm (input_shape,output_shape)
     model = keras.Model(inputs=input_layer, outputs=output)
 
     model.summary()
+    
+    
+    
+def conv_layer(inputs, num_filters, kernel_size, padding='same', activation='relu', dropout=0.2, l2=None):
+    if not l2:
+        l2 = keras.regularizers.l2(l2)
+    else:
+        l2 = None
+
+    conv1 = keras.layers.Conv1D(filters=num_filters,
+                           kernel_size=kernel_size,
+                           strides=1,
+                           activation=None,
+                           use_bias=False,
+                           padding=padding,
+                           kernel_initializer='glorot_normal',
+                           kernel_regularizer=l2, 
+                           bias_regularizer=None, 
+                           activity_regularizer=None,
+                           kernel_constraint=None, 
+                           bias_constraint=None,
+                           )(inputs)                               
+    conv1_bn = keras.layers.BatchNormalization()(conv1)
+    conv1_active = keras.layers.Activation(activation)(conv1_bn)
+    conv1_dropout = keras.layers.Dropout(dropout)(conv1_active)
+    return conv1_dropout
+
+def dilated_residual_block(input_layer, num_filters, filter_size, activation='relu', l2=None):
+    if not l2:
+        l2 = keras.regularizers.l2(l2)
+    else:
+        l2 = None
+
+    residual_conv1 = keras.layers.Conv1D(filters=num_filters,
+                                   kernel_size=filter_size,
+                                   strides=1,
+                                   activation=None,
+                                   use_bias=False,
+                                   padding='same',
+                                   dilation_rate=2,
+                                   kernel_initializer='glorot_normal',
+                                   kernel_regularizer=l2
+                                   )(input_layer) 
+    residual_conv1_bn = keras.layers.BatchNormalization()(residual_conv1)
+    residual_conv1_active = keras.layers.Activation('relu')(residual_conv1_bn)
+    residual_conv1_dropout = keras.layers.Dropout(0.1)(residual_conv1_active)
+    residual_conv2 = keras.layers.Conv1D(filters=num_filters,
+                                   kernel_size=filter_size,
+                                   strides=1,
+                                   activation=None,
+                                   use_bias=False,
+                                   padding='same',
+                                   dilation_rate=4,
+                                   kernel_initializer='glorot_normal',
+                                   kernel_regularizer=l2
+                                   )(residual_conv1_dropout) 
+    residual_conv2_bn = keras.layers.BatchNormalization()(residual_conv2)
+    residual_conv2_active = keras.layers.Activation('relu')(residual_conv2_bn)
+    residual_conv2_dropout = keras.layers.Dropout(0.1)(residual_conv2_active)
+    residual_conv3 = keras.layers.Conv1D(filters=num_filters,
+                                   kernel_size=filter_size,
+                                   strides=1,
+                                   activation=None,
+                                   use_bias=False,
+                                   padding='same',
+                                   dilation_rate=8,
+                                   kernel_initializer='glorot_normal',
+                                   kernel_regularizer=l2
+                                   )(residual_conv2_dropout) 
+    residual_conv3_bn = keras.layers.BatchNormalization()(residual_conv3)
+    residual_sum = keras.layers.add([input_layer, residual_conv3_bn])
+    return keras.layers.Activation(activation)(residual_sum)
+
+
+
+def dilated_residual_block2(input_layer, num_filters, filter_size, activation='relu', l2=None):
+    if not l2:
+        l2 = keras.regularizers.l2(l2)
+    else:
+        l2 = None
+
+    residual_conv1 = keras.layers.Conv1D(filters=num_filters,
+                                   kernel_size=filter_size,
+                                   strides=1,
+                                   activation=None,
+                                   use_bias=False,
+                                   padding='same',
+                                   dilation_rate=2,
+                                   kernel_initializer='glorot_normal',
+                                   kernel_regularizer=l2
+                                   )(input_layer) 
+    residual_conv1_bn = keras.layers.BatchNormalization()(residual_conv1)
+    residual_conv1_active = keras.layers.Activation('relu')(residual_conv1_bn)
+    residual_conv1_dropout = keras.layers.Dropout(0.1)(residual_conv1_active)
+    residual_conv2 = keras.layers.Conv1D(filters=num_filters,
+                                   kernel_size=filter_size,
+                                   strides=1,
+                                   activation=None,
+                                   use_bias=False,
+                                   padding='same',
+                                   dilation_rate=2,
+                                   kernel_initializer='glorot_normal',
+                                   kernel_regularizer=l2
+                                   )(residual_conv1_dropout) 
+    residual_conv2_bn = keras.layers.BatchNormalization()(residual_conv2)
+    residual_sum = keras.layers.add([input_layer, residual_conv2_bn])
+    return keras.layers.Activation(activation)(residual_sum)
