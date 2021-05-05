@@ -347,7 +347,7 @@ class GELU(tf.keras.layers.Layer):
         # return tf.keras.activations.sigmoid(1.702 * x) * x
         return tf.keras.activations.sigmoid(tf.constant(1.702) * x) * x
 
-def bpnet(task_num,input_shape,strand_num = 1):
+def bpnet(input_shape,task_num = 25,strand_num = 1):
     #body
     input = keras.layers.Input(shape=input_shape)
     x = keras.layers.Conv1D(64,kernel_size=25,padding ='same',activation = 'relu')(input)
@@ -369,3 +369,57 @@ def bpnet(task_num,input_shape,strand_num = 1):
     outputs = keras.layers.Reshape((1024,25))(outputs)
     model = keras.models.Model([input],outputs)
     return model
+
+def custom_lstm (input_shape,output_shape)
+    input_layer= keras.layers.Input(input_shape)
+    conv1 = modelzoo.conv_layer(input_layer,
+                       num_filters=64, 
+                       kernel_size=25, 
+                       padding='same', 
+                       activation='exponential', 
+                       dropout=0.1,
+                       l2=1e-5)
+    conv1_residual = modelzoo.dilated_residual_block(conv1, 
+                                            num_filters=64, 
+                                            filter_size=7, 
+                                            activation='relu',
+                                            l2=1e-6)
+    conv1_residual_pool = keras.layers.MaxPool1D(pool_size=10, 
+                                                    strides=5, 
+                                                    padding='same'
+                                                    )(conv1_residual)
+    conv1_residual_dropout = keras.layers.Dropout(0.1)(conv1_residual_pool)
+
+
+
+
+    conv2 = modelzoo.conv_layer(conv1_residual,
+                       num_filters= 64, 
+                       kernel_size=11, 
+                       padding='same', 
+                       activation='relu', 
+                       dropout=0.1,
+                       l2=1e-6)
+    conv2_residual = modelzoo.dilated_residual_block2(conv2, 
+                                            num_filters=64, 
+                                            filter_size=11, 
+                                            activation='relu',
+                                            l2=1e-6)
+    conv2_residual_pool = keras.layers.MaxPool1D(pool_size=5, 
+                                                    strides=5, 
+                                                    padding='same'
+                                                    )(conv2_residual)
+    conv2_residual_dropout = keras.layers.Dropout(0.2)(conv2_residual_pool)
+
+
+
+    bi_lstm = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128))(conv1_residual)
+    nn = tf.keras.layers.Dense(output_shape[0]*output_shape[1],activation = 'relu')(bi_lstm)
+    gelu_layer = modelzoo.GELU()
+    nn = gelu_layer(nn)
+    output = tf.keras.layers.Reshape(output_shape)(nn)
+
+
+    model = keras.Model(inputs=input_layer, outputs=output)
+
+    model.summary()
