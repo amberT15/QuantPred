@@ -370,7 +370,7 @@ def bpnet(input_shape,task_num = 25,strand_num = 1):
     model = keras.models.Model([input],outputs)
     return model
 
-def custom_lstm (input_shape,output_shape)
+def custom_lstm(input_shape,output_shape):
     input_layer= keras.layers.Input(input_shape)
     conv1 = conv_layer(input_layer,
                        num_filters=64, 
@@ -384,8 +384,8 @@ def custom_lstm (input_shape,output_shape)
                                             filter_size=7, 
                                             activation='relu',
                                             l2=1e-6)
-    conv1_residual_pool = keras.layers.MaxPool1D(pool_size=10, 
-                                                    strides=5, 
+    conv1_residual_pool = keras.layers.MaxPool1D(pool_size=10,
+                                                    strides=5,
                                                     padding='same'
                                                     )(conv1_residual)
     conv1_residual_dropout = keras.layers.Dropout(0.1)(conv1_residual_pool)
@@ -405,8 +405,8 @@ def custom_lstm (input_shape,output_shape)
                                             filter_size=11, 
                                             activation='relu',
                                             l2=1e-6)
-    conv2_residual_pool = keras.layers.MaxPool1D(pool_size=5, 
-                                                    strides=5, 
+    conv2_residual_pool = keras.layers.MaxPool1D(pool_size=5,
+                                                    strides=5,
                                                     padding='same'
                                                     )(conv2_residual)
     conv2_residual_dropout = keras.layers.Dropout(0.2)(conv2_residual_pool)
@@ -423,6 +423,7 @@ def custom_lstm (input_shape,output_shape)
     model = keras.Model(inputs=input_layer, outputs=output)
 
     model.summary()
+
     
     
     
@@ -530,3 +531,4 @@ def dilated_residual_block2(input_layer, num_filters, filter_size, activation='r
     residual_conv2_bn = keras.layers.BatchNormalization()(residual_conv2)
     residual_sum = keras.layers.add([input_layer, residual_conv2_bn])
     return keras.layers.Activation(activation)(residual_sum)
+
