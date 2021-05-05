@@ -16,7 +16,7 @@ model_names = ['basenji_small']
 
 # losses
 
-losses = ['poisson', 'mse', 'pearsonr', 'fft_mse_loss']
+losses = ['poisson', 'mse', 'pearsonr', 'fft_mse', 'multinomial_nll']
 
 cmd = []
 # loop and save commands to a list
