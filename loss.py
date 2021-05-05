@@ -38,7 +38,7 @@ def multinomial_nll(y_true,y_pred):
     return -tf.reduce_sum(dist.log_prob(true_counts_perm)) / seqlen
 
 def mse(y_true,y_pred):
-    return tf.kerass.losses.MSE(y_true,y_pred)
+    return tf.keras.losses.MSE(y_true,y_pred)
 
 
 def pearsonr(y, pred):
