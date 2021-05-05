@@ -1,4 +1,5 @@
 import tensorflow as tf
+import tensorflow_probability as tfp
 
 def fft_abs_loss(y, pred):
   y_true = tf.cast(y, 'complex64')
@@ -24,10 +25,10 @@ def poisson(y_true,y_pred):
     return tf.keras.losses.poisson(y_true, y_pred)
 
 def multinomial_nll(y_true,y_pred):
-    logits_perm = tf.transpose(logits, (0, 2, 1))
-    true_counts_perm = tf.transpose(true_counts, (0, 2, 1))
+    logits_perm = tf.transpose(y_pred, (0, 2, 1))
+    true_counts_perm = tf.transpose(y_true, (0, 2, 1))
 
-    counts_per_example = tf.reduce_sum(true_counts_perm, axis=-1)
+    counts_per_example = tf.reduce_sum(y_true, axis=-1)
 
     dist = tfp.distributions.Multinomial(total_count=counts_per_example,
                                                 logits=logits_perm)
