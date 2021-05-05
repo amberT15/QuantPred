@@ -415,14 +415,14 @@ def custom_lstm(input_shape,output_shape):
 
     bi_lstm = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128))(conv1_residual)
     nn = tf.keras.layers.Dense(output_shape[0]*output_shape[1],activation = 'relu')(bi_lstm)
-    gelu_layer = modelzoo.GELU()
+    gelu_layer = GELU()
     nn = gelu_layer(nn)
     output = tf.keras.layers.Reshape(output_shape)(nn)
 
 
     model = keras.Model(inputs=input_layer, outputs=output)
 
-    model.summary()
+    return model
 
 
 
