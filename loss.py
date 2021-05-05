@@ -10,7 +10,7 @@ def logthis(func):
         return func(y_true,y_pred)
     return wrapper
 
-def fft_abs_loss(y, pred):
+def fft_abs(y, pred):
   y_true = tf.cast(y, 'complex64')
   y_pred = tf.cast(pred, 'complex64')
 
@@ -19,7 +19,7 @@ def fft_abs_loss(y, pred):
   fft_diff = tf.math.subtract(fft_y, fft_pred)
   return tf.math.abs(fft_diff)
 
-def fft_mse_loss(y, pred):
+def fft_mse(y, pred):
   y_true = tf.cast(y, 'complex64')
   y_pred = tf.cast(pred, 'complex64')
 
