@@ -1,6 +1,15 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
 
+
+def logthis(func):
+    def wrapper(y_true,y_pred, metric=False):
+        if metric:
+            y_true = tf.math.log(y_true)
+            y_pred = tf.math.log(y_pred)
+        return func(y_true,y_pred)
+    return wrapper
+
 def fft_abs_loss(y, pred):
   y_true = tf.cast(y, 'complex64')
   y_pred = tf.cast(pred, 'complex64')
@@ -27,15 +36,11 @@ def poisson(y_true,y_pred):
 def multinomial_nll(y_true,y_pred):
     logits_perm = tf.transpose(y_pred, (0, 2, 1))
     true_counts_perm = tf.transpose(y_true, (0, 2, 1))
-
-    counts_per_example = tf.reduce_sum(y_true, axis=-1)
-
+    counts_per_example = tf.reduce_sum(true_counts_perm, axis=-1)
     dist = tfp.distributions.Multinomial(total_count=counts_per_example,
                                                 logits=logits_perm)
-
     # get the sequence length for normalization
-    seqlen = tf.cast(tf.shape(true_counts)[0],dtype=tf.float32)
-
+    seqlen = tf.cast(tf.shape(y_true)[0],dtype=tf.float32)
     return -tf.reduce_sum(dist.log_prob(true_counts_perm)) / seqlen
 
 def mse(y_true,y_pred):
