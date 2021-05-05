@@ -2,7 +2,7 @@
 import os
 
 all_data = '/home/shush/profile/QuantPred/datasets/top25/'
-output_file = 'basenji_commands.txt'
+output_file = 'test.txt'
 # define grid points
 
 # inputs
@@ -27,6 +27,6 @@ for input in inputs:
 
 
 # save list to file
-with open(output_file, 'w') as f:
+with open(output_file, 'a') as f:
     for command in cmd:
         f.write("%s\n" % command)
