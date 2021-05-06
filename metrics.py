@@ -14,10 +14,9 @@ import sklearn.metrics as skm
 
 
 def metrify(func):
-    def wrapper(y_true,y_pred, metric=False):
-        if metric:
-            y_true = tf.expand_dims(y_true, axis=-1)
-            y_pred = tf.expand_dims(y_pred, axis=-1)
+    def wrapper(y_true,y_pred):
+        y_true = tf.expand_dims(y_true, axis=-1)
+        y_pred = tf.expand_dims(y_pred, axis=-1)
         return func(y_true,y_pred)
     return wrapper
 
@@ -58,11 +57,11 @@ def pearsonr_per_seq(y, pred):
 
 def calculate_pearsonr(target,pred):
     pearson_profile =np.zeros((target.shape[2],len(target)))
-    
+
     for task_i in range(0,target.shape[2]):
         for sample_i in range(0,len(target)):
             pearson_profile[task_i,sample_i]=(pearsonr(target[sample_i][:,task_i],pred[sample_i][:,task_i])[0])
- 
+
     return pearson_profile
 
 
@@ -75,13 +74,13 @@ def pearson_volin(pearson_profile,tasks,figsize=(20,5)):
     fig, ax = plt.subplots(figsize=figsize)
     ax = sns.violinplot(data=pearsonr_pd)
     return fig
- 
+
 
 def pearson_box(pearson_profile,tasks,figsize=(20,5)):
     pd_dict = {}
     for i in range(0,len(tasks)):
         pd_dict[tasks[i]]=pearson_profile[i]
-        
+
     pearsonr_pd = pd.DataFrame.from_dict(pd_dict)
     fig, ax = plt.subplots(figsize=figsize)
     ax = sns.boxplot(data=pearsonr_pd)
