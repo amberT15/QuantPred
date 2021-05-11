@@ -5,7 +5,7 @@ import numpy as np
 
 
 
-def basenji_small(input_shape, output_shape, augment_rc=True, augment_shift=3):
+def basenji(input_shape, output_shape, augment_rc=True, augment_shift=3):
     """
     Basenji model turned into a single function.
     inputs (None, seq_length, 4)
@@ -370,7 +370,7 @@ def bpnet(input_shape,output_shape,strand_num = 1):
     model = keras.models.Model([input],outputs)
     return model
 
-def custom_lstm(input_shape,output_shape):
+def lstm(input_shape,output_shape):
     input_layer= keras.layers.Input(input_shape)
     conv1 = conv_layer(input_layer,
                        num_filters=64,
@@ -405,7 +405,7 @@ def custom_lstm(input_shape,output_shape):
                                             filter_size=11,
                                             activation='relu',
                                             l2=1e-6)
-    conv2_residual_pool = keras.layers.MaxPool1D(pool_size=5,
+    conv2_residual_pool = keras.layers.MaxPool1D(pool_size=25, #TODO: make larger - 25
                                                     strides=5,
                                                     padding='same'
                                                     )(conv2_residual)
@@ -414,7 +414,10 @@ def custom_lstm(input_shape,output_shape):
 
 
     bi_lstm = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128))(conv1_residual)
-    nn = tf.keras.layers.Dense(output_shape[0]*output_shape[1],activation = 'relu')(bi_lstm)
+    #TODO: add downsampling - global avg pool
+    avg_pool = tf.expand_dims(tf.reduce_mean(bi_lstm, axis=1), axis=0)
+
+    nn = tf.keras.layers.Dense(output_shape[0]*output_shape[1],activation = 'relu')(avg_pool)
     gelu_layer = GELU()
     nn = gelu_layer(nn)
     output = tf.keras.layers.Reshape(output_shape)(nn)
