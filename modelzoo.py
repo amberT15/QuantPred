@@ -415,8 +415,7 @@ def lstm(input_shape,output_shape):
 
     bi_lstm = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128))(conv1_residual)
     #TODO: add downsampling - global avg pool
-    avg_pool = tf.expand_dims(tf.reduce_mean(bi_lstm, axis=1), axis=0)
-
+    avg_pool = tf.expand_dims(tf.reduce_mean(bi_lstm, axis=1),-1)
     nn = tf.keras.layers.Dense(output_shape[0]*output_shape[1],activation = 'relu')(avg_pool)
     gelu_layer = GELU()
     nn = gelu_layer(nn)
