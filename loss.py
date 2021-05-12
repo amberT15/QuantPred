@@ -10,7 +10,7 @@ def logthis(func):
         return func(y_true,y_pred)
     return wrapper
 
-def fft_abs(y, pred):
+def fftabs(y, pred):
   y_true = tf.cast(y, 'complex64')
   y_pred = tf.cast(pred, 'complex64')
 
@@ -19,7 +19,7 @@ def fft_abs(y, pred):
   fft_diff = tf.math.subtract(fft_y, fft_pred)
   return tf.math.abs(fft_diff)
 
-def fft_mse(y, pred):
+def fftmse(y, pred):
   y_true = tf.cast(y, 'complex64')
   y_pred = tf.cast(pred, 'complex64')
 
@@ -33,7 +33,7 @@ def fft_mse(y, pred):
 def poisson(y_true,y_pred):
     return tf.keras.losses.poisson(y_true, y_pred)
 
-def multinomial_nll(y_true,y_pred):
+def multinomialnll(y_true,y_pred):
     logits_perm = tf.transpose(y_pred, (0, 2, 1))
     true_counts_perm = tf.transpose(y_true, (0, 2, 1))
     counts_per_example = tf.reduce_sum(true_counts_perm, axis=-1)
@@ -47,7 +47,7 @@ def mse(y_true,y_pred):
     return tf.keras.losses.MSE(y_true,y_pred)
 
 
-def pearsonr(y, pred):
+def basenjipearsonr(y, pred):
     y_true = tf.cast(y, 'float32')
     y_pred = tf.cast(pred, 'float32')
 
