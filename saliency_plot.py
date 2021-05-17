@@ -58,7 +58,7 @@ task_top_list = explain.select_top_pred(test_y,num_task)
 fig, axs = plt.subplots(2*num_task,1,figsize=(200,15*num_task))
 for i in range(0,num_task):
     X = tf.cast(test_x[task_top_list[i]],dtype='float64')
-    saliency_map = explain.peak_saliency_map(X,model,class_index = i)
+    saliency_map = explain.peak_saliency_map(X,model,class_index = i,window_size = window)
     saliency_map = saliency_map * X
     
     for n, w in enumerate(saliency_map):
