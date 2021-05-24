@@ -348,6 +348,7 @@ class GELU(tf.keras.layers.Layer):
         return tf.keras.activations.sigmoid(tf.constant(1.702) * x) * x
 
 def bpnet(input_shape,output_shape,strand_num = 1):
+    window_size = int(inpu_shape[0]/output_shape[0])
     #body
     input = keras.layers.Input(shape=input_shape)
     x = keras.layers.Conv1D(64,kernel_size=25,padding ='same',activation = 'relu')(input)
@@ -363,6 +364,7 @@ def bpnet(input_shape,output_shape,strand_num = 1):
         px = keras.layers.Reshape((-1,1,64))(bottleneck)
         px = keras.layers.Conv2DTranspose(strand_num,kernel_size = (25,1),padding = 'same')(px)
         px = keras.layers.Reshape((-1,strand_num))(px)
+        px = keras.layers.MaxPooling1D(pool_size = window_size, stride = None,padding = 'valid')(px)
         outputs.append(px)
 
     outputs = tf.keras.layers.concatenate(outputs)
