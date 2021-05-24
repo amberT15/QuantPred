@@ -4,6 +4,59 @@ import tensorflow.keras as keras
 import numpy as np
 
 
+def basenjimod(input_shape, output_shape, augment_rc=True, augment_shift=3):
+    """
+    Basenji model turned into a single function.
+    inputs (None, seq_length, 4)
+    """
+    n_bins, n_exp = output_shape
+    lx = 128
+    n_conv_tower = 0
+    while n_bins != lx:
+        n_conv_tower+=1
+        lx = lx // 2
+
+    if n_conv_tower % 2 > 0:
+        n_conv_tower = n_conv_tower-1
+        add_2max = True
+    else:
+        add_2max = False
+    n_conv_tower = n_conv_tower // 2
+    print(n_bins, n_conv_tower, add_2max)
+    sequence = tf.keras.Input(shape=input_shape, name='sequence')
+
+    current = conv_block(sequence, filters=64, kernel_size=15, activation='gelu', activation_end=None,
+        strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
+        pool_size=8, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
+        kernel_initializer='he_normal', padding='same')
+
+    current, rep_filters = conv_tower(current, filters_init=64, filters_mult=1.125, repeat=n_conv_tower,
+        pool_size=4, kernel_size=5, batch_norm=True, bn_momentum=0.9,
+        activation='gelu')
+
+    if add_2max:
+        n_filters = int(np.round(rep_filters*1.125))
+        current = conv_block(current, filters=n_filters, kernel_size=15, activation='gelu', activation_end=None,
+            strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
+            pool_size=2, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
+            kernel_initializer='he_normal', padding='same')
+
+    current = dilated_residual(current, filters=32, kernel_size=3, rate_mult=2,
+        conv_type='standard', dropout=0.25, repeat=2, round=False, # repeat=4
+        activation='gelu', batch_norm=True, bn_momentum=0.9)
+
+    current = conv_block(current, filters=64, kernel_size=1, activation='gelu',
+        dropout=0.05, batch_norm=True, bn_momentum=0.9)
+
+    outputs = dense_layer(current, n_exp, activation='softplus',
+        batch_norm=True, bn_momentum=0.9)
+
+
+    model = tf.keras.Model(inputs=sequence, outputs=outputs)
+    # print(model.summary())
+    return model
+
+
 
 def basenji(input_shape, output_shape, augment_rc=True, augment_shift=3):
     """
@@ -24,7 +77,7 @@ def basenji(input_shape, output_shape, augment_rc=True, augment_shift=3):
         pool_size=8, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
         kernel_initializer='he_normal', padding='same')
 
-    current = conv_tower(current, filters_init=64, filters_mult=1.125, repeat=1,
+    current, _ = conv_tower(current, filters_init=64, filters_mult=1.125, repeat=1,
         pool_size=4, kernel_size=5, batch_norm=True, bn_momentum=0.9,
         activation='gelu')
 
@@ -43,6 +96,41 @@ def basenji(input_shape, output_shape, augment_rc=True, augment_shift=3):
 
     model = tf.keras.Model(inputs=sequence, outputs=outputs)
     # print(model.summary())
+    return model
+
+def basenjiw1(input_shape, output_shape, augment_rc=True, augment_shift=3):
+    """
+    Basenji model turned into a single function.
+    inputs (None, seq_length, 4)
+    """
+    n_exp = output_shape[-1]
+    sequence = tf.keras.Input(shape=input_shape, name='sequence')
+
+
+    current = conv_block(sequence, filters=64, kernel_size=15, activation='gelu', activation_end=None,
+        strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
+        pool_size=8, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
+        kernel_initializer='he_normal', padding='same')
+
+    current, _ = conv_tower(current, filters_init=64, filters_mult=1.125, repeat=1,
+        pool_size=4, kernel_size=5, batch_norm=True, bn_momentum=0.9,
+        activation='gelu')
+
+    current = dilated_residual(current, filters=32, kernel_size=3, rate_mult=2,
+        conv_type='standard', dropout=0.25, repeat=2, round=False, # repeat=4
+        activation='gelu', batch_norm=True, bn_momentum=0.9)
+
+    current = conv_block(current, filters=64, kernel_size=1, activation='gelu',
+        dropout=0.05, batch_norm=True, bn_momentum=0.9)
+
+    current = tf.keras.layers.UpSampling1D(size=32)(current)
+
+    outputs = dense_layer(current, n_exp, activation='softplus',
+        batch_norm=True, bn_momentum=0.9)
+    # upsample
+
+    model = tf.keras.Model(inputs=sequence, outputs=outputs)
+    print(model.summary())
     return model
 
 
@@ -161,7 +249,7 @@ def conv_tower(inputs, filters_init, filters_mult=1, repeat=1, **kwargs):
     # update filters
     rep_filters *= filters_mult
 
-  return current
+  return current, rep_filters
 
 
 def dilated_residual(inputs, filters, kernel_size=3, rate_mult=2,
