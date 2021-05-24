@@ -29,7 +29,7 @@ def basenji(input_shape, output_shape, augment_rc=True, augment_shift=3):
         activation='gelu')
 
     current = dilated_residual(current, filters=32, kernel_size=3, rate_mult=2,
-        conv_type='standard', dropout=0.25, repeat=2, round=False,
+        conv_type='standard', dropout=0.25, repeat=2, round=False, # repeat=4
         activation='gelu', batch_norm=True, bn_momentum=0.9)
 
     current = conv_block(current, filters=64, kernel_size=1, activation='gelu',
