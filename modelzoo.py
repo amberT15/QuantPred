@@ -105,12 +105,12 @@ def basenjiw1(input_shape, output_shape, augment_rc=True, augment_shift=3):
     """
     n_exp = output_shape[-1]
     sequence = tf.keras.Input(shape=input_shape, name='sequence')
+    current = tf.expand_dims(sequence, -2)
 
-
-    current = conv_block(sequence, filters=64, kernel_size=15, activation='gelu', activation_end=None,
+    current = conv_block(current, filters=64, kernel_size=15, activation='gelu', activation_end=None,
         strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
         pool_size=8, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
-        kernel_initializer='he_normal', padding='same')
+        kernel_initializer='he_normal', padding='same', w1=True)
 
     current, _ = conv_tower(current, filters_init=64, filters_mult=1.125, repeat=1,
         pool_size=4, kernel_size=5, batch_norm=True, bn_momentum=0.9,
@@ -123,15 +123,26 @@ def basenjiw1(input_shape, output_shape, augment_rc=True, augment_shift=3):
     current = conv_block(current, filters=64, kernel_size=1, activation='gelu',
         dropout=0.05, batch_norm=True, bn_momentum=0.9)
 
-    current = tf.keras.layers.UpSampling1D(size=32)(current)
+    n_loops = input_shape[0] // current.shape[1]
+    n_filters = 64
+    for n in range(2):
+      n_filters *= 2
+      current = tf.keras.layers.Conv2DTranspose(
+                filters=n_filters, kernel_size=1, strides=(2,1))(current)
+      current = tf.keras.layers.UpSampling2D(size=(2,1))(current)
 
-    outputs = dense_layer(current, n_exp, activation='softplus',
+    current = tf.keras.layers.Conv2DTranspose(
+          filters=n_filters*2, kernel_size=1, strides=(2,1))(current)
+    current = tf.keras.layers.Conv2D(n_filters*2, 1)(current)
+    current = dense_layer(current, n_exp, activation='softplus',
         batch_norm=True, bn_momentum=0.9)
+    outputs = tf.squeeze(
+      current, axis=2)
     # upsample
 
     model = tf.keras.Model(inputs=sequence, outputs=outputs)
-    print(model.summary())
     return model
+
 
 
 ############################################################
@@ -140,7 +151,7 @@ def basenjiw1(input_shape, output_shape, augment_rc=True, augment_shift=3):
 def conv_block(inputs, filters=None, kernel_size=1, activation='relu', activation_end=None,
     strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
     pool_size=1, batch_norm=False, bn_momentum=0.99, bn_gamma=None, bn_type='standard',
-    kernel_initializer='he_normal', padding='same'):
+    kernel_initializer='he_normal', padding='same', w1='False'):
   """Construct a single convolution block.
 
   Args:
@@ -169,6 +180,8 @@ def conv_block(inputs, filters=None, kernel_size=1, activation='relu', activatio
   # choose convolution type
   if conv_type == 'separable':
     conv_layer = tf.keras.layers.SeparableConv1D
+  elif w1:
+    conv_layer = tf.keras.layers.Conv2D
   else:
     conv_layer = tf.keras.layers.Conv1D
 
@@ -215,9 +228,14 @@ def conv_block(inputs, filters=None, kernel_size=1, activation='relu', activatio
 
   # Pool
   if pool_size > 1:
-    current = tf.keras.layers.MaxPool1D(
-      pool_size=pool_size,
-      padding=padding)(current)
+    if w1:
+      current = tf.keras.layers.MaxPool2D(
+        pool_size=pool_size,
+        padding=padding)(current)
+    else:
+      current = tf.keras.layers.MaxPool1D(
+        pool_size=pool_size,
+        padding=padding)(current)
 
   return current
 
