@@ -454,7 +454,7 @@ class GELU(tf.keras.layers.Layer):
         return tf.keras.activations.sigmoid(tf.constant(1.702) * x) * x
 
 def bpnet(input_shape,output_shape,strand_num = 1):
-    window_size = int(inpu_shape[0]/output_shape[0])
+    window_size = int(input_shape[0]/output_shape[0])
     #body
     input = keras.layers.Input(shape=input_shape)
     x = keras.layers.Conv1D(64,kernel_size=25,padding ='same',activation = 'relu')(input)
