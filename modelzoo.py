@@ -36,13 +36,13 @@ def basenjimod(input_shape, output_shape, augment_rc=True, augment_shift=3):
 
     if add_2max:
         n_filters = int(np.round(rep_filters*1.125))
-        current = conv_block(current, filters=n_filters, kernel_size=15, activation='gelu', activation_end=None,
+        current = conv_block(current, filters=n_filters, kernel_size=5, activation='gelu', activation_end=None, #changed filter size 5
             strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
             pool_size=2, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
             kernel_initializer='he_normal', padding='same')
 
     current = dilated_residual(current, filters=32, kernel_size=3, rate_mult=2,
-        conv_type='standard', dropout=0.25, repeat=2, round=False, # repeat=4
+        conv_type='standard', dropout=0.25, repeat=2, round=False, # repeat=4 TODO:figure out scaling factor for the number of repeats
         activation='gelu', batch_norm=True, bn_momentum=0.9)
 
     current = conv_block(current, filters=64, kernel_size=1, activation='gelu',
@@ -122,18 +122,18 @@ def basenjiw1(input_shape, output_shape, augment_rc=True, augment_shift=3):
 
     current = conv_block(current, filters=64, kernel_size=1, activation='gelu',
         dropout=0.05, batch_norm=True, bn_momentum=0.9)
-
+    #TODO: task specific heads (in a new version)
     n_loops = input_shape[0] // current.shape[1]
     n_filters = 64
     for n in range(2):
-      n_filters *= 2
+      n_filters *= 1.125
       current = tf.keras.layers.Conv2DTranspose(
-                filters=n_filters, kernel_size=1, strides=(2,1))(current)
+                filters=n_filters, kernel_size=(5,1), strides=(2,1))(current)
       current = tf.keras.layers.UpSampling2D(size=(2,1))(current)
 
     current = tf.keras.layers.Conv2DTranspose(
-          filters=n_filters*2, kernel_size=1, strides=(2,1))(current)
-    current = tf.keras.layers.Conv2D(n_filters*2, 1)(current)
+          filters=n_filters*1.125, kernel_size=(5,1), strides=(2,1))(current)
+    current = tf.keras.layers.Conv2D(n_filters*1.125, 1)(current)
     current = dense_layer(current, n_exp, activation='softplus',
         batch_norm=True, bn_momentum=0.9)
     outputs = tf.squeeze(
@@ -470,7 +470,7 @@ def bpnet(input_shape,output_shape,strand_num = 1):
         px = keras.layers.Reshape((-1,1,64))(bottleneck)
         px = keras.layers.Conv2DTranspose(strand_num,kernel_size = (25,1),padding = 'same')(px)
         px = keras.layers.Reshape((-1,strand_num))(px)
-        px = keras.layers.MaxPooling1D(pool_size = window_size, strides = None,padding = 'valid')(px)
+        px = keras.layers.MaxPooling1D(pool_size = window_size, strides = None,padding = 'valid')(px) #TODO:averagepool instead
         outputs.append(px)
 
     outputs = tf.keras.layers.concatenate(outputs)
