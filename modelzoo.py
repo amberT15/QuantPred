@@ -94,6 +94,9 @@ def basenji(input_shape, output_shape, augment_rc=True, augment_shift=3):
     # print(model.summary())
     return model
 
+def mult_filt(n, factor):
+    return int(np.round(n*factor))
+
 def basenjiw1(input_shape, output_shape, augment_rc=True, augment_shift=3):
     """
     Basenji model turned into a single function.
@@ -110,26 +113,27 @@ def basenjiw1(input_shape, output_shape, augment_rc=True, augment_shift=3):
 
     current, _ = conv_tower(current, filters_init=64, filters_mult=1.125, repeat=1,
         pool_size=4, kernel_size=5, batch_norm=True, bn_momentum=0.9,
-        activation='gelu')
+        activation='gelu', w1=True)
 
-    current = dilated_residual(current, filters=32, kernel_size=3, rate_mult=2,
+    current = dilated_residual(current, filters=64, kernel_size=3, rate_mult=2,
         conv_type='standard', dropout=0.25, repeat=2, round=False, # repeat=4
-        activation='gelu', batch_norm=True, bn_momentum=0.9)
+        activation='gelu', batch_norm=True, bn_momentum=0.9, w1=True)
 
     current = conv_block(current, filters=64, kernel_size=1, activation='gelu',
-        dropout=0.05, batch_norm=True, bn_momentum=0.9)
+        dropout=0.05, batch_norm=True, bn_momentum=0.9, w1=True)
     #TODO: task specific heads (in a new version)
     n_loops = input_shape[0] // current.shape[1]
     n_filters = 64
     for n in range(2):
-      n_filters *= 1.125
+      n_filters = mult_filt(n_filters, 1.125)
+      print(n_filters)
       current = tf.keras.layers.Conv2DTranspose(
-                filters=n_filters, kernel_size=(5,1), strides=(2,1))(current)
+                filters=n_filters, kernel_size=(5,1), strides=(2,1), padding='same')(current)
       current = tf.keras.layers.UpSampling2D(size=(2,1))(current)
 
     current = tf.keras.layers.Conv2DTranspose(
-          filters=n_filters*1.125, kernel_size=(5,1), strides=(2,1))(current)
-    current = tf.keras.layers.Conv2D(n_filters*1.125, 1)(current)
+          filters=mult_filt(n_filters, 1.125), kernel_size=(5,1), strides=(2,1), padding='same')(current)
+    current = tf.keras.layers.Conv2D(mult_filt(n_filters, 1.125), 1)(current)
     current = dense_layer(current, n_exp, activation='softplus',
         batch_norm=True, bn_momentum=0.9)
     outputs = tf.squeeze(
@@ -137,6 +141,7 @@ def basenjiw1(input_shape, output_shape, augment_rc=True, augment_shift=3):
     # upsample
 
     model = tf.keras.Model(inputs=sequence, outputs=outputs)
+    print(model.summary())
     return model
 
 
