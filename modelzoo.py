@@ -4,25 +4,22 @@ import tensorflow.keras as keras
 import numpy as np
 
 
-def basenjimod(input_shape, output_shape, augment_rc=True, augment_shift=3):
+def basenjimod(input_shape, output_shape):
     """
     Basenji model turned into a single function.
     inputs (None, seq_length, 4)
     """
+    # dict for choosing number of maxpools based on output shape
+    layer_dict = {32: [1, False], # if bin size 32 add 1 maxpool and no maxpool of size 2
+                  64: [1, True], # if bin size 64 add 1 maxpool and 1 maxpool of size 2
+                  128: [2, False], # if bin size 128 add 2 maxpool and no maxpool of size 2
+                  256: [2, True]} # if bin size 256 add 2 maxpool and 1 maxpool of size 2
+    L, _ = input_shape
     n_bins, n_exp = output_shape
-    lx = 128
-    n_conv_tower = 0
-    while n_bins != lx:
-        n_conv_tower+=1
-        lx = lx // 2
-
-    if n_conv_tower % 2 > 0:
-        n_conv_tower = n_conv_tower-1
-        add_2max = True
-    else:
-        add_2max = False
-    n_conv_tower = n_conv_tower // 2
-    print(n_bins, n_conv_tower, add_2max)
+    l_bin = L // n_bins
+    n_conv_tower, add_2max = layer_dict[l_bin]
+#     n_conv_tower = np.log2(32)
+    print(l_bin, n_conv_tower, add_2max)
     sequence = tf.keras.Input(shape=input_shape, name='sequence')
 
     current = conv_block(sequence, filters=64, kernel_size=15, activation='gelu', activation_end=None,
@@ -55,7 +52,6 @@ def basenjimod(input_shape, output_shape, augment_rc=True, augment_shift=3):
     model = tf.keras.Model(inputs=sequence, outputs=outputs)
     # print(model.summary())
     return model
-
 
 
 def basenji(input_shape, output_shape, augment_rc=True, augment_shift=3):
@@ -151,7 +147,7 @@ def basenjiw1(input_shape, output_shape, augment_rc=True, augment_shift=3):
 def conv_block(inputs, filters=None, kernel_size=1, activation='relu', activation_end=None,
     strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
     pool_size=1, batch_norm=False, bn_momentum=0.99, bn_gamma=None, bn_type='standard',
-    kernel_initializer='he_normal', padding='same', w1='False'):
+    kernel_initializer='he_normal', padding='same', w1=False):
   """Construct a single convolution block.
 
   Args:
