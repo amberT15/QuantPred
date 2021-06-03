@@ -471,7 +471,7 @@ def bpnet(input_shape,output_shape,strand_num = 1):
         px = keras.layers.Reshape((-1,1,64))(bottleneck)
         px = keras.layers.Conv2DTranspose(strand_num,kernel_size = (25,1),padding = 'same')(px)
         px = keras.layers.Reshape((-1,strand_num))(px)
-        px = keras.layers.MaxPooling1D(pool_size = window_size, strides = None,padding = 'valid')(px) #TODO:averagepool instead
+        px = keras.layers.AveragePooling1D(pool_size = window_size, strides = None,padding = 'valid')(px) 
         outputs.append(px)
 
     outputs = tf.keras.layers.concatenate(outputs)
