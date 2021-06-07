@@ -6,10 +6,10 @@ import tensorflow as tf
 # Custom fits
 #------------------------------------------------------------------------------------------
 def fit_robust(model, loss, optimizer, window_size, bin_size, x_train, y_train, validation_data, 
-               num_epochs=200, batch_size=128, shuffle=True, metrics=['auroc','aupr'], 
+               num_epochs=200, batch_size=128, shuffle=True, metrics=['mse','mae'], 
                mix_epoch=50,  es_start_epoch=50, 
-               es_patience=20, es_metric='auroc', es_criterion='max',
-               lr_decay=0.3, lr_patience=10, lr_metric='auroc', lr_criterion='max'):
+               es_patience=20, es_metric='mse', es_criterion='min',
+               lr_decay=0.3, lr_patience=10, lr_metric='mse', lr_criterion='min', verbose = True):
 
   # create tensorflow dataset
   trainset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
@@ -210,17 +210,13 @@ class RobustTrainer(Trainer):
     
     y_dim = y_crop.shape
     y_bin = tf.math.reduce_mean(tf.reshape(y_crop,(y_dim[0],int(window_size/bin_size),bin_size,y_dim[2])),axis = 2)
-    return x_crop,y_crop
+    return x_crop,y_bin
     
   
   def robust_train_step(self, x, y, window_size, bin_size, verbose=False):
     """performs a training epoch with attack to inputs"""
 
-    x,y = self.window_crop(x, y,window_size,bin_size)  # object from attacks.py
-    
-    # mix real and perturbed data together
-    #x_attack = tf.concat([x_attack, x], axis=0)
-    #y = tf.concat([y, y], axis=0)
+    #x,y = self.window_crop(x, y,window_size,bin_size)  
     return self.train_step(x, y, self.metrics['train'])
 
 
@@ -387,6 +383,9 @@ class MonitorMetrics():
     if 'mse' in metric_names:
       self.metric_update['mse'] = tf.keras.metrics.MeanSquaredError()
       self.metric['mse'] = []
+    if 'mae' in metric_names:
+      self.metric_update['mae'] = tf.keras.metrics.MeanAbsoluteError()
+      self.metric['mae'] = []
 
   def update_running_loss(self, running_loss):
     self.running_loss.append(running_loss)  
@@ -476,6 +475,9 @@ def progress_bar(iter, num_batches, start_time, bar_length=30, **kwargs):
   if 'mse' in kwargs:
     output_text += " -- mse=%.5f"
     output_vals.append(kwargs['mse'])
+  if 'mae' in kwargs:
+    output_text += " -- mae=%.5f"
+    output_vals.append(kwargs['mae'])
 
   # set new line when finished
   if iter == num_batches:
