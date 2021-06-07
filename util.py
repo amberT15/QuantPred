@@ -76,7 +76,7 @@ def make_dataset(data_dir, split_label, data_stats, batch_size=64, seed=None):
     # if split_label == 'train':
     if (split_label == 'train'):
       # repeat
-      dataset = dataset.repeat()
+      #dataset = dataset.repeat()
 
       # interleave files
       dataset = dataset.interleave(map_func=file_to_records,

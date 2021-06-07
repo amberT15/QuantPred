@@ -5,15 +5,15 @@ import tensorflow as tf
 #------------------------------------------------------------------------------------------
 # Custom fits
 #------------------------------------------------------------------------------------------
-def fit_robust(model, loss, optimizer, window_size, bin_size, x_train, y_train, validation_data, 
+def fit_robust(model, loss, optimizer, window_size, bin_size, train_set, validation_data,train_seq_len, 
                num_epochs=200, batch_size=128, shuffle=True, metrics=['mse','mae'], 
                mix_epoch=50,  es_start_epoch=50, 
                es_patience=20, es_metric='mse', es_criterion='min',
                lr_decay=0.3, lr_patience=10, lr_metric='mse', lr_criterion='min', verbose = True):
 
   # create tensorflow dataset
-  trainset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-  validset = tf.data.Dataset.from_tensor_slices(validation_data)
+  trainset = train_set
+  validset = validation_data
 
   # create trainer class
   trainer = RobustTrainer(model, loss, optimizer, window_size, bin_size, metrics)
@@ -27,10 +27,10 @@ def fit_robust(model, loss, optimizer, window_size, bin_size, x_train, y_train, 
     sys.stdout.write("\rEpoch %d \n"%(epoch+1))
     
     #Robust train with crop and bin
-    trainer.robust_train_epoch(trainset, window_size, bin_size)  
+    trainer.robust_train_epoch(trainset, window_size, bin_size,num_step=train_seq_len//batch_size,batch_size = batch_size)  
 
     # validation performance
-    trainer.evaluate('valid', validset, batch_size=batch_size, verbose=verbose)
+    trainer.robust_evaluate('valid', validset,window_size, bin_size, batch_size=batch_size, verbose=verbose)
     
     # check early stopping
     if epoch >= es_start_epoch:
@@ -122,7 +122,7 @@ class Trainer():
     """Evaluate model in mini-batches"""
     batch_dataset = dataset.batch(batch_size)
     num_batches = len(list(batch_dataset))
-    for i, (x, y) in enumerate(batch_dataset):   
+    for i, (x, y) in enumerate(batch_dataset):
       loss_batch = self.test_step(x, y, self.metrics[name], training)
       self.metrics[name].running_loss.append(loss_batch)
 
@@ -195,48 +195,32 @@ class RobustTrainer(Trainer):
     self.metrics['train'] = MonitorMetrics(metric_names, 'train')
     self.metrics['valid'] = MonitorMetrics(metric_names, 'valid')
     self.metrics['test'] = MonitorMetrics(metric_names, 'test')
-
-  def window_crop(self,x,y,window_size,bin_size):
-    
-    #cropping return x_crop and y_crop
-    x_dim = x.shape
-    indice = (np.arange(window_size) +
-    np.random.randint(low = 0,high = x_dim[1]-window_size,size = x_dim[0])[:,np.newaxis])
-    indice = indice.reshape(window_size * x_dim[0])
-    row_indice = np.repeat(range(0,x_dim[0]),window_size)
-    f_index = np.vstack((row_indice,indice)).T.reshape(x_dim[0],window_size,2)
-    x_crop = tf.gather_nd(x,f_index)
-    y_crop = tf.gather_nd(y,f_index)
-    
-    y_dim = y_crop.shape
-    y_bin = tf.math.reduce_mean(tf.reshape(y_crop,(y_dim[0],int(window_size/bin_size),bin_size,y_dim[2])),axis = 2)
-    return x_crop,y_bin
-    
   
   def robust_train_step(self, x, y, window_size, bin_size, verbose=False):
     """performs a training epoch with attack to inputs"""
 
-    #x,y = self.window_crop(x, y,window_size,bin_size)  
+    x,y = window_crop(x, y,window_size,bin_size)  
     return self.train_step(x, y, self.metrics['train'])
 
 
-  def robust_train_epoch(self, trainset, window_size, bin_size, batch_size=128, shuffle=True, verbose=False, store=True):
+  def robust_train_epoch(self, trainset, window_size, bin_size, num_step, batch_size=128, shuffle=True, verbose=False, store=True):
     """performs a training epoch with attack to inputs"""
 
     # prepare dataset
     if shuffle:
       trainset.shuffle(buffer_size=batch_size)
-    batch_dataset = trainset.batch(batch_size)
-    num_batches = len(list(batch_dataset))
+    batch_dataset = trainset
+    #num_batches = len(list(batch_datset))
+    #print(num_batches)
 
     # loop through mini-batches and perform robust training steps
     start_time = time.time()
     running_loss = 0
-    for i, (x, y) in enumerate(batch_dataset):    
+    for i, (x, y) in enumerate(batch_dataset): 
       loss_batch = self.robust_train_step(x, y, window_size, bin_size, verbose)
       self.metrics['train'].running_loss.append(loss_batch)
       running_loss += loss_batch
-      progress_bar(i+1, num_batches, start_time, bar_length=30, loss=running_loss/(i+1))
+      progress_bar(i+1, num_step, start_time, bar_length=30, loss=running_loss/(i+1))
 
     # store training metrics
     if store:
@@ -245,7 +229,19 @@ class RobustTrainer(Trainer):
       else:
         self.metrics['train'].update()
         
+  def robust_evaluate(self, name, dataset, window_size, bin_size, batch_size=128, verbose=True, training=False):
+    """Evaluate model in mini-batches"""
+    batch_dataset = dataset
+    for i, (x, y) in enumerate(batch_dataset):
+      x,y = valid_window_crop(x,y,window_size,bin_size)
+      loss_batch = self.test_step(x, y, self.metrics[name], training)
+      self.metrics[name].running_loss.append(loss_batch)
 
+    # store evaluation metrics
+    if verbose:
+      self.metrics[name].update_print()
+    else:
+      self.metrics[name].update() 
     
 
 
@@ -432,7 +428,39 @@ class MonitorMetrics():
 #------------------------------------------------------------------------------
 # Useful functions
 #------------------------------------------------------------------------------
+def valid_window_crop(x,y,window_size,bin_size):
+    
+    #cropping return x_crop and y_crop
+    x_dim = x.shape
+    indice = (np.arange(window_size) +
+    np.repeat(int(0.5*(x_dim[1]-window_size)),x_dim[0])[:,np.newaxis])
+    indice = indice.reshape(window_size * x_dim[0])
+    row_indice = np.repeat(range(0,x_dim[0]),window_size)
+    f_index = np.vstack((row_indice,indice)).T.reshape(x_dim[0],window_size,2)
+    x_crop = tf.gather_nd(x,f_index)
+    y_crop = tf.gather_nd(y,f_index)
+    
+    y_dim = y_crop.shape
+    y_bin = tf.math.reduce_mean(tf.reshape(y_crop,(y_dim[0],int(window_size/bin_size),bin_size,y_dim[2])),axis = 2)
+    return x_crop,y_bin
 
+
+
+def window_crop(x,y,window_size,bin_size):
+    
+    #cropping return x_crop and y_crop
+    x_dim = x.shape
+    indice = (np.arange(window_size) +
+    np.random.randint(low = 0,high = x_dim[1]-window_size,size = x_dim[0])[:,np.newaxis])
+    indice = indice.reshape(window_size * x_dim[0])
+    row_indice = np.repeat(range(0,x_dim[0]),window_size)
+    f_index = np.vstack((row_indice,indice)).T.reshape(x_dim[0],window_size,2)
+    x_crop = tf.gather_nd(x,f_index)
+    y_crop = tf.gather_nd(y,f_index)
+    
+    y_dim = y_crop.shape
+    y_bin = tf.math.reduce_mean(tf.reshape(y_crop,(y_dim[0],int(window_size/bin_size),bin_size,y_dim[2])),axis = 2)
+    return x_crop,y_bin
 
 def progress_bar(iter, num_batches, start_time, bar_length=30, **kwargs):
   """plots a progress bar to show remaining time for a full epoch. 
