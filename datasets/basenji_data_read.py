@@ -43,6 +43,7 @@ Read sequence values from coverage files.
 def main():
   usage = 'usage: %prog [options] <genome_cov_file> <seqs_bed_file> <seqs_cov_file>'
   parser = OptionParser(usage)
+  # add option for thresholding
   parser.add_option('-b', dest='blacklist_bed',
       help='Set blacklist nucleotides to a baseline value.')
   parser.add_option('-c', dest='clip',
