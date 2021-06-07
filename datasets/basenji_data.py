@@ -51,6 +51,9 @@ Compute model sequences from the genome, extracting DNA coverage values.
 def main():
   usage = 'usage: %prog [options] <fasta_file> <targets_file>'
   parser = OptionParser(usage)
+  parser.add_option('--threshold', dest='threshold',
+      default=0, type='float',
+      help='Set a minimum threshold for activity.')
   parser.add_option('-b', dest='blacklist_bed',
       help='Set blacklist nucleotides to a baseline value.')
   parser.add_option('--break', dest='break_t',
@@ -417,10 +420,13 @@ def main():
   else:
     slurm.multi_run(read_jobs, options.processes, verbose=True,
                     launch_sleep=1, update_sleep=5)
-
+  # exit()
   ################################################################
   # write TF Records
   ################################################################
+  # start the stats json so that data_write updates it on the fly
+  with open('%s/statistics.json' % options.out_dir, 'w') as stats_json_out:
+    json.dump({'%s_seqs'%k:0 for k in fold_labels}, stats_json_out, indent=4)
   # copy targets file
   shutil.copy(targets_file, '%s/targets.txt' % options.out_dir)
 
@@ -432,6 +438,7 @@ def main():
   write_jobs = []
 
   for fold_set in fold_labels:
+    #TODO:remove
     fold_set_indexes = [i for i in range(len(mseqs)) if mseqs[i].label == fold_set]
     fold_set_start = fold_set_indexes[0]
     fold_set_end = fold_set_indexes[-1] + 1
@@ -456,7 +463,9 @@ def main():
       cmd += ' %s' % seqs_bed_file
       cmd += ' %s' % seqs_cov_dir
       cmd += ' %s.tfr' % tfr_stem
-
+      cmd += ' %s' % fold_set
+      cmd += ' -o %s' % options.out_dir
+      cmd += ' --threshold %f' %options.threshold
       if options.run_local:
         # breaks on some OS
         # cmd += ' &> %s.err' % tfr_stem
@@ -484,7 +493,9 @@ def main():
   ################################################################
   # stats
   ################################################################
-  stats_dict = {}
+  current_json = open('%s/statistics.json' % options.out_dir, 'r')
+  stats_dict = json.load(current_json)
+  # stats_dict = {}
   stats_dict['num_targets'] = targets_df.shape[0]
   stats_dict['seq_length'] = options.seq_length
   stats_dict['pool_width'] = options.pool_width
@@ -494,14 +505,16 @@ def main():
   target_length = target_length // options.pool_width
   stats_dict['target_length'] = target_length
 
-  for fi in range(num_folds):
-    stats_dict['%s_seqs' % fold_labels[fi]] = len(fold_mseqs[fi])
+  # for fi in range(num_folds):
+  #   stats_dict['%s_seqs' % fold_labels[fi]] = len(fold_mseqs[fi])
 
   for i in range(10):
     print('~~~')
   print('%s/statistics.json' % options.out_dir)
   for i in range(10):
     print('~~~')
+
+
   with open('%s/statistics.json' % options.out_dir, 'w') as stats_json_out:
     json.dump(stats_dict, stats_json_out, indent=4)
 
