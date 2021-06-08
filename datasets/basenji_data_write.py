@@ -128,16 +128,13 @@ def main():
     tii = options.target_start + ti
     targets[:,:,tii] = seqs_cov_open['targets'][options.start_i:options.end_i,:]
     seqs_cov_open.close()
-  threshold=10
-  mask_by_thr = np.any(np.any(targets > threshold, axis=1), axis=-1)
-  # targets = targets[mask_by_thr]
-  # print(targets.shape)
+  # threshold each sequence using an arbitrary threshold
+  mask_by_thr = np.any(np.any(targets > options.threshold, axis=1), axis=-1)
   idx_filt_seqs = np.argwhere(mask_by_thr).flatten()
-  # print(idx_filt_seqs)
   num_seqs_to_add = len(idx_filt_seqs)
   current_json = open('%s/statistics.json' % options.out_dir, 'r')
   current_stats = json.load(current_json)
-  current_stats['%s_seqs'%fold_set] += num_seqs_to_add
+  current_stats['%s_seqs'%fold_set] += num_seqs_to_add # update number of seqs
 
   with open('%s/statistics.json' % options.out_dir, 'w') as stats_json_out:
     json.dump(current_stats, stats_json_out, indent=4)
