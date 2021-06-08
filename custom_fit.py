@@ -199,7 +199,8 @@ class RobustTrainer(Trainer):
   def robust_train_step(self, x, y, window_size, bin_size, verbose=False):
     """performs a training epoch with attack to inputs"""
 
-    x,y = window_crop(x, y,window_size,bin_size)  
+    x,y = window_crop(x, y,window_size,bin_size)
+    x,y = ReverseComplement(x,y)
     return self.train_step(x, y, self.metrics['train'])
 
 
@@ -428,6 +429,15 @@ class MonitorMetrics():
 #------------------------------------------------------------------------------
 # Useful functions
 #------------------------------------------------------------------------------
+def ReverseComplement(seq_1hot,label_profile,chance = 0.5):
+    rc_seq_1hot = tf.gather(seq_1hot, [3, 2, 1, 0], axis=-1)
+    rc_seq_1hot = tf.reverse(rc_seq_1hot, axis=[1])
+    rc_profile = tf.reverse(label_profile,axis=[1])
+    reverse_bool = tf.random.uniform(shape=[]) > (1-chance)
+    src_seq_1hot = tf.cond(reverse_bool, lambda: rc_seq_1hot, lambda: seq_1hot)
+    src_profile = tf.cond(reverse_bool, lambda: rc_profile, lambda: label_profile)
+    return src_seq_1hot, src_profile
+    
 def valid_window_crop(x,y,window_size,bin_size):
     
     #cropping return x_crop and y_crop
@@ -443,7 +453,6 @@ def valid_window_crop(x,y,window_size,bin_size):
     y_dim = y_crop.shape
     y_bin = tf.math.reduce_mean(tf.reshape(y_crop,(y_dim[0],int(window_size/bin_size),bin_size,y_dim[2])),axis = 2)
     return x_crop,y_bin
-
 
 
 def window_crop(x,y,window_size,bin_size):
