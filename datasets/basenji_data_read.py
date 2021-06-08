@@ -43,6 +43,7 @@ Read sequence values from coverage files.
 def main():
   usage = 'usage: %prog [options] <genome_cov_file> <seqs_bed_file> <seqs_cov_file>'
   parser = OptionParser(usage)
+  # add option for thresholding
   parser.add_option('-b', dest='blacklist_bed',
       help='Set blacklist nucleotides to a baseline value.')
   parser.add_option('-c', dest='clip',
@@ -148,6 +149,7 @@ def main():
     if options.crop_bp > 0:
       seq_cov_nt = seq_cov_nt[options.crop_bp:-options.crop_bp]
 
+
     # sliding window
     if options.step_bp > 0:
         if options.padding == 'same':
@@ -181,6 +183,12 @@ def main():
       seq_cov[clip_mask] = options.clip_soft + np.sqrt(seq_cov[clip_mask] - options.clip_soft)
     if options.clip is not None:
         seq_cov = np.clip(seq_cov, 0, options.clip)
+    # # threshold
+    # if options.threshold > 0:
+    #   print('Filtering using threshold {}'.format(options.threshold))
+    #   print('~~~')
+    #   print(seq_cov.shape)
+    #   print('~~~')
 
     # scale
     seq_cov = options.scale * seq_cov
@@ -189,7 +197,9 @@ def main():
       # print('LOG NORMALIZING THE DATA')
     # save
     targets_list.append(seq_cov.astype('float16'))
-
+    # print('!!!!!')
+    # print(np.array(targets_list, dtype='float16').shape)
+    # exit()
     # write
     # seqs_cov_open['targets'][si,:] = seq_cov.astype('float16')
 

@@ -21,6 +21,7 @@ import h5py
 import numpy as np
 import pdb
 import pysam
+import json
 
 from basenji_data import ModelSeq
 from dna_io import dna_1hot, dna_1hot_index
@@ -41,8 +42,11 @@ Notes:
 # main
 ################################################################################
 def main():
-  usage = 'usage: %prog [options] <fasta_file> <seqs_bed_file> <seqs_cov_dir> <tfr_file>'
+  usage = 'usage: %prog [options] <fasta_file> <seqs_bed_file> <seqs_cov_dir> <tfr_file> <fold_set>'
   parser = OptionParser(usage)
+  parser.add_option('--threshold', dest='threshold',
+      default=0, type='float',
+      help='Set a minimum threshold for activity.')
   parser.add_option('-s', dest='start_i',
       default=0, type='int',
       help='Sequence start index [Default: %default]')
@@ -61,15 +65,19 @@ def main():
   parser.add_option('--umap_tfr', dest='umap_tfr',
       default=False, action='store_true',
       help='Save umap array into TFRecords [Default: %default]')
+  parser.add_option('-o', dest='out_dir',
+      default='data_out',
+      help='Output directory [Default: %default]')
   (options, args) = parser.parse_args()
 
-  if len(args) != 4:
+  if len(args) != 5:
     parser.error('Must provide input arguments.')
   else:
     fasta_file = args[0]
     seqs_bed_file = args[1]
     seqs_cov_dir = args[2]
     tfr_file = args[3]
+    fold_set = args[4]
 
   ################################################################
   # read model sequences
@@ -120,6 +128,21 @@ def main():
     tii = options.target_start + ti
     targets[:,:,tii] = seqs_cov_open['targets'][options.start_i:options.end_i,:]
     seqs_cov_open.close()
+  threshold=10
+  mask_by_thr = np.any(np.any(targets > threshold, axis=1), axis=-1)
+  # targets = targets[mask_by_thr]
+  # print(targets.shape)
+  idx_filt_seqs = np.argwhere(mask_by_thr).flatten()
+  # print(idx_filt_seqs)
+  num_seqs_to_add = len(idx_filt_seqs)
+  current_json = open('%s/statistics.json' % options.out_dir, 'r')
+  current_stats = json.load(current_json)
+  current_stats['%s_seqs'%fold_set] += num_seqs_to_add
+
+  with open('%s/statistics.json' % options.out_dir, 'w') as stats_json_out:
+    json.dump(current_stats, stats_json_out, indent=4)
+
+  # exit()
 
   ################################################################
   # modify unmappable
@@ -127,7 +150,7 @@ def main():
   if options.umap_npy is not None and options.umap_clip < 1:
     unmap_mask = np.load(options.umap_npy)
 
-    for si in range(num_seqs):
+    for si in idx_filt_seqs:
       msi = options.start_i + si
 
       # determine unmappable null value
@@ -149,7 +172,8 @@ def main():
   tf_opts = tf.io.TFRecordOptions(compression_type='ZLIB')
 
   with tf.io.TFRecordWriter(tfr_file, tf_opts) as writer:
-    for si in range(num_seqs):
+    for si in idx_filt_seqs:
+
       msi = options.start_i + si
       mseq = model_seqs[msi]
 
