@@ -4,7 +4,9 @@ import tensorflow.keras as keras
 import numpy as np
 
 
-def basenjimod(input_shape, output_shape):
+def basenjimod(input_shape, output_shape, filtN_1=64, filtN_2=64, filt_mlt=1.125,
+               filtN_3=32, filtN_4=64, kern_1=15, kern_2=5, kern_3=5, kern_4=3,
+               kern_5=1):
     """
     Basenji model turned into a single function.
     inputs (None, seq_length, 4)
@@ -19,30 +21,30 @@ def basenjimod(input_shape, output_shape):
     l_bin = L // n_bins
     n_conv_tower, add_2max = layer_dict[l_bin]
 #     n_conv_tower = np.log2(32)
-    print(l_bin, n_conv_tower, add_2max)
+    # print(l_bin, n_conv_tower, add_2max)
     sequence = tf.keras.Input(shape=input_shape, name='sequence')
 
-    current = conv_block(sequence, filters=64, kernel_size=15, activation='gelu', activation_end=None,
+    current = conv_block(sequence, filters=filtN_1, kernel_size=kern_1, activation='gelu', activation_end=None,
         strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
         pool_size=8, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
         kernel_initializer='he_normal', padding='same')
 
-    current, rep_filters = conv_tower(current, filters_init=64, filters_mult=1.125, repeat=n_conv_tower,
-        pool_size=4, kernel_size=5, batch_norm=True, bn_momentum=0.9,
+    current, rep_filters = conv_tower(current, filters_init=filtN_2, filters_mult=filt_mlt, repeat=n_conv_tower,
+        pool_size=4, kernel_size=kern_2, batch_norm=True, bn_momentum=0.9,
         activation='gelu')
 
     if add_2max:
-        n_filters = int(np.round(rep_filters*1.125))
-        current = conv_block(current, filters=n_filters, kernel_size=5, activation='gelu', activation_end=None, #changed filter size 5
+        n_filters = int(np.round(rep_filters*filt_mlt))
+        current = conv_block(current, filters=n_filters, kernel_size=kern_3, activation='gelu', activation_end=None, #changed filter size 5
             strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
             pool_size=2, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
             kernel_initializer='he_normal', padding='same')
 
-    current = dilated_residual(current, filters=32, kernel_size=3, rate_mult=2,
+    current = dilated_residual(current, filters=filtN_3, kernel_size=kern_4, rate_mult=2,
         conv_type='standard', dropout=0.25, repeat=2, round=False, # repeat=4 TODO:figure out scaling factor for the number of repeats
         activation='gelu', batch_norm=True, bn_momentum=0.9)
 
-    current = conv_block(current, filters=64, kernel_size=1, activation='gelu',
+    current = conv_block(current, filters=filtN_4, kernel_size=kern_5, activation='gelu',
         dropout=0.05, batch_norm=True, bn_momentum=0.9)
 
     outputs = dense_layer(current, n_exp, activation='softplus',
@@ -454,13 +456,15 @@ class GELU(tf.keras.layers.Layer):
         # return tf.keras.activations.sigmoid(1.702 * x) * x
         return tf.keras.activations.sigmoid(tf.constant(1.702) * x) * x
 
-def bpnet(input_shape,output_shape,strand_num = 1):
+def bpnet(input_shape, output_shape, strand_num=1, filtN_1=64, filtN_2=64, kern_1=25, kern_2=3):
     window_size = int(input_shape[0]/output_shape[0])
     #body
     input = keras.layers.Input(shape=input_shape)
-    x = keras.layers.Conv1D(64,kernel_size=25,padding ='same',activation = 'relu')(input)
+    x = keras.layers.Conv1D(filtN_1, kernel_size=kern_1, padding='same',
+                            activation='relu')(input)
     for i in range(1,10):
-        conv_x = keras.layers.Conv1D(64,kernel_size = 3, padding = 'same', activation = 'relu', dilation_rate = 2**i)(x)
+        conv_x = keras.layers.Conv1D(filtN_2,kernel_size=kern_2, padding='same',
+                                     activation='relu', dilation_rate=2**i)(x)
         x = keras.layers.Add()([conv_x,x])
 
     bottleneck = x
@@ -471,7 +475,7 @@ def bpnet(input_shape,output_shape,strand_num = 1):
         px = keras.layers.Reshape((-1,1,64))(bottleneck)
         px = keras.layers.Conv2DTranspose(strand_num,kernel_size = (25,1),padding = 'same')(px)
         px = keras.layers.Reshape((-1,strand_num))(px)
-        px = keras.layers.AveragePooling1D(pool_size = window_size, strides = None,padding = 'valid')(px) 
+        px = keras.layers.AveragePooling1D(pool_size = window_size, strides = None,padding = 'valid')(px)
         outputs.append(px)
 
     outputs = tf.keras.layers.concatenate(outputs)
