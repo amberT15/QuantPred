@@ -3,7 +3,8 @@
 import time
 from packaging import version
 import pdb
-
+from wandb.keras import WandbCallback
+from wandb_callbacks import *
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.ops import math_ops
@@ -77,7 +78,7 @@ class Trainer:
                     metrics=model_metrics)
     self.compiled = True
 
-  def fit_keras(self, seqnn_model):
+  def fit_keras(self, seqnn_model, callbacks=[]):
     if not self.compiled:
       self.compile(seqnn_model)
 
@@ -88,24 +89,24 @@ class Trainer:
     #                                                  save_best_only=True, mode='min',
     #                                                  monitor='val_loss', verbose=1)
     # else:
-    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss',
-                                                         factor=0.2, # TODO .2
-                                                         patience=3, # 3
-                                                         min_lr=1e-7,
-                                                         mode='min',
-                                                         verbose=1)
-    early_stop = EarlyStoppingMin(monitor='val_pearsonr', mode='max', verbose=1,
-                       patience=self.patience, min_epoch=self.train_epochs_min)
-    save_best = tf.keras.callbacks.ModelCheckpoint(self.model_path,
-                                                     save_best_only=True, mode='max',
-                                                     monitor='val_pearsonr', verbose=1)
+    # wandb_callback = WandbCallback()
+    # save_callback = ModelCheckpoint(os.path.join(wandb.run.dir, "best_model.tf"), save_weights_only=True, save_best_only=True)
+    # if no callbacks set to default
+    if len(callbacks)==0:
+        reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss',
+                                                             factor=0.2, # TODO .2
+                                                             patience=3, # 3
+                                                             min_lr=1e-7,
+                                                             mode='min',
+                                                             verbose=1)
+        early_stop = EarlyStoppingMin(monitor='val_pearsonr', mode='max', verbose=1,
+                           patience=self.patience, min_epoch=self.train_epochs_min)
+        save_best = tf.keras.callbacks.ModelCheckpoint(self.model_path,
+                                                         save_best_only=True, mode='max',
+                                                         monitor='val_pearsonr', verbose=1)
 
-    callbacks = [
-      early_stop,
-      reduce_lr,
-      # tf.keras.callbacks.TensorBoard(self.out_dir),
-      # tf.keras.callbacks.ModelCheckpoint('%s/model_check.h5'%self.out_dir),
-      save_best]
+        callbacks = [early_stop, reduce_lr, save_best]
+
 
     history = seqnn_model.fit(
       self.train_data[0].dataset,
@@ -115,6 +116,7 @@ class Trainer:
       validation_data=self.eval_data[0].dataset,
       validation_steps=self.eval_epoch_batches[0])
     self.history = history
+    return self.history
 
 
 
@@ -132,12 +134,9 @@ class Trainer:
     # optimizer
     # optimizer_type = optimizer
     if self.optimizer == 'adam':
-        pass
-    #   self.optimizer = tf.keras.optimizers.Adam(
-    #       learning_rate=lr_schedule,
-    #       beta_1=self.params.get('adam_beta1',0.9),
-    #       beta_2=self.params.get('adam_beta2',0.999),
-    #       clipnorm=clip_norm)
+
+      self.optimizer = tf.keras.optimizers.Adam(
+          learning_rate=self.learning_rate)
 
     elif self.optimizer in ['sgd', 'momentum']:
       self.optimizer = tf.keras.optimizers.SGD(
