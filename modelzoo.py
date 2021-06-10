@@ -5,12 +5,29 @@ import numpy as np
 
 
 def basenjimod(input_shape, output_shape, filtN_1=64, filtN_2=64, filt_mlt=1.125,
-               filtN_3=32, filtN_4=64, kern_1=15, kern_2=5, kern_3=5, kern_4=3,
-               kern_5=1):
+               filtN_4=32, filtN_5=64, kern_1=15, kern_2=5, kern_3=5, kern_4=3,
+               kern_5=1, filtN_list=None, drp1=0, drp2=0, drp3=0, drp4=0.25,
+               drp5=0.05, drp_off=False):
+               # learning rate [0.001, 0.004, 0.0004] do not so for now set to 0.001,
+               # dropout [0, 0.1, 0.2] add to grid, remove kern size
+               # filtN_1 [64, 128] do not decrease (do not do 128 -> 64)
+               # filtN_2 [64, 128, 256]
+               # filtN_3 [64, 128, 256]
+               # filtN_4 [64, 128, 256, 512, 1024]
     """
     Basenji model turned into a single function.
     inputs (None, seq_length, 4)
     """
+    if filtN_list:
+        print('Using set of filter sizes for hyperparameter search')
+        filt_drp_dict = {64: 0.1, 128: 0.2, 256: 0.3, 512: 0.4, 1024: 0.5}
+        filtN_1, filtN_2, filtN_4, filtN_5 = filtN_list
+        if drp_off:
+            drp1 = drp2 = drp4 = drp5 = 0
+        else:
+            drp1, drp2, drp4, drp5  = [filt_drp_dict[f] for f in filtN_list]
+
+
     # dict for choosing number of maxpools based on output shape
     layer_dict = {32: [1, False], # if bin size 32 add 1 maxpool and no maxpool of size 2
                   64: [1, True], # if bin size 64 add 1 maxpool and 1 maxpool of size 2
@@ -25,34 +42,37 @@ def basenjimod(input_shape, output_shape, filtN_1=64, filtN_2=64, filt_mlt=1.125
     sequence = tf.keras.Input(shape=input_shape, name='sequence')
 
     current = conv_block(sequence, filters=filtN_1, kernel_size=kern_1, activation='gelu', activation_end=None,
-        strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
+        strides=1, dilation_rate=1, l2_scale=0, dropout=drp1, conv_type='standard', residual=False,
         pool_size=8, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
         kernel_initializer='he_normal', padding='same')
 
     current, rep_filters = conv_tower(current, filters_init=filtN_2, filters_mult=filt_mlt, repeat=n_conv_tower,
-        pool_size=4, kernel_size=kern_2, batch_norm=True, bn_momentum=0.9,
+        pool_size=4, kernel_size=kern_2, dropout=drp2, batch_norm=True, bn_momentum=0.9,
         activation='gelu')
 
     if add_2max:
-        n_filters = int(np.round(rep_filters*filt_mlt))
-        current = conv_block(current, filters=n_filters, kernel_size=kern_3, activation='gelu', activation_end=None, #changed filter size 5
-            strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
+        filtN_3 = int(np.round(rep_filters*filt_mlt))
+        if filtN_list:
+            filt_drp_dict = {64: 0.1, 128: 0.2, 256: 0.3, 512: 0.4, 1024: 0.5}
+            drp3 = filt_drp_dict[filtN_3]
+        current = conv_block(current, filters=filtN_3, kernel_size=kern_3, activation='gelu', activation_end=None, #changed filter size 5
+            strides=1, dilation_rate=1, l2_scale=0, dropout=drp3, conv_type='standard', residual=False,
             pool_size=2, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
             kernel_initializer='he_normal', padding='same')
 
-    current = dilated_residual(current, filters=filtN_3, kernel_size=kern_4, rate_mult=2,
-        conv_type='standard', dropout=0.25, repeat=2, round=False, # repeat=4 TODO:figure out scaling factor for the number of repeats
+    current = dilated_residual(current, filters=filtN_4, kernel_size=kern_4, rate_mult=2,
+        conv_type='standard', dropout=drp4, repeat=2, round=False, # repeat=4 TODO:figure out scaling factor for the number of repeats
         activation='gelu', batch_norm=True, bn_momentum=0.9)
 
-    current = conv_block(current, filters=filtN_4, kernel_size=kern_5, activation='gelu',
-        dropout=0.05, batch_norm=True, bn_momentum=0.9)
+    current = conv_block(current, filters=filtN_5, kernel_size=kern_5, activation='gelu',
+        dropout=drp5, batch_norm=True, bn_momentum=0.9)
 
     outputs = dense_layer(current, n_exp, activation='softplus',
         batch_norm=True, bn_momentum=0.9)
 
 
     model = tf.keras.Model(inputs=sequence, outputs=outputs)
-    # print(model.summary())
+
     return model
 
 
@@ -456,7 +476,11 @@ class GELU(tf.keras.layers.Layer):
         # return tf.keras.activations.sigmoid(1.702 * x) * x
         return tf.keras.activations.sigmoid(tf.constant(1.702) * x) * x
 
-def bpnet(input_shape, output_shape, strand_num=1, filtN_1=64, filtN_2=64, kern_1=25, kern_2=3):
+def bpnet(input_shape, output_shape, strand_num=1, filtN_1=64, filtN_2=64,
+          kern_1=25, kern_2=3, kern_3=25):
+    # filtN_2 [64, 128, 256]
+    # filtN_1 [64, 128]
+    # trnaspose kernel_size [7, 17, 25]
     window_size = int(input_shape[0]/output_shape[0])
     #body
     input = keras.layers.Input(shape=input_shape)
@@ -472,10 +496,12 @@ def bpnet(input_shape, output_shape, strand_num=1, filtN_1=64, filtN_2=64, kern_
     #heads
     outputs = []
     for task in range(0,output_shape[1]):
-        px = keras.layers.Reshape((-1,1,64))(bottleneck)
-        px = keras.layers.Conv2DTranspose(strand_num,kernel_size = (25,1),padding = 'same')(px)
+        px = keras.layers.Reshape((-1,1,filtN_2))(bottleneck)
+        px = keras.layers.Conv2DTranspose(strand_num,kernel_size=(kern_3, 1),
+                                          padding='same')(px)
         px = keras.layers.Reshape((-1,strand_num))(px)
-        px = keras.layers.AveragePooling1D(pool_size = window_size, strides = None,padding = 'valid')(px)
+        px = keras.layers.AveragePooling1D(pool_size=window_size, strides=None,
+                                           padding='valid')(px)
         outputs.append(px)
 
     outputs = tf.keras.layers.concatenate(outputs)

@@ -38,7 +38,9 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   with open(json_path) as json_file:
     params = json.load(json_file)
   model = model((window_size, 4),(output_len, params['num_targets']), **kwargs)
-  print(model.summary())
+  model_summary = open(os.path.join(output_dir, 'model_summary.txt'), 'w')
+  model.summary(print_fn=lambda x: model_summary.write(x + '\n'))
+  model_summary.close()
   train_seq_len = params['train_seqs']
 
   # create trainer class
@@ -130,9 +132,11 @@ def load_data(data_dir, batch_size):
   return (train_data, eval_data, test_data)
 
 def main():
-	sweep_id = 'toneyan/tune_bpnet/0cvlt5ho'
-	wandb.login()
-	wandb.agent(sweep_id, train_config, count=18)
+  exp_id = sys.argv[1]
+  exp_n = sys.argv[2]
+  sweep_id = 'toneyan/'+exp_id
+  wandb.login()
+  wandb.agent(sweep_id, train_config, count=exp_n)
 
 # __main__
 ################################################################################
