@@ -28,7 +28,7 @@ import numpy as np
 
 
 
-def dna_1hot(seq, seq_len=None, n_uniform=False):
+def dna_1hot(seq, seq_len=None, n_uniform=False, n_random=False):
   """ dna_1hot
 
     Args:
@@ -74,7 +74,7 @@ def dna_1hot(seq, seq_len=None, n_uniform=False):
       else:
         if n_uniform:
           seq_code[i, :] = 0.25
-        else:
+        elif n_random:
           ni = random.randint(0,3)
           seq_code[i, ni] = 1
 

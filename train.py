@@ -21,7 +21,7 @@ def main():
     parser.add_option('-o', dest='out_dir', default='.', help='Output where model and pred will be saved')
     parser.add_option('-e', dest='n_epochs', default=100, type='int', help='N epochs [Default: %default]')
     parser.add_option('-p', dest='earlystop_p', default=6, type='int', help='Early stopping patience [Default: %default]') # TODO: 6
-    parser.add_option('-l', dest='l_rate', default=0.004, type='float', help='learning rate [Default: %default]')
+    parser.add_option('-l', dest='l_rate', default=0.001, type='float', help='learning rate [Default: %default]')
     (options,args) = parser.parse_args()
 
     if len(args) != 3:
@@ -50,7 +50,9 @@ def main():
 
     print('Input size is {}, number of TFs is {}'.format(input_size, num_targets))
     model_fn = eval(model_name_str) # get model function from model zoo
-    loss_fn = eval(loss_type_str) # get loss from loss.py
+    # if loss_fn == 'poisson_direct':
+    #     loss_fn =
+    loss_fn = eval(loss_type_str)() # get loss from loss.py
     seqnn_model = model_fn((input_size, 4), (output_length, num_targets))
     # define paths to save outputs
     data_folder = os.path.basename(os.path.normpath(data_dir))
