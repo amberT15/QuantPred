@@ -23,12 +23,12 @@ from wandb_callbacks import *
 def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
                num_epochs=100, batch_size=64, shuffle=True, output_dir='.',
                metrics=['mse','pearsonr', 'poisson'], mix_epoch=50,  es_start_epoch=50,
-               l_rate=0.004, es_patience=6, es_metric='val_loss',
+               l_rate=0.001, es_patience=6, es_metric='val_loss',
                es_criterion='min', lr_decay=0.3, lr_patience=10,
                lr_metric='val_loss', lr_criterion='min', verbose = True, **kwargs):
 
-  if not os.path.isdir(data_dir):
-      os.mkdir(data_dir)
+  if not os.path.isdir(output_dir):
+      os.mkdir(output_dir)
 
   optimizer = tf.keras.optimizers.Adam(learning_rate=l_rate)
   model = eval(model_name_str) # get model function from model zoo
