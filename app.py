@@ -9,11 +9,23 @@ import h5py
 import numpy as np
 import plotly.express as px
 import flask
+import scipy.stats
 
 DATA_DIR='/home/shush/profile/QuantPred/datasets/ATAC_v2/grid5/pred_i_3072_w_128_bpnet_fftmse.h5'
 CELL_LINE=1
 server = flask.Flask(__name__)
 app = dash.Dash(__name__, server=server)
+
+def np_mse(a, b):
+    return ((a - b)**2)
+
+def scipy_pr(y_true, y_pred):
+
+    pr = scipy.stats.pearsonr(y_true, y_pred)[0]
+    return pr
+
+def np_poiss(y_true, y_pred):
+    return y_pred - y_true * np.log(y_pred)
 
 def get_data(pred, cell_line=1):
     # pred = '/home/shush/profile/QuantPred/datasets/ATAC_v2/grid5/pred_i_3072_w_128_bpnet_fftmse.h5'
@@ -51,6 +63,8 @@ app.layout = html.Div([
 
     ])
 
+
+
 @app.callback(
     dash.dependencies.Output('profile', 'figure'),
     [dash.dependencies.Input('predictions', 'hoverData')])
@@ -59,9 +73,17 @@ def update_profile(hoverData, pred=DATA_DIR, cell_line=CELL_LINE):
     x = hoverData['points'][0]['x']
     y = hoverData['points'][0]['y']
     seq_n = np.where(data['avg']==[x, y])[0][0]
-
-    fig = px.line(x=np.arange(len(data['raw'][0][seq_n,:])), y = data['raw'][0][seq_n,:], title="Coverage")
-    fig.add_scatter(x=np.arange(len(data['raw'][1][seq_n,:])), y = data['raw'][1][seq_n,:])
+    pr = scipy_pr(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:])
+    fig = px.line(x=np.arange(len(data['raw'][0][seq_n,:])),
+                  y = data['raw'][0][seq_n,:], title="Coverage")
+    fig.add_scatter(x=np.arange(len(data['raw'][1][seq_n,:])),
+                    y = data['raw'][1][seq_n,:], name='Predicted, pr={}'.format(np.around(pr,3)))
+    fig.add_scatter(x=np.arange(len(data['raw'][1][seq_n,:])),
+                    y = np_mse(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:]),
+                    name='MSE')
+    fig.add_scatter(x=np.arange(len(data['raw'][1][seq_n,:])),
+                    y = np_poiss(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:]),
+                    name='Poisson loss')
     # fig.add_vrect( x0=0, x1=2, fillcolor="LightSalmon", opacity=0.5, layer="below", line_width=0)
     fig.update_layout()
     return fig
