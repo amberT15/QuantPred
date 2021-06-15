@@ -194,7 +194,7 @@ def main():
     chrom_contigs = genome.load_chromosomes(fasta_file)
 
     # remove gaps
-    if options.gaps_file:
+    if options.gaps_file and options.gaps_file!='none':
       chrom_contigs = genome.split_contigs(chrom_contigs,
                                            options.gaps_file)
 
@@ -425,8 +425,9 @@ def main():
   # write TF Records
   ################################################################
   # start the stats json so that data_write updates it on the fly
-  with open('%s/statistics.json' % options.out_dir, 'w') as stats_json_out:
-    json.dump({'%s_seqs'%k:0 for k in fold_labels}, stats_json_out, indent=4)
+  # with open('%s/statistics.json' % options.out_dir, 'w') as stats_json_out:
+  #   json.dump({'%s_seqs'%k:0 for k in fold_labels}, stats_json_out, indent=4)
+
   # copy targets file
   shutil.copy(targets_file, '%s/targets.txt' % options.out_dir)
 
@@ -493,9 +494,9 @@ def main():
   ################################################################
   # stats
   ################################################################
-  current_json = open('%s/statistics.json' % options.out_dir, 'r')
-  stats_dict = json.load(current_json)
-  # stats_dict = {}
+  # current_json = open('%s/statistics.json' % options.out_dir, 'r')
+  # stats_dict = json.load(current_json)
+  stats_dict = {}
   stats_dict['num_targets'] = targets_df.shape[0]
   stats_dict['seq_length'] = options.seq_length
   stats_dict['pool_width'] = options.pool_width
@@ -514,9 +515,22 @@ def main():
   for i in range(10):
     print('~~~')
 
+  for fold_set in fold_labels:
+    count_dir = os.path.join(options.out_dir, 'counts')
+    count = 0
+    for count_file in os.listdir(count_dir):
+      if fold_set in count_file:
+        with open(os.path.join(count_dir, count_file)) as f:
+          add_number = int(f.readline())
+        count += add_number
+    stats_dict['%s_seqs' % fold_set] = count
+
 
   with open('%s/statistics.json' % options.out_dir, 'w') as stats_json_out:
     json.dump(stats_dict, stats_json_out, indent=4)
+
+  os.rmdir(count_dir)
+
 
 
 ################################################################################
