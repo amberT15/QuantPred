@@ -505,8 +505,46 @@ def bpnet(input_shape, output_shape, strand_num=1, filtN_1=64, filtN_2=64,
         outputs.append(px)
 
     outputs = tf.keras.layers.concatenate(outputs)
-    outputs = keras.layers.Reshape((output_shape))(outputs)
+    #outputs = keras.layers.Reshape((output_shape))(outputs)
     model = keras.models.Model([input],outputs)
+    return model
+
+def ori_bpnet(input_shape, output_shape, strand_num=1, filtN_1=64, filtN_2=64,
+          kern_1=25, kern_2=3, kern_3=25):
+
+    #body
+    window_size = int(input_shape[0]/output_shape[0])
+    input = keras.layers.Input(shape=input_shape)
+    x = keras.layers.Conv1D(filtN_1, kernel_size=kern_1, padding='same',
+                            activation='relu')(input)
+    for i in range(1,10):
+        conv_x = keras.layers.Conv1D(filtN_2,kernel_size=kern_2, padding='same',
+                                     activation='relu', dilation_rate=2**i)(x)
+        x = keras.layers.Add()([conv_x,x])
+
+    bottleneck = x
+
+    #heads
+    profile_outputs = []
+    count_outputs = []
+    for task in range(0,output_shape[1]):
+        #profile shape head
+        px = keras.layers.Reshape((-1,1,filtN_2))(bottleneck)
+        px = keras.layers.Conv2DTranspose(strand_num,kernel_size=(kern_3, 1),
+                                          padding='same')(px)
+        px = keras.layers.Reshape((-1,strand_num))(px)
+        px = keras.layers.AveragePooling1D(pool_size=window_size, strides=None,
+                                           padding='valid')(px)
+        profile_outputs.append(px)
+        #total counts head
+        cx = keras.layers.GlobalAvgPool1D()(bottleneck)
+        count_outputs.append(keras.layers.Dense(strand_num)(cx))
+
+    profile_outputs = tf.keras.layers.concatenate(profile_outputs)
+    #profile_outputs = tf.transpose(profile_outputs, [1,2,0],name = 'profile_shape')
+
+    count_outputs = tf.transpose(count_outputs,[1,2,0])
+    model = keras.models.Model([input],[profile_outputs,count_outputs])
     return model
 
 def lstm(input_shape,output_shape):

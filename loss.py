@@ -15,8 +15,8 @@ class fftmse(tf.keras.losses.Loss):
         fft_diff = tf.math.subtract(fft_y, fft_pred)
         fft_diff = tf.dtypes.cast(fft_diff, 'float32')
         return tf.math.square(fft_diff)
-    
-    
+
+
 class poisson(tf.keras.losses.Loss):
     def __init__(self, name="poisson"):
         super().__init__(name=name)
@@ -24,7 +24,7 @@ class poisson(tf.keras.losses.Loss):
     def call(self, y_true, y_pred):
         return tf.keras.losses.poisson(y_true, y_pred)
 
-    
+
 class fftabs(tf.keras.losses.Loss):
     def __init__(self, name="fftabs"):
         super().__init__(name=name)
@@ -43,8 +43,8 @@ class mse(tf.keras.losses.Loss):
         super().__init__(name=name)
 
     def call(self, y_true, y_pred):
-        return tf.keras.losses.MSE(y_true,y_pred)    
-    
+        return tf.keras.losses.MSE(y_true,y_pred)
+
 class multinomialnll(tf.keras.losses.Loss):
     def __init__(self, name="multinomial"):
         super().__init__(name=name)
@@ -58,7 +58,61 @@ class multinomialnll(tf.keras.losses.Loss):
         # get the sequence length for normalization
         seqlen = tf.cast(tf.shape(y_true)[0],dtype=tf.float32)
         return -tf.reduce_sum(dist.log_prob(true_counts_perm)) / seqlen
-    
+
+class multinomialnll_mse(tf.keras.losses.Loss):
+    def __init__(self, name="multinomial_mse"):
+        super().__init__(name=name)
+
+    def call(self, y_true, y_pred):
+        #multinomial part of loss function
+        logits_perm = tf.transpose(y_pred[0], (0, 2, 1))
+        true_counts_perm = tf.transpose(y_true[0], (0, 2, 1))
+        counts_per_example = tf.reduce_sum(true_counts_perm, axis=-1)
+        dist = tfp.distributions.Multinomial(total_count=counts_per_example,
+                                                logits=logits_perm)
+        # get the sequence length for normalization
+        seqlen = tf.cast(tf.shape(y_true[0])[0],dtype=tf.float32)
+        mult_loss = -tf.reduce_sum(dist.log_prob(true_counts_perm)) / seqlen
+
+        #MSE part of loss function
+        mse_loss = tf.keras.losses.MSE(y_true[1], y_pred[1])
+
+        #sum with weight
+        total_loss = mult_loss + 10*mse_loss
+
+        return total_loss
+
+
+
+class log_multinomialnll_mse(tf.keras.losses.Loss):
+    def __init__(self, name="multinomial"):
+        super().__init__(name=name)
+
+    def call(self, y_true, y_pred, true_cov, pred_cov):
+        #do log on all inputs
+        y_true = tf.math.log(y_true)
+        y_pred = tf.math.log(y_pred)
+        true_cov = tf.math.log(true_cov)
+        pred_cov = tf.math.log(pred_cov)
+
+        #multinomial part of loss function
+        logits_perm = tf.transpose(y_pred, (0, 2, 1))
+        true_counts_perm = tf.transpose(y_true, (0, 2, 1))
+        counts_per_example = tf.reduce_sum(true_counts_perm, axis=-1)
+        dist = tfp.distributions.Multinomial(total_count=counts_per_example,
+                                                logits=logits_perm)
+        # get the sequence length for normalization
+        seqlen = tf.cast(tf.shape(y_true)[0],dtype=tf.float32)
+        mult_loss = -tf.reduce_sum(dist.log_prob(true_counts_perm)) / seqlen
+
+        #MSE part of loss function
+        mse_loss = tf.keras.losses.MSE(true_cov, pred_cov)
+
+        #sum with weight
+        total_loss = mult_loss + 10*mse_loss
+
+        return total_loss
+
 class basenjipearsonr (tf.keras.losses.Loss):
     def __init__(self, name="basenjipearsonr"):
         super().__init__(name=name)
@@ -92,8 +146,8 @@ class basenjipearsonr (tf.keras.losses.Loss):
 
 
         return -tf.reduce_mean(correlation)
-    
-    
+
+
 class r2 (tf.keras.losses.Loss):
     def __init__(self, name="r2"):
         super().__init__(name=name)
@@ -122,8 +176,8 @@ class r2 (tf.keras.losses.Loss):
         r2 = tf.ones_like(shape, dtype=tf.float32) - tf.divide(resid, total)
         return -tf.reduce_mean(r2)
 
-    
-    
+
+
 def logthis(func):
     def wrapper(y_true,y_pred, metric=False):
         if metric:
@@ -131,4 +185,3 @@ def logthis(func):
             y_pred = tf.math.log(y_pred)
         return func(y_true,y_pred)
     return wrapper
-
