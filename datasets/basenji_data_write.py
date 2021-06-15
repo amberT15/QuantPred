@@ -16,7 +16,7 @@
 from optparse import OptionParser
 import os
 import sys
-
+import uuid
 import h5py
 import numpy as np
 import pdb
@@ -132,32 +132,46 @@ def main():
   mask_by_thr = np.any(np.any(targets > options.threshold, axis=1), axis=-1)
   idx_filt_seqs = np.argwhere(mask_by_thr).flatten()
   num_seqs_to_add = len(idx_filt_seqs)
-  current_json = open('%s/statistics.json' % options.out_dir, 'r')
-  current_stats = json.load(current_json)
-  current_stats['%s_seqs'%fold_set] += num_seqs_to_add # update number of seqs
+  for i in range(5):
+    print('*')
+  print(num_seqs_to_add)
+  for i in range(5):
+    print('*')
+  # current_json = open('%s/statistics.json' % options.out_dir, 'r')
+  # current_stats = json.load(current_json)
+  # current_stats['%s_seqs'%fold_set] += num_seqs_to_add # update number of seqs
 
-  with open('%s/statistics.json' % options.out_dir, 'w') as stats_json_out:
-    json.dump(current_stats, stats_json_out, indent=4)
+  # with open('%s/statistics.json' % options.out_dir, 'w') as stats_json_out:
+  #   json.dump(current_stats, stats_json_out, indent=4)
 
-  # exit()
+  count_dir = os.path.join(options.out_dir, 'counts')
+  if not os.path.isdir(count_dir):
+    os.mkdir(count_dir)
+  file_id = fold_set+'_'+uuid.uuid4().hex
+  file_path = os.path.join(count_dir, file_id)
+  f = open(file_path, 'w')
+  f.write(str(num_seqs_to_add))
+  f.close()
+
+
 
   ################################################################
   # modify unmappable
-
-  if options.umap_npy is not None and options.umap_clip < 1:
-    unmap_mask = np.load(options.umap_npy)
-
-    for si in idx_filt_seqs:
-      msi = options.start_i + si
-
-      # determine unmappable null value
-      seq_target_null = np.percentile(targets[si], q=[100*options.umap_clip], axis=0)[0]
-
-      # set unmappable positions to null
-      targets[si,unmap_mask[msi,:],:] = np.minimum(targets[si,unmap_mask[msi,:],:], seq_target_null)
-
-  elif options.umap_npy is not None and options.umap_tfr:
-    unmap_mask = np.load(options.umap_npy)
+  #
+  # if options.umap_npy is not None and options.umap_clip < 1:
+  #   unmap_mask = np.load(options.umap_npy)
+  #
+  #   for si in idx_filt_seqs:
+  #     msi = options.start_i + si
+  #
+  #     # determine unmappable null value
+  #     seq_target_null = np.percentile(targets[si], q=[100*options.umap_clip], axis=0)[0]
+  #
+  #     # set unmappable positions to null
+  #     targets[si,unmap_mask[msi,:],:] = np.minimum(targets[si,unmap_mask[msi,:],:], seq_target_null)
+  #
+  # elif options.umap_npy is not None and options.umap_tfr:
+  #   unmap_mask = np.load(options.umap_npy)
 
   ################################################################
   # write TFRecords
@@ -167,7 +181,6 @@ def main():
 
   # define options
   tf_opts = tf.io.TFRecordOptions(compression_type='ZLIB')
-
   with tf.io.TFRecordWriter(tfr_file, tf_opts) as writer:
     for si in idx_filt_seqs:
 
@@ -180,9 +193,9 @@ def main():
       # one hot code
       seq_1hot = dna_1hot(seq_dna)
       # seq_1hot = dna_1hot_index(seq_dna) # more efficient, but fighting inertia
-
       # hash to bytes
       features_dict = {
+        'coordinate': feature_str('{}_{}_{}'.format(mseq.chr, mseq.start, mseq.end).encode()),
         'sequence': feature_bytes(seq_1hot),
         'target': feature_bytes(targets[si,:,:])
         }
@@ -198,11 +211,17 @@ def main():
     fasta_open.close()
 
 
+
+
 def feature_bytes(values):
   """Convert numpy arrays to bytes features."""
   values = values.flatten().tostring()
   return tf.train.Feature(bytes_list=tf.train.BytesList(value=[values]))
 
+def feature_str(values):
+  """Convert str to bytes features."""
+  # value = np.array(values)
+  return tf.train.Feature(bytes_list=tf.train.BytesList(value=[values]))
 
 def feature_floats(values):
   """Convert numpy arrays to floats features.
