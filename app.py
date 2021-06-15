@@ -24,6 +24,10 @@ def scipy_pr(y_true, y_pred):
     pr = scipy.stats.pearsonr(y_true, y_pred)[0]
     return pr
 
+def scipy_sc(a, b):
+    sc = scipy.stats.spearmanr(a, b)
+    return sc[0]
+
 def np_poiss(y_true, y_pred):
     return y_pred - y_true * np.log(y_pred)
 
@@ -74,10 +78,12 @@ def update_profile(hoverData, pred=DATA_DIR, cell_line=CELL_LINE):
     y = hoverData['points'][0]['y']
     seq_n = np.where(data['avg']==[x, y])[0][0]
     pr = scipy_pr(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:])
+    sc = scipy_sc(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:])
     fig = px.line(x=np.arange(len(data['raw'][0][seq_n,:])),
-                  y = data['raw'][0][seq_n,:], title="Coverage")
+                  y = data['raw'][0][seq_n,:], title="Coverage, Pearson R={}, Spearman corr={}".format(np.around(pr,3), np.around(sc,3)))
     fig.add_scatter(x=np.arange(len(data['raw'][1][seq_n,:])),
-                    y = data['raw'][1][seq_n,:], name='Predicted, pr={}'.format(np.around(pr,3)))
+                    y = data['raw'][1][seq_n,:],
+                    name='Predicted')
     fig.add_scatter(x=np.arange(len(data['raw'][1][seq_n,:])),
                     y = np_mse(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:]),
                     name='MSE')
