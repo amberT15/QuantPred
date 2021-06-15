@@ -44,8 +44,13 @@ def get_data(pred, cell_line=1):
 
 def create_scatter(pred=DATA_DIR, cell_line=CELL_LINE):
     data = get_data(pred, cell_line)
+    # x_min = np.min(data['avg']['true_cov'])
+    # x_max = np.max(data['avg']['true_cov'])
+    # y_min = np.min(data['avg']['pred_cov'])
+    # y_max = np.max(data['avg']['pred_cov'])
     fig = px.scatter(data['avg'], x='true_cov',
                      y='pred_cov', title='Average true vs pred', opacity=0.2)
+    fig.add_scatter(x=np.arange(0, 4), y=np.arange(0, 4), hoverinfo='skip', mode='lines')
         # sns.scatterplot(x=test_y.mean(axis=1)[:,t], y=test_pred.mean(axis=1)[:,t], alpha=0.1, ax=axs[t,m])
         # axs[t,m].plot([0,1],[0,1], transform=axs[t,m].transAxes, color='r')
     return fig
@@ -60,7 +65,9 @@ app.layout = html.Div([
     # main scatter plot panel
     html.Div([dcc.Graph(id='predictions', figure=fig)],
               style={'width': '49%', 'display': 'inline-block'}),
-    html.Div([ dcc.Graph(id='profile', figure=fig)],
+    html.Div([ dcc.Graph(id='poisson'),
+              dcc.Graph(id='mse'),
+              dcc.Graph(id='profile')],
               style={'width': '49%', 'display': 'inline-block'})
     #
     # ])
@@ -84,15 +91,51 @@ def update_profile(hoverData, pred=DATA_DIR, cell_line=CELL_LINE):
     fig.add_scatter(x=np.arange(len(data['raw'][1][seq_n,:])),
                     y = data['raw'][1][seq_n,:],
                     name='Predicted')
-    fig.add_scatter(x=np.arange(len(data['raw'][1][seq_n,:])),
-                    y = np_mse(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:]),
-                    name='MSE')
-    fig.add_scatter(x=np.arange(len(data['raw'][1][seq_n,:])),
-                    y = np_poiss(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:]),
-                    name='Poisson loss')
     # fig.add_vrect( x0=0, x1=2, fillcolor="LightSalmon", opacity=0.5, layer="below", line_width=0)
     fig.update_layout()
     return fig
+
+@app.callback(
+    dash.dependencies.Output('mse', 'figure'),
+    [dash.dependencies.Input('predictions', 'hoverData')])
+def update_profile(hoverData, pred=DATA_DIR, cell_line=CELL_LINE):
+    data = get_data(pred, cell_line)
+    x = hoverData['points'][0]['x']
+    y = hoverData['points'][0]['y']
+    seq_n = np.where(data['avg']==[x, y])[0][0]
+    pr = scipy_pr(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:])
+    sc = scipy_sc(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:])
+    fig = px.line(x=np.arange(len(data['raw'][1][seq_n,:])),
+                    y = np_mse(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:]),
+                    title='MSE')
+    # fig.add_scatter(x=np.arange(len(data['raw'][1][seq_n,:])),
+    #                 y = np_poiss(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:]),
+    #                 name='Poisson loss')
+    # fig.add_vrect( x0=0, x1=2, fillcolor="LightSalmon", opacity=0.5, layer="below", line_width=0)
+    fig.update_layout()
+    return fig
+
+@app.callback(
+    dash.dependencies.Output('poisson', 'figure'),
+    [dash.dependencies.Input('predictions', 'hoverData')])
+def update_profile(hoverData, pred=DATA_DIR, cell_line=CELL_LINE):
+    data = get_data(pred, cell_line)
+    x = hoverData['points'][0]['x']
+    y = hoverData['points'][0]['y']
+    seq_n = np.where(data['avg']==[x, y])[0][0]
+    pr = scipy_pr(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:])
+    sc = scipy_sc(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:])
+    fig = px.line(x=np.arange(len(data['raw'][1][seq_n,:])),
+                    y = np_poiss(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:]),
+                    title='Poisson')
+    # fig.add_scatter(x=np.arange(len(data['raw'][1][seq_n,:])),
+    #                 y = np_poiss(data['raw'][0][seq_n,:], data['raw'][1][seq_n,:]),
+    #                 name='Poisson loss')
+    # fig.add_vrect( x0=0, x1=2, fillcolor="LightSalmon", opacity=0.5, layer="below", line_width=0)
+    fig.update_layout()
+    return fig
+
+
 # df = pd.read_csv('https://plotly.github.io/datasets/country_indicators.csv')
 #
 # available_indicators = df['Indicator Name'].unique()
