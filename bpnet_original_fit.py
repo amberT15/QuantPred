@@ -121,6 +121,7 @@ class Trainer():
   @tf.function
   def test_step(self, x, y, metrics, training=False):
     """test step for a mini-batch"""
+    preds = self.model(x, training=training)
     true_cov = tf.math.reduce_mean(y,axis=1)
     pred_cov = tf.squeeze(preds[1])
     loss = self.loss(y, preds[0],true_cov,pred_cov)
