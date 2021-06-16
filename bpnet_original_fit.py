@@ -157,7 +157,7 @@ class Trainer():
     preds = self.model(x, training=training)
     true_cov = tf.math.reduce_mean(y,axis=1)
     pred_cov = tf.squeeze(preds[1])
-    loss = self.loss(y, preds[0],true_cov,pred_cov)
+    loss = self.loss([y,true_cov], [preds[0],pred_cov])
     metrics.update_running_metrics(y, preds[0])
     return loss
 
