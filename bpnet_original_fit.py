@@ -71,16 +71,49 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   model.save(os.path.join(output_dir, "best_model.h5"))
   # print(history)
   out_pred_path = os.path.join(output_dir, 'pred.h5')
-  # test_y = util.tfr_to_np(testset, 'y', (params['test_seqs'], window_size, params['num_targets']))
-  # test_x = util.tfr_to_np(testset, 'x', (params['test_seqs'], params['seq_length'], 4))
-  for i, (x, y) in enumerate(trainset):
-    x,y = valid_window_crop(x,y,window_size,bin_size)
-  test_pred = model(x)
+
+  seqs_1hot = []
+  targets = []
+  coords_list = []
+  # collect inputs and outputs
+  for coord, x, y in testset:
+    # sequence
+    seq_raw, targets_raw = valid_window_crop(x,y,window_size,bin_size)
+
+    seq = seq_raw.numpy()
+    seqs_1hot.append(seq)
+
+    # targets
+    targets1 = targets_raw.numpy()
+    targets.append(targets1)
+
+    # coords
+    coords_list.append(coord)
+  seqs_all = np.concatenate((seqs_1hot))
+  targets_all = np.concatenate(targets)
+  coords_str_list = [[str(c).strip('b\'chr').strip('\'') for c in coords.numpy()] for coords in coords_list]
+  nonsplit_x_y = [item for sublist in coords_str_list for item in sublist]
+
+  coords_all = np.array([replace_all(item) for item in nonsplit_x_y])
+  coords_all = coords_all.astype(np.int)
+
+  test_pred = model(tf.convert_to_tensor(seqs_all))
   hf = h5py.File(out_pred_path, 'w')
-  hf.create_dataset('test_x', data=x)
-  hf.create_dataset('test_y', data=y)
+  hf.create_dataset('test_x', data=seqs_all)
+  hf.create_dataset('test_y', data=targets_all)
+  hf.create_dataset('coords', data=coords_all)
   hf.create_dataset('test_pred', data=test_pred)
   hf.close()
+  # test_y = util.tfr_to_np(testset, 'y', (params['test_seqs'], window_size, params['num_targets']))
+  # test_x = util.tfr_to_np(testset, 'x', (params['test_seqs'], params['seq_length'], 4))
+  # for i, (x, y) in enumerate(trainset):
+  #   x,y = valid_window_crop(x,y,window_size,bin_size)
+  # test_pred = model(x)
+  # hf = h5py.File(out_pred_path, 'w')
+  # hf.create_dataset('test_x', data=x)
+  # hf.create_dataset('test_y', data=y)
+  # hf.create_dataset('test_pred', data=test_pred)
+  # hf.close()
 
 
   return history
