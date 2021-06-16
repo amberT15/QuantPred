@@ -541,9 +541,8 @@ def ori_bpnet(input_shape, output_shape, strand_num=1, filtN_1=64, filtN_2=64,
         count_outputs.append(keras.layers.Dense(strand_num)(cx))
 
     profile_outputs = tf.keras.layers.concatenate(profile_outputs)
-    #profile_outputs = tf.transpose(profile_outputs, [1,2,0],name = 'profile_shape')
 
-    count_outputs = tf.transpose(count_outputs,[1,2,0])
+    count_outputs = tf.keras.layers.concatenate(count_outputs)
     model = keras.models.Model([input],[profile_outputs,count_outputs])
     return model
 
