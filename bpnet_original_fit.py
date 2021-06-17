@@ -6,11 +6,12 @@ import json, os
 from loss import *
 from modelzoo import *
 import metrics
+import h5py
 
 
 
 
-def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
+def fit_ori_bpnet_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
                num_epochs=100, batch_size=64, shuffle=True, output_dir='.',
                metrics=['mse','pearsonr', 'poisson'], mix_epoch=50,  es_start_epoch=50,
                l_rate=0.001, es_patience=6, es_metric='val_loss',
@@ -27,7 +28,7 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   loss = eval(loss_type_str)() # get loss from loss.py
   trainset = util.make_dataset(data_dir, 'train', util.load_stats(data_dir))
   validset = util.make_dataset(data_dir, 'valid', util.load_stats(data_dir))
-  testset = util.make_dataset(data_dir, 'test', util.load_stats(data_dir))
+  testset = util.make_dataset(data_dir, 'test', util.load_stats(data_dir), coords=True)
   json_path = os.path.join(data_dir, 'statistics.json')
   with open(json_path) as json_file:
     params = json.load(json_file)
@@ -94,7 +95,7 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   coords_str_list = [[str(c).strip('b\'chr').strip('\'') for c in coords.numpy()] for coords in coords_list]
   nonsplit_x_y = [item for sublist in coords_str_list for item in sublist]
 
-  coords_all = np.array([replace_all(item) for item in nonsplit_x_y])
+  coords_all = np.array([util.replace_all(item) for item in nonsplit_x_y])
   coords_all = coords_all.astype(np.int)
 
   test_pred = model(tf.convert_to_tensor(seqs_all))
@@ -102,18 +103,9 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   hf.create_dataset('test_x', data=seqs_all)
   hf.create_dataset('test_y', data=targets_all)
   hf.create_dataset('coords', data=coords_all)
-  hf.create_dataset('test_pred', data=test_pred)
+  hf.create_dataset('pred_profile', data=np.array(test_pred[0]))
+  hf.create_dataset('pred_count', data=np.array(test_pred[1]))
   hf.close()
-  # test_y = util.tfr_to_np(testset, 'y', (params['test_seqs'], window_size, params['num_targets']))
-  # test_x = util.tfr_to_np(testset, 'x', (params['test_seqs'], params['seq_length'], 4))
-  # for i, (x, y) in enumerate(trainset):
-  #   x,y = valid_window_crop(x,y,window_size,bin_size)
-  # test_pred = model(x)
-  # hf = h5py.File(out_pred_path, 'w')
-  # hf.create_dataset('test_x', data=x)
-  # hf.create_dataset('test_y', data=y)
-  # hf.create_dataset('test_pred', data=test_pred)
-  # hf.close()
 
 
   return history
