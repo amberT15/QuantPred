@@ -54,6 +54,9 @@ def main():
   parser.add_option('--threshold', dest='threshold',
       default=0, type='float',
       help='Set a minimum threshold for activity.')
+  parser.add_option('--test_threshold', dest='test_threshold',
+      type='float',
+      help='Set a minimum threshold for activity for test set.')
   parser.add_option('-b', dest='blacklist_bed',
       help='Set blacklist nucleotides to a baseline value.')
   parser.add_option('--break', dest='break_t',
@@ -142,11 +145,20 @@ def main():
         help='Padding method for sliding window approach')
   (options, args) = parser.parse_args()
 
+
+
+
   if len(args) != 2:
     parser.error('Must provide FASTA and sample coverage labels and paths.')
   else:
     fasta_file = args[0]
     targets_file = args[1]
+
+  if options.test_threshold is not None:
+      print('Using test set threshold of {}'.format(options.test_threshold))
+  else:
+      print('No test set specific threshold found, setting same as rest')
+      options.test_threshold = options.threshold
 
   random.seed(options.seed)
   np.random.seed(options.seed)
@@ -201,7 +213,7 @@ def main():
     # ditch the chromosomes for contigs
     contigs = []
     for chrom in chrom_contigs:
-      if len(chrom.split('_'))==1 and chrom!='chrM':
+      if len(chrom.split('_'))==1 and chrom not in ['chrM', 'chrX', 'chrY']:
         contigs += [Contig(chrom, ctg_start, ctg_end)
                    for ctg_start, ctg_end in chrom_contigs[chrom]]
 
@@ -467,6 +479,7 @@ def main():
       cmd += ' %s' % fold_set
       cmd += ' -o %s' % options.out_dir
       cmd += ' --threshold %f' %options.threshold
+      cmd += ' --test_threshold %f' %options.test_threshold
       if options.run_local:
         # breaks on some OS
         # cmd += ' &> %s.err' % tfr_stem
@@ -529,7 +542,7 @@ def main():
   with open('%s/statistics.json' % options.out_dir, 'w') as stats_json_out:
     json.dump(stats_dict, stats_json_out, indent=4)
 
-  os.rmdir(count_dir)
+  # os.rmdir(count_dir)
 
 
 
@@ -905,6 +918,7 @@ def divide_contigs_pct(contigs, test_pct, valid_pct, pct_abstain=0.2):
 
   return [train_contigs, valid_contigs, test_contigs]
 
+#
 
 ################################################################################
 def limit_contigs(contigs, filter_bed):

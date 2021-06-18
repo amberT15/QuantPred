@@ -60,7 +60,9 @@ echo Running basenji data processing
                     -g $genomefile_unmap \
                     -l $input_size -o $output_dir/$output_prefix -t chr8 -v chr9 \
                     -w $input_pool --local -d $input_downsample --norm $input_norm \
-                    --step $input_step --padding $input_padding -p 20 --threshold $threshold
+                    --step $input_step --padding $input_padding -p 20 --threshold $threshold \
+                    --test_threshold $test_threshold
+
 
 # scp merged_avoid_regions.bed "$output_dir/$output_prefix/"
 # rm merged_avoid_regions.bed

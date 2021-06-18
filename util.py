@@ -19,6 +19,12 @@ import tensorflow as tf
  # functions for loading tfr files into tfr dataset
  ################################################################
 
+def replace_all(text):
+    dic = {'X': '23', 'Y': '24'}
+    for i, j in dic.items():
+        text = text.replace(i, j)
+    return text.split('_')
+
 def load_stats(data_dir):
   data_stats_file = '%s/statistics.json' % data_dir
   with open(data_stats_file) as data_stats_open:
@@ -54,6 +60,7 @@ def generate_parser(seq_length, target_length, num_targets, coords):
 
     # decode sequence
     sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.uint8)
+    # sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.float16)
     sequence = tf.reshape(sequence, [seq_length, 4])
     sequence = tf.cast(sequence, tf.float32)
 

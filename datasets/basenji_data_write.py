@@ -47,6 +47,9 @@ def main():
   parser.add_option('--threshold', dest='threshold',
       default=0, type='float',
       help='Set a minimum threshold for activity.')
+  parser.add_option('--test_threshold', dest='test_threshold',
+      type='float',
+      help='Set a minimum threshold for activity for test set.')
   parser.add_option('-s', dest='start_i',
       default=0, type='int',
       help='Sequence start index [Default: %default]')
@@ -78,6 +81,9 @@ def main():
     seqs_cov_dir = args[2]
     tfr_file = args[3]
     fold_set = args[4]
+
+  if fold_set == 'test':
+      options.threshold = options.test_threshold
 
   ################################################################
   # read model sequences
@@ -196,6 +202,7 @@ def main():
       # hash to bytes
       features_dict = {
         'coordinate': feature_str('{}_{}_{}'.format(mseq.chr, mseq.start, mseq.end).encode()),
+        # 'sequence': feature_bytes(seq_1hot),
         'sequence': feature_bytes(seq_1hot),
         'target': feature_bytes(targets[si,:,:])
         }
