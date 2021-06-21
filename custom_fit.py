@@ -36,7 +36,7 @@ class Trainer():
     with tf.GradientTape() as tape:
       preds = self.model(x, training=True)
       if ori_bpnet_flag == True:
-          true_cov = tf.math.reduce_mean(y,axis=1)
+          true_cov = np.log(tf.math.reduce_sum(y,axis=1)+1)
           pred_cov = tf.squeeze(preds[1])
           loss = self.loss([y,true_cov], [preds[0],pred_cov])
       else:
@@ -55,7 +55,7 @@ class Trainer():
     preds = self.model(x, training=training)
 
     if ori_bpnet_flag == True:
-        true_cov = tf.math.reduce_mean(y,axis=1)
+        true_cov = np.log(tf.math.reduce_sum(y,axis=1)+1)
         pred_cov = tf.squeeze(preds[1])
         loss = self.loss([y,true_cov], [preds[0],pred_cov])
         metrics.update_running_metrics(y, preds[0])
