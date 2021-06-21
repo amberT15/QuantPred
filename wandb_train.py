@@ -18,7 +18,7 @@ import time
 import wandb
 from wandb.keras import WandbCallback
 from wandb_callbacks import *
-import bpnet_original_fit as bpnet_fit
+#import bpnet_original_fit as bpnet_fit
 import custom_fit
 
 # def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
@@ -112,9 +112,9 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   train_seq_len = params['train_seqs']
   if model_name_str == 'ori_bpnet':
   # create trainer class
-    trainer = bpnet_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, metrics)
+    trainer =custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, metrics,ori_bpnet_flag = True)
   else:
-    trainer = custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, metrics)
+    trainer = custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, metrics, ori_bpnet_flag = False)
 
   # set up learning rate decay
   trainer.set_lr_decay(decay_rate=lr_decay, patience=lr_patience, metric=lr_metric, criterion=lr_criterion)

@@ -59,8 +59,8 @@ def generate_parser(seq_length, target_length, num_targets, coords):
     coordinate = parsed_features[TFR_COORD]
 
     # decode sequence
-    sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.uint8)
-    # sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.float16)
+    # sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.uint8)
+    sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.float16)
     sequence = tf.reshape(sequence, [seq_length, 4])
     sequence = tf.cast(sequence, tf.float32)
 

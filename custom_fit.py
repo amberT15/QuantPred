@@ -7,110 +7,6 @@ from loss import *
 from modelzoo import *
 import metrics
 import wandb
-#------------------------------------------------------------------------------------------
-# Custom fits
-#------------------------------------------------------------------------------------------
-# def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
-#                num_epochs=100, batch_size=64, shuffle=True, output_dir='.',
-#                metrics=['mse','pearsonr', 'poisson'], mix_epoch=50,  es_start_epoch=50,
-#                l_rate=0.001, es_patience=6, es_metric='val_loss',
-#                es_criterion='min', lr_decay=0.3, lr_patience=10,
-#                lr_metric='val_loss', lr_criterion='min', verbose = True,
-#                log_wandb=True, **kwargs):
-#
-#   if not os.path.isdir(output_dir):
-#       os.mkdir(output_dir)
-#
-#   optimizer = tf.keras.optimizers.Adam(learning_rate=l_rate)
-#   model = eval(model_name_str) # get model function from model zoo
-#   output_len = window_size // bin_size
-#
-#   loss = eval(loss_type_str)() # get loss from loss.py
-#   trainset = util.make_dataset(data_dir, 'train', util.load_stats(data_dir))
-#   validset = util.make_dataset(data_dir, 'valid', util.load_stats(data_dir))
-#   testset = util.make_dataset(data_dir, 'test', util.load_stats(data_dir), coords=True)
-#   json_path = os.path.join(data_dir, 'statistics.json')
-#   with open(json_path) as json_file:
-#     params = json.load(json_file)
-#   model = model((window_size, 4),(output_len, params['num_targets']), **kwargs)
-#   print(model.summary())
-#   train_seq_len = params['train_seqs']
-#
-#   # create trainer class
-#   trainer = RobustTrainer(model, loss, optimizer, window_size, bin_size, metrics)
-#
-#   # set up learning rate decay
-#   trainer.set_lr_decay(decay_rate=lr_decay, patience=lr_patience, metric=lr_metric, criterion=lr_criterion)
-#   trainer.set_early_stopping(patience=es_patience, metric=es_metric, criterion=es_criterion)
-#
-#   # train model
-#   for epoch in range(num_epochs):
-#     sys.stdout.write("\rEpoch %d \n"%(epoch+1))
-#
-#     #Robust train with crop and bin
-#     # print('blaanot')
-#     trainer.robust_train_epoch(trainset, window_size, bin_size,num_step=train_seq_len//batch_size+1,batch_size = batch_size)
-#
-#     # validation performance
-#     trainer.robust_evaluate('val', validset,window_size, bin_size, batch_size=batch_size, verbose=verbose)
-#
-#     # check early stopping
-#     if epoch >= es_start_epoch:
-#
-#       # check learning rate decay
-#       trainer.check_lr_decay('val')
-#
-#       if trainer.check_early_stopping('val'):
-#         print("Patience ran out... Early stopping.")
-#         break
-#     if log_wandb:
-#         # Logging with W&B
-#         current_hist = trainer.get_current_metrics('train')
-#         wandb.log(trainer.get_current_metrics('val', current_hist))
-#
-#   # compile history
-#   history = trainer.get_metrics('train')
-#   history = trainer.get_metrics('val', history)
-#   model.save(os.path.join(output_dir, "best_model.h5"))
-#   # print(history)
-#   out_pred_path = os.path.join(output_dir, 'pred.h5')
-#   # test_y = util.tfr_to_np(testset, 'y', (params['test_seqs'], window_size, params['num_targets']))
-#   # test_x = util.tfr_to_np(testset, 'x', (params['test_seqs'], params['seq_length'], 4))
-#   # initialize inputs and outputs
-#   seqs_1hot = []
-#   targets = []
-#   coords_list = []
-#   # collect inputs and outputs
-#   for coord, x, y in testset:
-#     # sequence
-#     seq_raw, targets_raw = valid_window_crop(x,y,window_size,bin_size)
-#
-#     seq = seq_raw.numpy()
-#     seqs_1hot.append(seq)
-#
-#     # targets
-#     targets1 = targets_raw.numpy()
-#     targets.append(targets1)
-#
-#     # coords
-#     coords_list.append(coord)
-#   seqs_all = np.concatenate((seqs_1hot))
-#   targets_all = np.concatenate(targets)
-#   coords_str_list = [[str(c).strip('b\'chr').strip('\'') for c in coords.numpy()] for coords in coords_list]
-#   nonsplit_x_y = [item for sublist in coords_str_list for item in sublist]
-#
-#   coords_all = np.array([util.replace_all(item) for item in nonsplit_x_y])
-#   coords_all = coords_all.astype(np.int)
-#
-#   test_pred = model(tf.convert_to_tensor(seqs_all))
-#   hf = h5py.File(out_pred_path, 'w')
-#   hf.create_dataset('test_x', data=seqs_all)
-#   hf.create_dataset('test_y', data=targets_all)
-#   hf.create_dataset('coords', data=coords_all)
-#   hf.create_dataset('test_pred', data=test_pred)
-#   hf.close()
-#
-#   return history
 
 #------------------------------------------------------------------------------------------
 # Trainer class
@@ -135,22 +31,37 @@ class Trainer():
     self.metrics['test'] = MonitorMetrics(metric_names, 'test')
 
   @tf.function
-  def train_step(self, x, y, metrics):
+  def train_step(self, x, y, metrics, ori_bpnet_flag):
     """training step for a mini-batch"""
     with tf.GradientTape() as tape:
       preds = self.model(x, training=True)
-      loss = self.loss(y, preds)
+      if ori_bpnet_flag == True:
+          true_cov = tf.math.reduce_mean(y,axis=1)
+          pred_cov = tf.squeeze(preds[1])
+          loss = self.loss([y,true_cov], [preds[0],pred_cov])
+      else:
+          loss = self.loss(y, preds)
     gradients = tape.gradient(loss, self.model.trainable_variables)
     self.optimizer.apply_gradients(zip(gradients, self.model.trainable_weights))
-    metrics.update_running_metrics(y, preds)
+    if ori_bpnet_flag == True:
+        metrics.update_running_metrics(y, preds[0])
+    else:
+        metrics.update_running_metrics(y, preds)
     return loss
 
   @tf.function
-  def test_step(self, x, y, metrics, training=False):
+  def test_step(self, x, y, metrics, training=False,ori_bpnet_flag = False):
     """test step for a mini-batch"""
     preds = self.model(x, training=training)
-    loss = self.loss(y, preds)
-    metrics.update_running_metrics(y, preds)
+
+    if ori_bpnet_flag == True:
+        true_cov = tf.math.reduce_mean(y,axis=1)
+        pred_cov = tf.squeeze(preds[1])
+        loss = self.loss([y,true_cov], [preds[0],pred_cov])
+        metrics.update_running_metrics(y, preds[0])
+    else:
+        loss = self.loss(y, preds)
+        metrics.update_running_metrics(y, preds)
     return loss
 
 
@@ -251,7 +162,7 @@ class Trainer():
 class RobustTrainer(Trainer):
   """Custom robust training loop (inherits all functions/variables from Trainer)"""
 
-  def __init__(self, model, loss, optimizer, input_window, bin_size, metrics):
+  def __init__(self, model, loss, optimizer, input_window, bin_size, metrics, ori_bpnet_flag):
     #Added for data augmentation
     self.window = input_window
     self.bin = bin_size
@@ -259,6 +170,7 @@ class RobustTrainer(Trainer):
     self.model = model
     self.loss = loss
     self.optimizer = optimizer
+    self.ori_bpnet_flag = ori_bpnet_flag
 
     metric_names = []
     for metric in metrics:
@@ -273,7 +185,7 @@ class RobustTrainer(Trainer):
     """performs a training epoch with attack to inputs"""
 
     x,y = window_crop(x, y,window_size,bin_size)
-    return self.train_step(x, y, self.metrics['train'])
+    return self.train_step(x, y, self.metrics['train'],self.ori_bpnet_flag)
 
 
   def robust_train_epoch(self, trainset, window_size, bin_size, num_step, batch_size=128, shuffle=True, verbose=False, store=True):
@@ -307,7 +219,7 @@ class RobustTrainer(Trainer):
     batch_dataset = dataset
     for i, (x, y) in enumerate(batch_dataset):
       x,y = valid_window_crop(x,y,window_size,bin_size)
-      loss_batch = self.test_step(x, y, self.metrics[name], training)
+      loss_batch = self.test_step(x, y, self.metrics[name], training, self.ori_bpnet_flag)
       self.metrics[name].running_loss.append(loss_batch)
 
     # store evaluation metrics
