@@ -27,7 +27,7 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
                l_rate=0.001, es_patience=6, es_metric='val_loss',
                es_criterion='min', lr_decay=0.3, lr_patience=10,
                lr_metric='val_loss', lr_criterion='min', verbose = True,
-               log_wandb=True,rev_comp = True, crop_window = True **kwargs):
+               log_wandb=True,rev_comp = True, crop_window = True, **kwargs):
 
 
 
@@ -73,7 +73,6 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
     # validation performance
     trainer.robust_evaluate('val', validset,window_size, bin_size,
                             batch_size=batch_size, verbose=verbose,
-                            rev_comp = rev_comp,
                             crop_window = crop_window)
 
     # check early stopping
@@ -152,12 +151,13 @@ def train_config(config=None):
     history = fit_robust(config.model_fn, config.loss_fn,
                        config.window_size, config.bin_size, config.data_dir,
                        l_rate=config.l_rate, num_epochs=config.epochN,
-                       output_dir=wandb.run.dir)
+                       output_dir=wandb.run.dir, rev_comp = config.rev_comp,
+                       crop_window = config.crop_window)
 
 def main():
   exp_id = sys.argv[1]
   exp_n = sys.argv[2]
-  sweep_id = 'toneyan/'+exp_id
+  sweep_id = 'ambert/'+exp_id
   wandb.login()
   wandb.agent(sweep_id, train_config, count=exp_n)
 
