@@ -36,7 +36,7 @@ class Trainer():
     with tf.GradientTape() as tape:
       preds = self.model(x, training=True)
       if ori_bpnet_flag == True:
-          true_cov = np.log(tf.math.reduce_sum(y,axis=1)+1)
+          true_cov = tf.math.log(tf.math.reduce_sum(y,axis=1)+1)
           pred_cov = tf.squeeze(preds[1])
           loss = self.loss([y,true_cov], [preds[0],pred_cov])
       else:
@@ -55,7 +55,7 @@ class Trainer():
     preds = self.model(x, training=training)
 
     if ori_bpnet_flag == True:
-        true_cov = np.log(tf.math.reduce_sum(y,axis=1)+1)
+        true_cov = tf.math.log(tf.math.reduce_sum(y,axis=1)+1)
         pred_cov = tf.squeeze(preds[1])
         loss = self.loss([y,true_cov], [preds[0],pred_cov])
         metrics.update_running_metrics(y, preds[0])
@@ -71,7 +71,7 @@ class Trainer():
     # prepare data
     if shuffle:
       trainset.shuffle(buffer_size=batch_size)
-    batch_dataset = trainset.batch(batch_size)
+    batch_dataset = trainset
     num_batches = len(list(batch_dataset))
 
     # train loop over all mini-batches
