@@ -21,75 +21,13 @@ from wandb_callbacks import *
 #import bpnet_original_fit as bpnet_fit
 import custom_fit
 
-# def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
-#                num_epochs=50, batch_size=64, shuffle=True, output_dir='.',
-#                metrics=['mse','pearsonr', 'poisson'], mix_epoch=50,  es_start_epoch=50,
-#                l_rate=0.004, es_patience=6, es_metric='val_loss',
-#                es_criterion='min', lr_decay=0.3, lr_patience=10,
-#                lr_metric='val_loss', lr_criterion='min', verbose = True, **kwargs):
-#
-#   optimizer = tf.keras.optimizers.Adam(learning_rate=l_rate)
-#   model = eval(model_name_str) # get model function from model zoo
-#   output_len = window_size // bin_size
-#
-#   loss = eval(loss_type_str)() # get loss from loss.py
-#   trainset = util.make_dataset(data_dir, 'train', util.load_stats(data_dir))
-#   validset = util.make_dataset(data_dir, 'valid', util.load_stats(data_dir))
-#   json_path = os.path.join(data_dir, 'statistics.json')
-#   with open(json_path) as json_file:
-#     params = json.load(json_file)
-#   model = model((window_size, 4),(output_len, params['num_targets']), **kwargs)
-#   model_summary = open(os.path.join(output_dir, 'model_summary.txt'), 'w')
-#   model.summary(print_fn=lambda x: model_summary.write(x + '\n'))
-#   model_summary.close()
-#   train_seq_len = params['train_seqs']
-#
-#   # create trainer class
-#   trainer = RobustTrainer(model, loss, optimizer, window_size, bin_size, metrics)
-#
-#   # set up learning rate decay
-#   trainer.set_lr_decay(decay_rate=lr_decay, patience=lr_patience, metric=lr_metric, criterion=lr_criterion)
-#   trainer.set_early_stopping(patience=es_patience, metric=es_metric, criterion=es_criterion)
-#
-#   # train model
-#   for epoch in range(num_epochs):
-#     sys.stdout.write("\rEpoch %d \n"%(epoch+1))
-#
-#     #Robust train with crop and bin
-#     # print('blaanot')
-#     trainer.robust_train_epoch(trainset, window_size, bin_size,num_step=train_seq_len//batch_size+1,batch_size = batch_size)
-#
-#     # validation performance
-#     trainer.robust_evaluate('val', validset,window_size, bin_size, batch_size=batch_size, verbose=verbose)
-#
-#     # check early stopping
-#     if epoch >= es_start_epoch:
-#
-#       # check learning rate decay
-#       trainer.check_lr_decay('val')
-#
-#       if trainer.check_early_stopping('val'):
-#         print("Patience ran out... Early stopping.")
-#         break
-#     # Logging with W&B
-#     current_hist = trainer.get_current_metrics('train')
-#     wandb.log(trainer.get_current_metrics('val', current_hist))
-#
-#
-#   # compile history
-#   history = trainer.get_metrics('train')
-#   history = trainer.get_metrics('val', history)
-#   model.save(os.path.join(output_dir, "best_model.h5"))
-#   # print(history)
-#   return history
-
 def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
                num_epochs=100, batch_size=64, shuffle=True, output_dir='.',
                metrics=['mse','pearsonr', 'poisson'], mix_epoch=50,  es_start_epoch=50,
                l_rate=0.001, es_patience=6, es_metric='val_loss',
                es_criterion='min', lr_decay=0.3, lr_patience=10,
                lr_metric='val_loss', lr_criterion='min', verbose = True,
-               log_wandb=True, **kwargs):
+               log_wandb=True,rev_comp = True, crop_window = True **kwargs):
 
 
 
@@ -126,10 +64,17 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
 
     #Robust train with crop and bin
     # print('blaanot')
-    trainer.robust_train_epoch(trainset, window_size, bin_size,num_step=train_seq_len//batch_size+1,batch_size = batch_size)
+    trainer.robust_train_epoch(trainset, window_size, bin_size,
+                                num_step=train_seq_len//batch_size+1,
+                                batch_size = batch_size,
+                                rev_comp = rev_comp,
+                                crop_window = crop_window)
 
     # validation performance
-    trainer.robust_evaluate('val', validset,window_size, bin_size, batch_size=batch_size, verbose=verbose)
+    trainer.robust_evaluate('val', validset,window_size, bin_size,
+                            batch_size=batch_size, verbose=verbose,
+                            rev_comp = rev_comp,
+                            crop_window = crop_window)
 
     # check early stopping
     if epoch >= es_start_epoch:

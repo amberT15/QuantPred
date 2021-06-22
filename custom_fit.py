@@ -181,14 +181,16 @@ class RobustTrainer(Trainer):
     self.metrics['val'] = MonitorMetrics(metric_names, 'val')
     self.metrics['test'] = MonitorMetrics(metric_names, 'test')
 
-  def robust_train_step(self, x, y, window_size, bin_size, verbose=False):
+  def robust_train_step(self, x, y, window_size, bin_size, verbose=False, rev_comp = True, crop_window = True):
     """performs a training epoch with attack to inputs"""
-
-    x,y = window_crop(x, y,window_size,bin_size)
+    if crop_window:
+        x,y = window_crop(x, y,window_size,bin_size)
+    if rev_comp:
+        x,y = ReverseComplement(x,y)
     return self.train_step(x, y, self.metrics['train'],self.ori_bpnet_flag)
 
 
-  def robust_train_epoch(self, trainset, window_size, bin_size, num_step, batch_size=128, shuffle=True, verbose=False, store=True):
+  def robust_train_epoch(self, trainset, window_size, bin_size, num_step, batch_size=128, shuffle=True, verbose=False, store=True, rev_comp = True, crop_window = True):
     """performs a training epoch with attack to inputs"""
 
     # prepare dataset
@@ -202,7 +204,7 @@ class RobustTrainer(Trainer):
     start_time = time.time()
     running_loss = 0
     for i, (x, y) in enumerate(batch_dataset):
-      loss_batch = self.robust_train_step(x, y, window_size, bin_size, verbose)
+      loss_batch = self.robust_train_step(x, y, window_size, bin_size, verbose,rev_comp = rev_comp, crop_window = crop_window)
       self.metrics['train'].running_loss.append(loss_batch)
       running_loss += loss_batch
       progress_bar(i+1, num_step, start_time, bar_length=30, loss=running_loss/(i+1))
@@ -214,11 +216,12 @@ class RobustTrainer(Trainer):
       else:
         self.metrics['train'].update()
 
-  def robust_evaluate(self, name, dataset, window_size, bin_size, batch_size=128, verbose=True, training=False):
+  def robust_evaluate(self, name, dataset, window_size, bin_size, batch_size=128, verbose=True, training=False, crop_window = True):
     """Evaluate model in mini-batches"""
     batch_dataset = dataset
     for i, (x, y) in enumerate(batch_dataset):
-      x,y = valid_window_crop(x,y,window_size,bin_size)
+      if crop_window:
+          x,y = valid_window_crop(x,y,window_size,bin_size)
       loss_batch = self.test_step(x, y, self.metrics[name], training, self.ori_bpnet_flag)
       self.metrics[name].running_loss.append(loss_batch)
 
@@ -419,6 +422,15 @@ class MonitorMetrics():
 #------------------------------------------------------------------------------
 # Useful functions
 #------------------------------------------------------------------------------
+def ReverseComplement(seq_1hot,label_profile,chance = 0.5):
+    rc_seq_1hot = tf.gather(seq_1hot, [3, 2, 1, 0], axis=-1)
+    rc_seq_1hot = tf.reverse(rc_seq_1hot, axis=[1])
+    rc_profile = tf.reverse(label_profile,axis=[1])
+    reverse_bool = tf.random.uniform(shape=[]) > (1-chance)
+    src_seq_1hot = tf.cond(reverse_bool, lambda: rc_seq_1hot, lambda: seq_1hot)
+    src_profile = tf.cond(reverse_bool, lambda: rc_profile, lambda: label_profile)
+    return src_seq_1hot, src_profile
+
 def valid_window_crop(x,y,window_size,bin_size):
 
     #cropping return x_crop and y_crop
@@ -441,13 +453,17 @@ def window_crop(x,y,window_size,bin_size):
 
     #cropping return x_crop and y_crop
     x_dim = x.shape
-    indice = (np.arange(window_size) +
-    np.random.randint(low = 0,high = x_dim[1]-window_size,size = x_dim[0])[:,np.newaxis])
-    indice = indice.reshape(window_size * x_dim[0])
-    row_indice = np.repeat(range(0,x_dim[0]),window_size)
-    f_index = np.vstack((row_indice,indice)).T.reshape(x_dim[0],window_size,2)
-    x_crop = tf.gather_nd(x,f_index)
-    y_crop = tf.gather_nd(y,f_index)
+    if x_dim[1] > window_size:
+        indice = (np.arange(window_size) +
+                np.random.randint(low = 0,high = x_dim[1]-window_size,size = x_dim[0])[:,np.newaxis])
+        indice = indice.reshape(window_size * x_dim[0])
+        row_indice = np.repeat(range(0,x_dim[0]),window_size)
+        f_index = np.vstack((row_indice,indice)).T.reshape(x_dim[0],window_size,2)
+        x_crop = tf.gather_nd(x,f_index)
+        y_crop = tf.gather_nd(y,f_index)
+    elif x_dim[1] == window_size:
+        x_crop = x
+        y_crop = y
 
     y_dim = y_crop.shape
     y_bin = tf.math.reduce_mean(tf.reshape(y_crop,(y_dim[0],int(window_size/bin_size),bin_size,y_dim[2])),axis = 2)
