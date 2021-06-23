@@ -35,7 +35,6 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
       crop_window = False
 
 
-
   if skip:
       print('Fatal filter N combination!')
       exit()
@@ -104,8 +103,6 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   history = trainer.get_metrics('val', history)
   model.save(os.path.join(output_dir, "best_model.h5"))
   # print(history)
-
-
 
   if record_test==True:
       testset = util.make_dataset(data_dir, 'test', util.load_stats(data_dir), coords=True)
