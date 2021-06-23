@@ -35,6 +35,7 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
       crop_window = False
 
 
+
   if skip:
       print('Fatal filter N combination!')
       exit()
