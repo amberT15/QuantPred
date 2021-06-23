@@ -3,7 +3,7 @@ import subprocess
 import yaml, os, shutil
 
 # parameter grid to loop over
-input_size = [2048, 3072]
+input_size = [3072, 2048]
 # pool_window = [1]
 # input_size = [1024]
 # i_w = [(2048, 1)]
