@@ -28,6 +28,10 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
                es_criterion='min', lr_decay=0.3, lr_patience=10,
                lr_metric='val_loss', lr_criterion='min', verbose = True,
                log_wandb=True,rev_comp = True, crop_window = True, skip=False, **kwargs):
+  if '2048' in data_dir:
+      rev_comp = False
+      crop_window = False
+
 
   if skip:
       print('Fatal filter N combination!')
@@ -148,6 +152,7 @@ def train_config(config=None):
     config = wandb.config
     print(config.data_dir)
     print(config.l_rate)
+
     filtN_list = [config.filtN_1, config.filtN_2, config.filtN_4, config.filtN_5]
     if all(i <= j for i, j in zip(filtN_list, filtN_list[1:])):
         skip = False
