@@ -70,6 +70,10 @@ def main():
     seqnn_trainer.compile(seqnn_model)
     start = time.time()
     history = seqnn_trainer.fit_keras(seqnn_model)
+    hist_df = pd.DataFrame(history.history)
+    # or save to csv:
+    hist_csv_file = os.path.join(options.out_dir, 'history.csv')
+    hist_df.to_csv(f)
     end = time.time()
     print('Training duration: {}min'.format(str(round((end-start)/60))))
     if options.save_test:

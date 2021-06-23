@@ -25,44 +25,75 @@ eval $(parse_yaml config.yaml)
 
 o_prefix=$output_dir/$output_prefix
 mkdir -p $output_dir
-# echo Generating bed region combined file for all TFs
-# ./bed_generation.py -y -m 200 -s $input_size \
-#                   -o $o_prefix -c $genomefile_size \
-#                   $samplefile_basset
 
+#check if basset_samplefile exists
+echo ${samplefile_basset}
+if [ ${samplefile_basset} = 'random' ] || [ ${samplefile_basset} = 'Random' ]; then
+  echo Chopping randomly
+    # set avoid regions as unmap regions only
+  avoid_regions=$genomefile_unmap
+else
+  # if file present
+  if [[ -f ${samplefile_basset} ]]; then
+    echo Peak centering
+    # set avoid regions = unmap regions + non-peaks
 
-# bedfile="$o_prefix.bed"
-# sorted_bedfile="sorted_bedfile.bed"
-# sorted_genome="sorted_genome.bed"
-# echo Sorting bedfile and genome file
-# sort -k1,1 -k2,2n $bedfile > $sorted_bedfile # sort best bed
-# sort -k1,1 -k2,2n $genomefile_size > $sorted_genome # sort genome
-# get the complement of the sorted bed and the genome to get which parts to avoid
-# echo Generating bed file complementary to peak regions
-# bedtools complement -i $sorted_bedfile -g $sorted_genome > nonpeaks.bed
-# complete the avoid regions by adding unmappable
-# cat nonpeaks.bed $genomefile_unmap > avoid_regions.bed
-# sort -k1,1 -k2,2n avoid_regions.bed > sorted_avoid_regions.bed
-# echo Merging nonpeak and blacklisted regions
-# bedtools merge -i sorted_avoid_regions.bed > merged_avoid_regions.bed
+    # get merged peaks from bed files
+    echo Generating bed region combined file for all TFs
+    ./bed_generation.py -y -m 200 -s $input_size \
+                      -o $o_prefix -c $genomefile_size \
+                      $samplefile_basset
+    # sort bedfile and genomesize file
+    bedfile="$o_prefix.bed"
+    sorted_bedfile="sorted_bedfile.bed"
+    sorted_genome="sorted_genome.bed"
+    echo Sorting bedfile and genome file
+    sort -k1,1 -k2,2n $bedfile > $sorted_bedfile # sort best bed
+    sort -k1,1 -k2,2n $genomefile_size > $sorted_genome # sort genome
 
-# rm nonpeaks.bed
-# rm avoid_regions.bed
-# rm sorted_avoid_regions.bed
-# rm $sorted_genome
-# rm $sorted_bedfile
+    # get the complement of the sorted bed and the genome to get which parts to avoid
+    echo Generating bed file complementary to peak regions
+    bedtools complement -i $sorted_bedfile -g $sorted_genome > nonpeaks.bed
+    # complete the avoid regions by adding unmappable
+    cat nonpeaks.bed $genomefile_unmap > avoid_regions.bed
+    sort -k1,1 -k2,2n avoid_regions.bed > sorted_avoid_regions.bed
+    echo Merging nonpeak and blacklisted regions
+    bedtools merge -i sorted_avoid_regions.bed > merged_avoid_regions.bed
+
+    rm nonpeaks.bed
+    rm avoid_regions.bed
+    rm sorted_avoid_regions.bed
+    rm $sorted_genome
+    rm $sorted_bedfile
+    avoid_regions=merged_avoid_regions.bed
+  else
+    # if file not found exit
+    echo ERROR: basset samplefile does not exist!
+    exit
+  fi
+
+fi
+
 
 
 # preprocess data using GRCh38, and using the bed file to select regions
 echo Running basenji data processing
 ./basenji_data.py $genomefile_fa \
                     $samplefile_basenji \
-                    -g $genomefile_unmap \
-                    -l $input_size -o $output_dir/$output_prefix -t chr8 -v chr9 \
+                    -g $avoid_regions \
+                    -l $input_size -o $output_dir/$output_prefix \
+                    -t chr20,chr21 -v chr8,chr9 \
                     -w $input_pool --local -d $input_downsample --norm $input_norm \
                     --step $input_step --padding $input_padding -p 20 --threshold $threshold \
                     --test_threshold $test_threshold
-
+# ./basenji_data.py $genomefile_fa \
+#                     $samplefile_basenji \
+#                     -g avoid_regions.bed \
+#                     -l $input_size -o $output_dir/$output_prefix \
+#                     -t chr1,chr8,chr9 -v chr2,chr3,ch4 \
+#                     -w $input_pool --local -d $input_downsample --norm $input_norm \
+#                     --step $input_step --padding $input_padding -p 20 --threshold $threshold \
+#                     --test_threshold $test_threshold
 
 # scp merged_avoid_regions.bed "$output_dir/$output_prefix/"
 # rm merged_avoid_regions.bed

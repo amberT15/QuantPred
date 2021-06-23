@@ -27,10 +27,13 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
                l_rate=0.001, es_patience=6, es_metric='val_loss',
                es_criterion='min', lr_decay=0.3, lr_patience=10,
                lr_metric='val_loss', lr_criterion='min', verbose = True,
-               log_wandb=True,rev_comp = True, crop_window = True, skip=False, **kwargs):
+               log_wandb=True,rev_comp = True, crop_window = True,
+               record_test=False, skip=False, **kwargs):
+
   if '2048' in data_dir:
       rev_comp = False
       crop_window = False
+
 
 
   if skip:
@@ -47,7 +50,8 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   loss = eval(loss_type_str)() # get loss from loss.py
   trainset = util.make_dataset(data_dir, 'train', util.load_stats(data_dir))
   validset = util.make_dataset(data_dir, 'valid', util.load_stats(data_dir))
-  testset = util.make_dataset(data_dir, 'test', util.load_stats(data_dir), coords=True)
+  trainset = trainset.batch(128)
+  validset = validset.batch(128)
   json_path = os.path.join(data_dir, 'statistics.json')
   with open(json_path) as json_file:
     params = json.load(json_file)
@@ -100,48 +104,53 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   history = trainer.get_metrics('val', history)
   model.save(os.path.join(output_dir, "best_model.h5"))
   # print(history)
-  # out_pred_path = os.path.join(output_dir, 'pred.h5')
-  # # test_y = util.tfr_to_np(testset, 'y', (params['test_seqs'], window_size, params['num_targets']))
-  # # test_x = util.tfr_to_np(testset, 'x', (params['test_seqs'], params['seq_length'], 4))
-  # # initialize inputs and outputs
-  #
-  #     seqs_1hot = []
-  #     targets = []
-  #     coords_list = []
-  #     # collect inputs and outputs
-  #     for coord, x, y in testset:
-  #       # sequence
-  #       seq_raw, targets_raw = custom_fit.valid_window_crop(x,y,window_size,bin_size)
-  #
-  #       seq = seq_raw.numpy()
-  #       seqs_1hot.append(seq)
-  #
-  #       # targets
-  #       targets1 = targets_raw.numpy()
-  #       targets.append(targets1)
-  #
-  #       # coords
-  #       coords_list.append(coord)
-  #     seqs_all = np.concatenate((seqs_1hot))
-  #     targets_all = np.concatenate(targets)
-  #     coords_str_list = [[str(c).strip('b\'chr').strip('\'') for c in coords.numpy()] for coords in coords_list]
-  #     nonsplit_x_y = [item for sublist in coords_str_list for item in sublist]
-  #
-  #     coords_all = np.array([util.replace_all(item) for item in nonsplit_x_y])
-  #     coords_all = coords_all.astype(np.int)
-  #
-  #     test_pred = model(tf.convert_to_tensor(seqs_all))
-  #     hf = h5py.File(out_pred_path, 'w')
-  #     hf.create_dataset('test_x', data=seqs_all)
-  #     hf.create_dataset('test_y', data=targets_all)
-  #     hf.create_dataset('coords', data=coords_all)
-  #     if model_name_str == 'ori_bpnet':
-  #       hf.create_dataset('pred_profile', data=np.array(test_pred[0]))
-  #       hf.create_dataset('pred_count', data=np.array(test_pred[1]))
-  #     else:
-  #       hf.create_dataset('test_pred', data=test_pred)
-  #
-  #     hf.close()
+
+
+
+  if record_test==True:
+      testset = util.make_dataset(data_dir, 'test', util.load_stats(data_dir), coords=True)
+      out_pred_path = os.path.join(output_dir, 'pred.h5')
+      # test_y = util.tfr_to_np(testset, 'y', (params['test_seqs'], window_size, params['num_targets']))
+      # test_x = util.tfr_to_np(testset, 'x', (params['test_seqs'], params['seq_length'], 4))
+      # initialize inputs and outputs
+      seqs_1hot = []
+      targets = []
+      coords_list = []
+      # collect inputs and outputs
+      for coord, x, y in testset:
+        # sequence
+        seq_raw, targets_raw = custom_fit.valid_window_crop(x,y,window_size,bin_size)
+
+        seq = seq_raw.numpy()
+        seqs_1hot.append(seq)
+
+        # targets
+        targets1 = targets_raw.numpy()
+        targets.append(targets1)
+
+        # coords
+        coords_list.append(coord)
+      seqs_all = np.concatenate((seqs_1hot))
+      targets_all = np.concatenate(targets)
+      coords_str_list = [[str(c).strip('b\'chr').strip('\'') for c in coords.numpy()] for coords in coords_list]
+      nonsplit_x_y = [item for sublist in coords_str_list for item in sublist]
+
+      coords_all = np.array([util.replace_all(item) for item in nonsplit_x_y])
+      coords_all = coords_all.astype(np.int)
+
+      test_pred = model(tf.convert_to_tensor(seqs_all))
+      hf = h5py.File(out_pred_path, 'w')
+      hf.create_dataset('test_x', data=seqs_all)
+      hf.create_dataset('test_y', data=targets_all)
+      hf.create_dataset('coords', data=coords_all)
+      if model_name_str == 'ori_bpnet':
+        hf.create_dataset('pred_profile', data=np.array(test_pred[0]))
+        hf.create_dataset('pred_count', data=np.array(test_pred[1]))
+      else:
+        hf.create_dataset('test_pred', data=test_pred)
+
+      hf.close()
+
 
   return history
 
