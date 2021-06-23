@@ -435,13 +435,17 @@ def valid_window_crop(x,y,window_size,bin_size):
 
     #cropping return x_crop and y_crop
     x_dim = x.shape
-    indice = (np.arange(window_size) +
-    np.repeat(int(0.5*(x_dim[1]-window_size)),x_dim[0])[:,np.newaxis])
-    indice = indice.reshape(window_size * x_dim[0])
-    row_indice = np.repeat(range(0,x_dim[0]),window_size)
-    f_index = np.vstack((row_indice,indice)).T.reshape(x_dim[0],window_size,2)
-    x_crop = tf.gather_nd(x,f_index)
-    y_crop = tf.gather_nd(y,f_index)
+    if x_dim[1] > window_size:
+        indice = (np.arange(window_size) +
+        np.repeat(int(0.5*(x_dim[1]-window_size)),x_dim[0])[:,np.newaxis])
+        indice = indice.reshape(window_size * x_dim[0])
+        row_indice = np.repeat(range(0,x_dim[0]),window_size)
+        f_index = np.vstack((row_indice,indice)).T.reshape(x_dim[0],window_size,2)
+        x_crop = tf.gather_nd(x,f_index)
+        y_crop = tf.gather_nd(y,f_index)
+    elif x_dim[1] == window_size:
+        x_crop = x
+        y_crop = y
 
     y_dim = y_crop.shape
     y_bin = tf.math.reduce_mean(tf.reshape(y_crop,(y_dim[0],int(window_size/bin_size),bin_size,y_dim[2])),axis = 2)
