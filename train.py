@@ -19,6 +19,7 @@ def main():
     usage = 'usage: %prog [options] <data_dir> <model name> <loss type>'
     parser = OptionParser(usage)
     parser.add_option('-o', dest='out_dir', default='.', help='Output where model and pred will be saved')
+    parser.add_option('--notest', default=True, action='store_false', dest='save_test', help='Make and save test set predictions')
     parser.add_option('-e', dest='n_epochs', default=100, type='int', help='N epochs [Default: %default]')
     parser.add_option('-p', dest='earlystop_p', default=6, type='int', help='Early stopping patience [Default: %default]') # TODO: 6
     parser.add_option('-l', dest='l_rate', default=0.001, type='float', help='learning rate [Default: %default]')
@@ -71,21 +72,53 @@ def main():
     history = seqnn_trainer.fit_keras(seqnn_model)
     end = time.time()
     print('Training duration: {}min'.format(str(round((end-start)/60))))
-
-    print('Saving outputs using prefix ' + prefix)
-    out_pred_path = os.path.join(options.out_dir, 'pred_'+prefix+'.h5')
-
-
+    if options.save_test:
+        print('Saving outputs using prefix ' + prefix)
+        out_pred_path = os.path.join(options.out_dir, 'pred_'+prefix+'.h5')
 
 
-    test_y = util.tfr_to_np(test_data[0].dataset, 'y', (params['test_seqs'], output_length, params['num_targets']))
-    test_x = util.tfr_to_np(test_data[0].dataset, 'x', (params['test_seqs'], params['seq_length'], 4))
-    test_pred = seqnn_model.predict(test_x)
-    hf = h5py.File(out_pred_path, 'w')
-    hf.create_dataset('test_x', data=test_x)
-    hf.create_dataset('test_y', data=test_y)
-    hf.create_dataset('test_pred', data=test_pred)
-    hf.close()
+        sts = util.load_stats(data_dir)
+        testset = util.make_dataset(data_dir, 'test', sts, coords=True)
+        # initialize inputs and outputs
+        seqs_1hot = []
+        targets = []
+        coords_list = []
+        # collect inputs and outputs
+        for coord, x, y in testset:
+        # sequence
+            seq_raw, targets_raw = x,y
+
+            seq = seq_raw.numpy()
+            seqs_1hot.append(seq)
+
+            # targets
+            targets1 = targets_raw.numpy()
+            targets.append(targets1)
+
+            # coords
+            coords_list.append(coord)
+
+        seqs_all = np.concatenate((seqs_1hot))
+        targets_all = np.concatenate(targets)
+        coords_str_list = [[str(c).strip('b\'chr').strip('\'') for c in coords.numpy()] for coords in coords_list]
+        nonsplit_x_y = [item for sublist in coords_str_list for item in sublist]
+
+        coords_all = np.array([replace_all(item) for item in nonsplit_x_y])
+        coords_all = coords_all.astype(np.int)
+
+        test_pred = model(tf.convert_to_tensor(seqs_all))
+        hf = h5py.File(out_pred_path, 'w')
+        hf.create_dataset('test_x', data=seqs_all)
+        hf.create_dataset('test_y', data=targets_all)
+        hf.create_dataset('coords', data=coords_all)
+        hf.create_dataset('test_pred', data=test_pred)
+        hf.close()
+
+def replace_all(text):
+    dic = {'X': '23', 'Y': '24'}
+    for i, j in dic.items():
+        text = text.replace(i, j)
+    return text.split('_')
 
 def load_data(data_dir, batch_size):
   '''

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 import os
 
-all_data = '/home/shush/profile/QuantPred/datasets/top25/'
-output_file = 'commands_grid2.txt'
+all_data = '/home/shush/profile/QuantPred/datasets/ATAC_v2/'
+output_file = 'commands_grid5.txt'
 epoch_n = 100
 # define grid points
 
@@ -17,24 +17,32 @@ inputs_bpnet = [os.path.join(all_data, foldername) for foldername in os.listdir(
 # losses
 
 losses = ['poisson', 'mse', 'basenjipearsonr', 'fftmse', 'multinomialnll']
-
+# losses = ['poisson']
 cmd = []
 # loop and save commands to a list
-output_dir = '/home/shush/profile/QuantPred/datasets/top25/grid2'
-for input in inputs_basenji:
-    for loss in losses:
-        cmd.append('./train_bas.py {} basenji {} -e {} -o {} '.format(input, loss, epoch_n, output_dir))
+output_dir = '/home/shush/profile/QuantPred/datasets/ATAC_v2/grid5'
+# output_dir = '/home/shush/profile/QuantPred/testrun'
 
-# add more loops here
-for input in inputs_bpnet:
-    for loss in losses:
-        if loss != 'poisson':
-            cmd.append('./train_bas.py {} bpnet {} -e {} -o {}'.format(input, loss, epoch_n, output_dir))
-
-# add more loops here
+# add loops here
 for input in inputs_all:
     for loss in losses:
-        cmd.append('./train_bas.py {} lstm {} -e {} -o {}'.format(input, loss, epoch_n, output_dir))
+        if loss != 'poisson':
+            cmd.append('./train.py {} bpnet {} -e {} -o {}'.format(input, loss, epoch_n, output_dir))
+
+for input in inputs_all:
+    for loss in losses:
+        if 'w_1' in input:
+            cmd.append('./train.py {} basenjiw1 {} -e {} -o {} '.format(input, loss, epoch_n, output_dir))
+
+        else:
+            cmd.append('./train.py {} basenjimod {} -e {} -o {} '.format(input, loss, epoch_n, output_dir))
+
+
+
+# add more loops here
+# for input in inputs_all:
+#     for loss in losses:
+#         cmd.append('./train_bas.py {} lstm {} -e {} -o {}'.format(input, loss, epoch_n, output_dir))
 
 # save list to file
 with open(output_file, 'w') as f:
