@@ -4,10 +4,9 @@ import tensorflow.keras as keras
 import numpy as np
 
 
-def basenjimod(input_shape, output_shape, filtN_1=64, filtN_2=64, filt_mlt=1.125,
+def basenjimod(input_shape, output_shape, add_dropout, filtN_1=64, filtN_2=64, filt_mlt=1.125,
                filtN_4=32, filtN_5=64, kern_1=15, kern_2=5, kern_3=5, kern_4=3,
-               kern_5=1, filtN_list=None, drp1=0, drp2=0, drp3=0, drp4=0.25,
-               drp5=0.05, drp_off=False):
+               kern_5=1, filtN_list=None):
                # learning rate [0.001, 0.004, 0.0004] do not so for now set to 0.001,
                # dropout [0, 0.1, 0.2] add to grid, remove kern size
                # filtN_1 [64, 128] do not decrease (do not do 128 -> 64)
@@ -20,12 +19,16 @@ def basenjimod(input_shape, output_shape, filtN_1=64, filtN_2=64, filt_mlt=1.125
     """
     if filtN_list:
         print('Using set of filter sizes for hyperparameter search')
-        filt_drp_dict = {64: 0.1, 128: 0.2, 256: 0.3, 512: 0.4, 1024: 0.5}
+
         filtN_1, filtN_2, filtN_4, filtN_5 = filtN_list
-        if drp_off:
-            drp1 = drp2 = drp4 = drp5 = 0
-        else:
-            drp1, drp2, drp4, drp5  = [filt_drp_dict[f] for f in filtN_list]
+    else:
+        filtN_list = filtN_1, filtN_2, filtN_4, filtN_5
+
+    filt_drp_dict = {64: 0.1, 128: 0.2, 256: 0.3, 512: 0.4, 1024: 0.5}
+    if add_dropout:
+        drp1, drp2, drp4, drp5  = [filt_drp_dict[f] for f in filtN_list]
+    else:
+        drp1 = drp2 = drp4 = drp5 = 0
 
 
     # dict for choosing number of maxpools based on output shape
