@@ -469,6 +469,9 @@ def window_crop(x,y,window_size,bin_size):
     elif x_dim[1] == window_size:
         x_crop = x
         y_crop = y
+    else:
+        raise Exception('bad combination of input size and window_size!')
+
 
     y_dim = y_crop.shape
     y_bin = tf.math.reduce_mean(tf.reshape(y_crop,(y_dim[0],int(window_size/bin_size),bin_size,y_dim[2])),axis = 2)

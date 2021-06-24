@@ -24,6 +24,14 @@ class poisson(tf.keras.losses.Loss):
     def call(self, y_true, y_pred):
         return tf.keras.losses.poisson(y_true, y_pred)
 
+class log_poisson(tf.keras.losses.Loss):
+    def __init__(self, name="log_poisson"):
+        super().__init__(name=name)
+
+    def call(self, y_true, y_pred):
+        y_true = tf.math.log(y_true+1)
+        y_pred = tf.math.log(y_pred+1)
+        return tf.keras.losses.poisson(y_true, y_pred)
 
 class fftabs(tf.keras.losses.Loss):
     def __init__(self, name="fftabs"):

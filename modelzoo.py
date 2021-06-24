@@ -6,7 +6,11 @@ import numpy as np
 
 def basenjimod(input_shape, output_shape, add_dropout, filtN_1=64, filtN_2=64, filt_mlt=1.125,
                filtN_4=32, filtN_5=64, kern_1=15, kern_2=5, kern_3=5, kern_4=3,
+<<<<<<< Updated upstream
                kern_5=1, filtN_list=None):
+=======
+               kern_5=1, filtN_list=None, add_dropout=False):
+>>>>>>> Stashed changes
                # learning rate [0.001, 0.004, 0.0004] do not so for now set to 0.001,
                # dropout [0, 0.1, 0.2] add to grid, remove kern size
                # filtN_1 [64, 128] do not decrease (do not do 128 -> 64)
@@ -17,9 +21,11 @@ def basenjimod(input_shape, output_shape, add_dropout, filtN_1=64, filtN_2=64, f
     Basenji model turned into a single function.
     inputs (None, seq_length, 4)
     """
+
+    print('Using set of filter sizes for hyperparameter search')
+    filt_drp_dict = {64: 0.1, 128: 0.2, 256: 0.3, 512: 0.4, 1024: 0.5}
     if filtN_list:
         print('Using set of filter sizes for hyperparameter search')
-
         filtN_1, filtN_2, filtN_4, filtN_5 = filtN_list
     else:
         filtN_list = filtN_1, filtN_2, filtN_4, filtN_5
@@ -29,7 +35,6 @@ def basenjimod(input_shape, output_shape, add_dropout, filtN_1=64, filtN_2=64, f
         drp1, drp2, drp4, drp5  = [filt_drp_dict[f] for f in filtN_list]
     else:
         drp1 = drp2 = drp4 = drp5 = 0
-
 
     # dict for choosing number of maxpools based on output shape
     layer_dict = {32: [1, False], # if bin size 32 add 1 maxpool and no maxpool of size 2
