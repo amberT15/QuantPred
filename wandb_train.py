@@ -29,6 +29,9 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
                lr_metric='val_loss', lr_criterion='min', verbose = True,
                log_wandb=True,rev_comp = True, crop_window = True, **kwargs):
 
+  if '2048' in data_dir:
+      rev_comp = False
+      crop_window = False
 
 
   if not os.path.isdir(output_dir):
@@ -151,8 +154,7 @@ def train_config(config=None):
     history = fit_robust(config.model_fn, config.loss_fn,
                        config.window_size, config.bin_size, config.data_dir,
                        l_rate=config.l_rate, num_epochs=config.epochN,
-                       output_dir=wandb.run.dir, rev_comp = config.rev_comp,
-                       crop_window = config.crop_window)
+                       output_dir=wandb.run.dir)
 
 def main():
   exp_id = sys.argv[1]
