@@ -203,6 +203,7 @@ class RobustTrainer(Trainer):
     # loop through mini-batches and perform robust training steps
     start_time = time.time()
     running_loss = 0
+    print(batch_dataset)
     for i, (x, y) in enumerate(batch_dataset):
       loss_batch = self.robust_train_step(x, y, window_size, bin_size, verbose,rev_comp = rev_comp, crop_window = crop_window)
       self.metrics['train'].running_loss.append(loss_batch)

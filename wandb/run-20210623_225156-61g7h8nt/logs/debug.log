@@ -1,0 +1,65 @@
+2021-06-23 22:51:56,777 INFO    Thread-8  :8433 [wandb_setup.py:_flush():69] setting env: {'root_dir': '/home/amber/QuantPred', 'entity': 'ambert', 'project': 'bpnet_grid', 'run_id': '61g7h8nt', 'sweep_param_path': '/home/amber/QuantPred/wandb/sweep-dcyo0ylq/config-61g7h8nt.yaml', 'sweep_id': 'dcyo0ylq'}
+2021-06-23 22:51:56,777 INFO    Thread-8  :8433 [wandb_setup.py:_flush():69] setting login settings: {}
+2021-06-23 22:51:56,777 INFO    Thread-8  :8433 [wandb_init.py:_log_setup():337] Logging user logs to /home/amber/QuantPred/wandb/run-20210623_225156-61g7h8nt/logs/debug.log
+2021-06-23 22:51:56,778 INFO    Thread-8  :8433 [wandb_init.py:_log_setup():338] Logging internal logs to /home/amber/QuantPred/wandb/run-20210623_225156-61g7h8nt/logs/debug-internal.log
+2021-06-23 22:51:56,778 INFO    Thread-8  :8433 [wandb_init.py:init():370] calling init triggers
+2021-06-23 22:51:56,778 INFO    Thread-8  :8433 [wandb_init.py:init():377] wandb.init called with sweep_config: {'bin_size': 1, 'data_dir': '/mnt/1a18a49e-9a31-4dbf-accd-3fb8abbfab2d/shush/4grid_atac/complete/random_chop/i_3072_w_1', 'epochN': 30, 'l_rate': 0.004, 'loss_fn': 'multinomialnll_mse', 'model_fn': 'ori_bpnet', 'window_size': 2048}
+config: {}
+2021-06-23 22:51:56,778 INFO    Thread-8  :8433 [wandb_init.py:init():419] starting backend
+2021-06-23 22:51:56,778 INFO    Thread-8  :8433 [backend.py:_multiprocessing_setup():72] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2021-06-23 22:51:56,784 INFO    Thread-8  :8433 [backend.py:ensure_launched():135] starting backend process...
+2021-06-23 22:51:56,931 INFO    Thread-8  :8433 [backend.py:ensure_launched():140] started backend process with pid: 41732
+2021-06-23 22:51:56,933 INFO    Thread-8  :8433 [wandb_init.py:init():424] backend started and connected
+2021-06-23 22:51:56,935 INFO    Thread-8  :8433 [wandb_run.py:_config_callback():873] config_cb None None {'bin_size': 1, 'data_dir': '/mnt/1a18a49e-9a31-4dbf-accd-3fb8abbfab2d/shush/4grid_atac/complete/random_chop/i_3072_w_1', 'epochN': 30, 'l_rate': 0.004, 'loss_fn': 'multinomialnll_mse', 'model_fn': 'ori_bpnet', 'window_size': 2048}
+2021-06-23 22:51:56,936 INFO    Thread-8  :8433 [wandb_init.py:init():472] updated telemetry
+2021-06-23 22:51:56,937 INFO    Thread-8  :8433 [wandb_init.py:init():491] communicating current version
+2021-06-23 22:51:57,979 INFO    Thread-8  :8433 [wandb_init.py:init():496] got version response 
+2021-06-23 22:51:57,979 INFO    Thread-8  :8433 [wandb_init.py:init():504] communicating run to backend with 30 second timeout
+2021-06-23 22:51:58,095 INFO    Thread-8  :8433 [wandb_init.py:init():529] starting run threads in backend
+2021-06-23 22:51:59,499 INFO    Thread-8  :8433 [wandb_run.py:_console_start():1624] atexit reg
+2021-06-23 22:51:59,499 INFO    Thread-8  :8433 [wandb_run.py:_redirect():1498] redirect: SettingsConsole.REDIRECT
+2021-06-23 22:51:59,500 INFO    Thread-8  :8433 [wandb_run.py:_redirect():1503] Redirecting console.
+2021-06-23 22:51:59,500 ERROR   Thread-8  :8433 [wandb_run.py:_redirect():1562] Failed to redirect.
+Traceback (most recent call last):
+  File "/home/amber/tf_2/lib/python3.7/site-packages/wandb/sdk/wandb_run.py", line 1555, in _redirect
+    out_redir.install()
+  File "/home/amber/tf_2/lib/python3.7/site-packages/wandb/sdk/lib/redirect.py", line 709, in install
+    _WSCH.add_fd(self._pipe_read_fd)
+  File "/home/amber/tf_2/lib/python3.7/site-packages/wandb/sdk/lib/redirect.py", line 659, in add_fd
+    self._register()
+  File "/home/amber/tf_2/lib/python3.7/site-packages/wandb/sdk/lib/redirect.py", line 644, in _register
+    old_handler = signal.signal(signal.SIGWINCH, lambda *_: None)
+  File "/usr/lib/python3.7/signal.py", line 47, in signal
+    handler = _signal.signal(_enum_to_int(signalnum), _enum_to_int(handler))
+ValueError: signal only works in main thread
+2021-06-23 22:51:59,500 INFO    Thread-8  :8433 [wandb_init.py:init():554] run started, returning control to user process
+2021-06-24 05:46:39,260 ERROR   Thread-2  :8433 [internal_api.py:execute():130] 500 response executing GraphQL.
+2021-06-24 05:46:39,261 ERROR   Thread-2  :8433 [internal_api.py:execute():131] {"errors":[{"message":"Error 1040: Too many connections","path":["agentHeartbeat"]}],"data":{"agentHeartbeat":null}}
+2021-06-24 05:46:40,560 ERROR   Thread-2  :8433 [internal_api.py:execute():130] 500 response executing GraphQL.
+2021-06-24 05:46:40,561 ERROR   Thread-2  :8433 [internal_api.py:execute():131] {"error":"Error 1040: Too many connections"}
+
+2021-06-24 05:46:43,053 ERROR   Thread-2  :8433 [internal_api.py:execute():130] 500 response executing GraphQL.
+2021-06-24 05:46:43,053 ERROR   Thread-2  :8433 [internal_api.py:execute():131] {"error":"Error 1040: Too many connections"}
+
+2021-06-24 05:46:43,054 ERROR   Thread-2  :8433 [retry.py:__call__():126] Retry attempt failed:
+Traceback (most recent call last):
+  File "/home/amber/tf_2/lib/python3.7/site-packages/wandb/sdk/lib/retry.py", line 102, in __call__
+    result = self._call_fn(*args, **kwargs)
+  File "/home/amber/tf_2/lib/python3.7/site-packages/wandb/sdk/internal/internal_api.py", line 133, in execute
+    six.reraise(*sys.exc_info())
+  File "/home/amber/tf_2/lib/python3.7/site-packages/six.py", line 703, in reraise
+    raise value
+  File "/home/amber/tf_2/lib/python3.7/site-packages/wandb/sdk/internal/internal_api.py", line 127, in execute
+    return self.client.execute(*args, **kwargs)
+  File "/home/amber/tf_2/lib/python3.7/site-packages/wandb/vendor/gql-0.2.0/gql/client.py", line 52, in execute
+    result = self._get_result(document, *args, **kwargs)
+  File "/home/amber/tf_2/lib/python3.7/site-packages/wandb/vendor/gql-0.2.0/gql/client.py", line 60, in _get_result
+    return self.transport.execute(document, *args, **kwargs)
+  File "/home/amber/tf_2/lib/python3.7/site-packages/wandb/vendor/gql-0.2.0/gql/transport/requests.py", line 39, in execute
+    request.raise_for_status()
+  File "/home/amber/tf_2/lib/python3.7/site-packages/requests/models.py", line 941, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 500 Server Error: Internal Server Error for url: https://api.wandb.ai/graphql
+2021-06-24 05:46:47,562 ERROR   Thread-2  :8433 [internal_api.py:execute():130] 500 response executing GraphQL.
+2021-06-24 05:46:47,562 ERROR   Thread-2  :8433 [internal_api.py:execute():131] {"errors":[{"message":"Error 1040: Too many connections","path":["agentHeartbeat"]}],"data":{"agentHeartbeat":null}}
+2021-06-24 07:35:21,950 INFO    Thread-8  :8433 [wandb_run.py:finish():1294] finishing run ambert/bpnet_grid/61g7h8nt

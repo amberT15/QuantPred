@@ -71,11 +71,16 @@ class Trainer:
       # else:
       num_targets = model.output_shape[-1]
       print('num_targets ', num_targets)
-      model_metrics = [metrics.PearsonR(num_targets)]
+
+      # model_metrics = [metrics.PearsonR(num_targets)]
+
+      # model.compile(loss=self.loss_fn,
+      #               optimizer=self.optimizer,
+      #               metrics=model_metrics)
+
 
       model.compile(loss=self.loss_fn,
-                    optimizer=self.optimizer,
-                    metrics=model_metrics)
+                    optimizer=self.optimizer)
     self.compiled = True
 
   def fit_keras(self, seqnn_model, callbacks=[]):

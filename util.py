@@ -47,7 +47,7 @@ def generate_parser(seq_length, target_length, num_targets, coords):
 
     # define features
     features = {
-      TFR_COORD: tf.io.FixedLenFeature([], tf.string),
+      # TFR_COORD: tf.io.FixedLenFeature([], tf.string),
       TFR_INPUT: tf.io.FixedLenFeature([], tf.string),
       TFR_OUTPUT: tf.io.FixedLenFeature([], tf.string)
     }
@@ -56,7 +56,7 @@ def generate_parser(seq_length, target_length, num_targets, coords):
     parsed_features = tf.io.parse_single_example(example_protos, features=features)
 
     # decode coords
-    coordinate = parsed_features[TFR_COORD]
+    # coordinate = parsed_features[TFR_COORD]
 
     # decode sequence
     # sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.uint8)
