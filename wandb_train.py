@@ -29,11 +29,11 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
                lr_metric='val_loss', lr_criterion='min', verbose = True,
 
                log_wandb=True,rev_comp = True, crop_window = True,
-               record_test=False, skip=False, **kwargs):
+               record_test=False, skip=False, alpha=False, alpha=10,**kwargs):
 
   if '2048' in data_dir:
       rev_comp = False
-      crop_window = False
+      crop_window = True
 
 
 
@@ -48,7 +48,13 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   model = eval(model_name_str) # get model function from model zoo
   output_len = window_size // bin_size
 
-  loss = eval(loss_type_str)() # get loss from loss.py
+  if alpha:
+      loss = eval(loss_type_str)(alpha=alpha) # get loss from loss.py
+  else:
+      loss = eval(loss_type_str)()
+
+
+
   trainset = util.make_dataset(data_dir, 'train', util.load_stats(data_dir))
   validset = util.make_dataset(data_dir, 'valid', util.load_stats(data_dir))
 

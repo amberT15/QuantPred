@@ -2,6 +2,22 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 
+class pearsonr_mse(tf.keras.losses.Loss):
+    def __init__(self, name="pearsonr_mse", alpha=0.1):
+        super().__init__(name=name)
+        self.alpha=alpha
+    def call(self, y_true, y_pred):
+        #multinomial part of loss function
+        pr_loss = basenjipearsonr()
+
+        mse_loss = mse()
+
+        #sum with weight
+        total_loss = pr_loss(y_true, y_pred) + self.alpha*mse_loss(y_true, y_pred)
+
+        return total_loss
+
+
 class fftmse(tf.keras.losses.Loss):
     def __init__(self, name="fftmse"):
         super().__init__(name=name)
@@ -68,9 +84,9 @@ class multinomialnll(tf.keras.losses.Loss):
         return -tf.reduce_sum(dist.log_prob(true_counts_perm)) / seqlen
 
 class multinomialnll_mse(tf.keras.losses.Loss):
-    def __init__(self, name="multinomial_mse"):
+    def __init__(self, name="multinomial_mse", alpha=10):
         super().__init__(name=name)
-
+        self.alpha=alpha
     def call(self, y_true, y_pred):
         #multinomial part of loss function
         logits_perm = tf.transpose(y_pred[0], (0, 2, 1))
@@ -86,7 +102,7 @@ class multinomialnll_mse(tf.keras.losses.Loss):
         mse_loss = tf.keras.losses.MSE(y_true[1], y_pred[1])
 
         #sum with weight
-        total_loss = mult_loss + 10*mse_loss
+        total_loss = mult_loss + self.alpha*mse_loss
 
         return total_loss
 
