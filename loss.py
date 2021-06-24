@@ -25,7 +25,7 @@ class poisson(tf.keras.losses.Loss):
         return tf.keras.losses.poisson(y_true, y_pred)
 
 class log_poisson(tf.keras.losses.Loss):
-    def __init__(self, name="log_poisson"):
+    def __init__(self, name="poisson"):
         super().__init__(name=name)
 
     def call(self, y_true, y_pred):
