@@ -179,7 +179,11 @@ def train_config(config=None):
 def main():
   exp_id = sys.argv[1]
   exp_n = sys.argv[2]
-  sweep_id = 'toneyan/'+exp_id
+  if 'sweeps' in exp_id:
+      exp_id = '/'.join(exp_id.split('/sweeps/'))
+  else:
+      raise BaseException('Sweep ID invalid!')
+  sweep_id = exp_id
   wandb.login()
   wandb.agent(sweep_id, train_config, count=exp_n)
 
