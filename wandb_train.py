@@ -172,11 +172,8 @@ def train_config(config=None):
     history = fit_robust(config.model_fn, config.loss_fn,
                        config.window_size, config.bin_size, config.data_dir,
                        l_rate=config.l_rate, num_epochs=config.epochN,
-                       filtN_1=config.filtN_1, filtN_2=config.filtN_2,
-                       filtN_4=config.filtN_4, filtN_5=config.filtN_5,
-                       add_dropout=config.add_dropout,
                        output_dir=wandb.run.dir, rev_comp = True,
-                       crop_window = True, skip=skip)
+                       crop_window = True)
 
 
 def main():
