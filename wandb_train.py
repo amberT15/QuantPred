@@ -22,24 +22,19 @@ from wandb_callbacks import *
 import custom_fit
 
 def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
-               num_epochs=100, batch_size=64, shuffle=True, output_dir='.',
+               config={}, num_epochs=100, batch_size=64, shuffle=True, output_dir='.',
                metrics=['mse','pearsonr', 'poisson'], mix_epoch=50,  es_start_epoch=50,
                l_rate=0.001, es_patience=6, es_metric='val_loss',
                es_criterion='min', lr_decay=0.3, lr_patience=10,
                lr_metric='val_loss', lr_criterion='min', verbose = True,
-
                log_wandb=True,rev_comp = True, crop_window = True,
-               record_test=False, skip=False, alpha=False, alpha=10,**kwargs):
+               record_test=False, alpha=False):
 
   if '2048' in data_dir:
       rev_comp = False
       crop_window = True
 
 
-
-  if skip:
-      print('Fatal filter N combination!')
-      exit()
 
   if not os.path.isdir(output_dir):
       os.mkdir(output_dir)
@@ -61,7 +56,13 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   json_path = os.path.join(data_dir, 'statistics.json')
   with open(json_path) as json_file:
     params = json.load(json_file)
-  model = model((window_size, 4),(output_len, params['num_targets']), **kwargs)
+
+  model = model((window_size, 4),(output_len, params['num_targets']), wandb_config=config)
+
+  if not model:
+    raise BaseException('Fatal filter N combination!')
+
+
   print(model.summary())
   train_seq_len = params['train_seqs']
   if model_name_str == 'ori_bpnet':
@@ -166,11 +167,7 @@ def train_config(config=None):
     print(config.data_dir)
     print(config.l_rate)
 
-    filtN_list = [config.filtN_1, config.filtN_2, config.filtN_4, config.filtN_5]
-    if all(i <= j for i, j in zip(filtN_list, filtN_list[1:])):
-        skip = False
-    else:
-        skip = True
+
 
     history = fit_robust(config.model_fn, config.loss_fn,
                        config.window_size, config.bin_size, config.data_dir,

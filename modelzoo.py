@@ -4,9 +4,10 @@ import tensorflow.keras as keras
 import numpy as np
 
 
-def basenjimod(input_shape, output_shape, add_dropout, filtN_1=64, filtN_2=64, filt_mlt=1.125,
-               filtN_4=32, filtN_5=64, kern_1=15, kern_2=5, kern_3=5, kern_4=3,
-               kern_5=1, filtN_list=None):
+def basenjimod(input_shape, output_shape, wandb_config={}):
+               #  add_dropout, filtN_1=64, filtN_2=64, filt_mlt=1.125,
+               # filtN_4=32, filtN_5=64, kern_1=15, kern_2=5, kern_3=5, kern_4=3,
+               # kern_5=1, filtN_list=None):
 
                # learning rate [0.001, 0.004, 0.0004] do not so for now set to 0.001,
                # dropout [0, 0.1, 0.2] add to grid, remove kern size
@@ -18,20 +19,22 @@ def basenjimod(input_shape, output_shape, add_dropout, filtN_1=64, filtN_2=64, f
     Basenji model turned into a single function.
     inputs (None, seq_length, 4)
     """
-
+    config = {'filtN_1': 64, 'filtN_2':64, 'filtN_4':64, 'filtN_5':64,
+                'filt_mlt':1.125, 'add_dropout': False}
     print('Using set of filter sizes for hyperparameter search')
     filt_drp_dict = {64: 0.1, 128: 0.2, 256: 0.3, 512: 0.4, 1024: 0.5}
-    if filtN_list:
-        print('Using set of filter sizes for hyperparameter search')
-        filtN_1, filtN_2, filtN_4, filtN_5 = filtN_list
-    else:
-        filtN_list = filtN_1, filtN_2, filtN_4, filtN_5
 
+
+    for k in config.keys():
+        if k in wandb_config.keys():
+            config[k] = wandb_config[k]
+
+    filtN_list = [config[f] for f in ['filtN_1', 'filtN_2', 'filtN_4', 'filtN_5']]
     filt_drp_dict = {64: 0.1, 128: 0.2, 256: 0.3, 512: 0.4, 1024: 0.5}
-    if add_dropout:
+    if config['add_dropout']:
         drp1, drp2, drp4, drp5  = [filt_drp_dict[f] for f in filtN_list]
     else:
-        drp1 = drp2 = drp4 = drp5 = 0
+        drp1 = drp2 = drp3 = drp4 = drp5 = 0
 
     # dict for choosing number of maxpools based on output shape
     layer_dict = {32: [1, False], # if bin size 32 add 1 maxpool and no maxpool of size 2
@@ -46,30 +49,29 @@ def basenjimod(input_shape, output_shape, add_dropout, filtN_1=64, filtN_2=64, f
     # print(l_bin, n_conv_tower, add_2max)
     sequence = tf.keras.Input(shape=input_shape, name='sequence')
 
-    current = conv_block(sequence, filters=filtN_1, kernel_size=kern_1, activation='gelu', activation_end=None,
+    current = conv_block(sequence, filters=config['filtN_1'], kernel_size=15, activation='gelu', activation_end=None,
         strides=1, dilation_rate=1, l2_scale=0, dropout=drp1, conv_type='standard', residual=False,
         pool_size=8, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
         kernel_initializer='he_normal', padding='same')
 
-    current, rep_filters = conv_tower(current, filters_init=filtN_2, filters_mult=filt_mlt, repeat=n_conv_tower,
-        pool_size=4, kernel_size=kern_2, dropout=drp2, batch_norm=True, bn_momentum=0.9,
+    current, rep_filters = conv_tower(current, filters_init=config['filtN_2'], filters_mult=config['filt_mlt'], repeat=n_conv_tower,
+        pool_size=4, kernel_size=5, dropout=drp2, batch_norm=True, bn_momentum=0.9,
         activation='gelu')
 
     if add_2max:
-        filtN_3 = int(np.round(rep_filters*filt_mlt))
-        if filtN_list:
-            filt_drp_dict = {64: 0.1, 128: 0.2, 256: 0.3, 512: 0.4, 1024: 0.5}
+        filtN_3 = int(np.round(rep_filters*config['filt_mlt']))
+        if config['add_dropout']:
             drp3 = filt_drp_dict[filtN_3]
-        current = conv_block(current, filters=filtN_3, kernel_size=kern_3, activation='gelu', activation_end=None, #changed filter size 5
+        current = conv_block(current, filters=filtN_3, kernel_size=5, activation='gelu', activation_end=None, #changed filter size 5
             strides=1, dilation_rate=1, l2_scale=0, dropout=drp3, conv_type='standard', residual=False,
             pool_size=2, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
             kernel_initializer='he_normal', padding='same')
 
-    current = dilated_residual(current, filters=filtN_4, kernel_size=kern_4, rate_mult=2,
+    current = dilated_residual(current, filters=config['filtN_4'], kernel_size=3, rate_mult=2,
         conv_type='standard', dropout=drp4, repeat=2, round=False, # repeat=4 TODO:figure out scaling factor for the number of repeats
         activation='gelu', batch_norm=True, bn_momentum=0.9)
 
-    current = conv_block(current, filters=filtN_5, kernel_size=kern_5, activation='gelu',
+    current = conv_block(current, filters=config['filtN_5'], kernel_size=1, activation='gelu',
         dropout=drp5, batch_norm=True, bn_momentum=0.9)
 
     outputs = dense_layer(current, n_exp, activation='softplus',
@@ -78,7 +80,10 @@ def basenjimod(input_shape, output_shape, add_dropout, filtN_1=64, filtN_2=64, f
 
     model = tf.keras.Model(inputs=sequence, outputs=outputs)
 
-    return model
+    if not all(i <= j for i, j in zip(filtN_list, filtN_list[1:])):
+        return False
+    else:
+        return model
 
 
 def basenji(input_shape, output_shape, augment_rc=True, augment_shift=3):
@@ -481,19 +486,27 @@ class GELU(tf.keras.layers.Layer):
         # return tf.keras.activations.sigmoid(1.702 * x) * x
         return tf.keras.activations.sigmoid(tf.constant(1.702) * x) * x
 
-def bpnet(input_shape, output_shape, strand_num=1, filtN_1=64, filtN_2=64,
-          kern_1=25, kern_2=3, kern_3=25):
+def bpnet(input_shape, output_shape, wandb_config={}):
+
     # filtN_2 [64, 128, 256]
     # filtN_1 [64, 128]
     # trnaspose kernel_size [7, 17, 25]
+    config = {'strand_num': 1, 'filtN_1': 64, 'filtN_2': 64, 'kern_1': 25,
+              'kern_2': 3, 'kern_3': 25}
+    for k in config.keys():
+        if k in wandb_config.keys():
+            config[k] = wandb_config[k]
+
     window_size = int(input_shape[0]/output_shape[0])
     #body
     input = keras.layers.Input(shape=input_shape)
-    x = keras.layers.Conv1D(filtN_1, kernel_size=kern_1, padding='same',
-                            activation='relu')(input)
+    x = keras.layers.Conv1D(config['filtN_1'], kernel_size=config['kern_1'],
+                            padding='same', activation='relu')(input)
     for i in range(1,10):
-        conv_x = keras.layers.Conv1D(filtN_2,kernel_size=kern_2, padding='same',
-                                     activation='relu', dilation_rate=2**i)(x)
+        conv_x = keras.layers.Conv1D(config['filtN_2'],
+                                     kernel_size=config['kern_2'],
+                                     padding='same', activation='relu',
+                                     dilation_rate=2**i)(x)
         x = keras.layers.Add()([conv_x,x])
 
     bottleneck = x
@@ -501,10 +514,11 @@ def bpnet(input_shape, output_shape, strand_num=1, filtN_1=64, filtN_2=64,
     #heads
     outputs = []
     for task in range(0,output_shape[1]):
-        px = keras.layers.Reshape((-1,1,filtN_2))(bottleneck)
-        px = keras.layers.Conv2DTranspose(strand_num,kernel_size=(kern_3, 1),
+        px = keras.layers.Reshape((-1,1,config['filtN_2']))(bottleneck)
+        px = keras.layers.Conv2DTranspose(config['strand_num'],
+                                          kernel_size=(config['kern_3'], 1),
                                           padding='same')(px)
-        px = keras.layers.Reshape((-1,strand_num))(px)
+        px = keras.layers.Reshape((-1, config['strand_num']))(px)
         px = keras.layers.AveragePooling1D(pool_size=window_size, strides=None,
                                            padding='valid')(px)
         outputs.append(px)
@@ -514,17 +528,22 @@ def bpnet(input_shape, output_shape, strand_num=1, filtN_1=64, filtN_2=64,
     model = keras.models.Model([input],outputs)
     return model
 
-def ori_bpnet(input_shape, output_shape, strand_num=1, filtN_1=64, filtN_2=64,
-          kern_1=25, kern_2=3, kern_3=25):
-
+def ori_bpnet(input_shape, output_shape, wandb_config={}):
+    config = {'strand_num': 1, 'filtN_1': 64, 'filtN_2': 64, 'kern_1': 25,
+              'kern_2': 3, 'kern_3': 25}
+    for k in config.keys():
+        if k in wandb_config.keys():
+            config[k] = wandb_config[k]
     #body
     window_size = int(input_shape[0]/output_shape[0])
     input = keras.layers.Input(shape=input_shape)
-    x = keras.layers.Conv1D(filtN_1, kernel_size=kern_1, padding='same',
-                            activation='relu')(input)
+    x = keras.layers.Conv1D(config['filtN_1'], kernel_size=config['kern_1'],
+                            padding='same', activation='relu')(input)
     for i in range(1,10):
-        conv_x = keras.layers.Conv1D(filtN_2,kernel_size=kern_2, padding='same',
-                                     activation='relu', dilation_rate=2**i)(x)
+        conv_x = keras.layers.Conv1D(config['filtN_2'],
+                                     kernel_size=config['kern_2'],
+                                     padding='same', activation='relu',
+                                     dilation_rate=2**i)(x)
         x = keras.layers.Add()([conv_x,x])
 
     bottleneck = x
@@ -534,16 +553,17 @@ def ori_bpnet(input_shape, output_shape, strand_num=1, filtN_1=64, filtN_2=64,
     count_outputs = []
     for task in range(0,output_shape[1]):
         #profile shape head
-        px = keras.layers.Reshape((-1,1,filtN_2))(bottleneck)
-        px = keras.layers.Conv2DTranspose(strand_num,kernel_size=(kern_3, 1),
+        px = keras.layers.Reshape((-1, 1, config['filtN_2']))(bottleneck)
+        px = keras.layers.Conv2DTranspose(config['strand_num'],
+                                          kernel_size=(config['kern_3'], 1),
                                           padding='same')(px)
-        px = keras.layers.Reshape((-1,strand_num))(px)
+        px = keras.layers.Reshape((-1, config['strand_num']))(px)
         px = keras.layers.AveragePooling1D(pool_size=window_size, strides=None,
                                            padding='valid')(px)
         profile_outputs.append(px)
         #total counts head
         cx = keras.layers.GlobalAvgPool1D()(bottleneck)
-        count_outputs.append(keras.layers.Dense(strand_num)(cx))
+        count_outputs.append(keras.layers.Dense(config['strand_num'])(cx))
 
     profile_outputs = tf.keras.layers.concatenate(profile_outputs)
 
