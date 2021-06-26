@@ -1,6 +1,16 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
 
+def norm_tensor(a):
+    norm_a = tf.math.divide(
+               tf.subtract(
+                  a, tf.reduce_min(a) ),
+               tf.subtract(
+                  tf.reduce_max(a),
+                  tf.reduce_min(a)
+               )
+            )
+    return norm_a
 
 class pearsonr_mse(tf.keras.losses.Loss):
     def __init__(self, name="pearsonr_mse", alpha=0.1):
@@ -9,11 +19,11 @@ class pearsonr_mse(tf.keras.losses.Loss):
     def call(self, y_true, y_pred):
         #multinomial part of loss function
         pr_loss = basenjipearsonr()
-
         mse_loss = mse()
+        mse_raw = mse_loss(y_true, y_pred)
 
         #sum with weight
-        total_loss = pr_loss(y_true, y_pred) + self.alpha*mse_loss(y_true, y_pred)
+        total_loss = pr_loss(y_true, y_pred) + self.alpha*mse_raw
 
         return total_loss
 
