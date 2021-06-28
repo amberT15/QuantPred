@@ -26,8 +26,8 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
                metrics=['mse','pearsonr', 'poisson'], mix_epoch=50,  es_start_epoch=50,
                l_rate=0.001, es_patience=6, es_metric='val_loss',
                es_criterion='min', lr_decay=0.3, lr_patience=10,
-               lr_metric='val_loss', lr_criterion='min', verbose = True,
-               log_wandb=True,rev_comp = True, crop_window = True,
+               lr_metric='loss', lr_criterion='min', verbose = True,
+               log_wandb=True,rev_comp = True,crop = 'r_crop', smooth = False,
                record_test=False, alpha=False):
 
   if '2048' in data_dir:
@@ -67,9 +67,11 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   train_seq_len = params['train_seqs']
   if model_name_str == 'ori_bpnet':
   # create trainer class
-    trainer =custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, metrics,ori_bpnet_flag = True)
+    trainer =custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, metrics,
+                                    ori_bpnet_flag = True)
   else:
-    trainer = custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, metrics, ori_bpnet_flag = False)
+    trainer = custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, metrics,
+                                    ori_bpnet_flag = False)
 
   # set up learning rate decay
   trainer.set_lr_decay(decay_rate=lr_decay, patience=lr_patience, metric=lr_metric, criterion=lr_criterion)
@@ -85,20 +87,22 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
                                 num_step=train_seq_len//batch_size+1,
                                 batch_size = batch_size,
                                 rev_comp = rev_comp,
-                                crop_window = crop_window)
+                                crop = crop,
+                                smooth = smooth)
 
     # validation performance
     trainer.robust_evaluate('val', validset,window_size, bin_size,
                             batch_size=batch_size, verbose=verbose,
-                            crop_window = crop_window)
+                            crop = crop)
+
+
+    # check learning rate decay
+    trainer.check_lr_decay('loss')
 
     # check early stopping
     if epoch >= es_start_epoch:
 
-      # check learning rate decay
-      trainer.check_lr_decay('val')
-
-      if trainer.check_early_stopping('val'):
+      if trainer.check_early_stopping('val_loss'):
         print("Patience ran out... Early stopping.")
         break
     if log_wandb:

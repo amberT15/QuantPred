@@ -31,10 +31,12 @@ class Trainer():
     self.metrics['test'] = MonitorMetrics(metric_names, 'test')
 
   @tf.function
-  def train_step(self, x, y, metrics, ori_bpnet_flag):
+  def train_step(self, x, y, window_size,metrics, ori_bpnet_flag,crop = 'r_crop'):
     """training step for a mini-batch"""
     with tf.GradientTape() as tape:
       preds = self.model(x, training=True)
+      if crop == 'c_crop':
+          y,preds = random_crop(y,preds,window_size)
       if ori_bpnet_flag == True:
           true_cov = tf.math.log(tf.math.reduce_sum(y,axis=1)+1)
           pred_cov = tf.squeeze(preds[1])
@@ -50,16 +52,20 @@ class Trainer():
     return loss
 
   @tf.function
-  def test_step(self, x, y, metrics, training=False,ori_bpnet_flag = False):
+  def test_step(self, x, y, window_size, metrics, training=False,ori_bpnet_flag = False, crop = 'r_crop'):
     """test step for a mini-batch"""
     preds = self.model(x, training=training)
-
+    if crop =='c_crop':
+        y,preds = center_crop(y,preds,window_size)
+        if preds.shape[1] < y.shape[1]:
+            y = bin_resolution(y,y.shape[1]/preds.shape[1])
     if ori_bpnet_flag == True:
         true_cov = tf.math.log(tf.math.reduce_sum(y,axis=1)+1)
         pred_cov = tf.squeeze(preds[1])
         loss = self.loss([y,true_cov], [preds[0],pred_cov])
         metrics.update_running_metrics(y, preds[0])
     else:
+        print(y.shape)
         loss = self.loss(y, preds)
         metrics.update_running_metrics(y, preds)
     return loss
@@ -127,9 +133,9 @@ class Trainer():
     self.lr_decay = LRDecay(optimizer=self.optimizer, decay_rate=decay_rate,
                             patience=patience, metric=metric, criterion=criterion)
 
-  def check_lr_decay(self, name='val'):
+  def check_lr_decay(self, name='loss'):
     """check status and update learning rate decay"""
-    self.lr_decay.check(self.metrics[name].get(self.lr_decay.metric)[-1])
+    self.lr_decay.check(self.metrics['val'].get(self.lr_decay.metric)[-1])
 
 
   def get_metrics(self, name, metrics=None):
@@ -181,16 +187,24 @@ class RobustTrainer(Trainer):
     self.metrics['val'] = MonitorMetrics(metric_names, 'val')
     self.metrics['test'] = MonitorMetrics(metric_names, 'test')
 
-  def robust_train_step(self, x, y, window_size, bin_size, verbose=False, rev_comp = True, crop_window = True):
+  def robust_train_step(self, x, y, window_size, bin_size, verbose=False,
+                        rev_comp = True, crop = 'r_crop',smooth = False):
     """performs a training epoch with attack to inputs"""
-    if crop_window:
-        x,y = window_crop(x, y,window_size,bin_size)
+    if smooth:
+        y = smooth_average(y)
+    if crop == 'r_crop':
+        x,y = random_crop(x, y,window_size)
     if rev_comp:
         x,y = ReverseComplement(x,y)
-    return self.train_step(x, y, self.metrics['train'],self.ori_bpnet_flag)
+    if bin_size > 1:
+        y = bin_resolution(y,bin_size)
+
+    return self.train_step(x, y, window_size,self.metrics['train'],self.ori_bpnet_flag,crop = crop)
 
 
-  def robust_train_epoch(self, trainset, window_size, bin_size, num_step, batch_size=128, shuffle=True, verbose=False, store=True, rev_comp = True, crop_window = True):
+  def robust_train_epoch(self, trainset, window_size, bin_size, num_step,
+                        batch_size=128, shuffle=True, verbose=False, store=True,
+                        rev_comp = True, crop = 'r_crop',smooth = False):
     """performs a training epoch with attack to inputs"""
 
     # prepare dataset
@@ -203,9 +217,9 @@ class RobustTrainer(Trainer):
     # loop through mini-batches and perform robust training steps
     start_time = time.time()
     running_loss = 0
-    print(batch_dataset)
     for i, (x, y) in enumerate(batch_dataset):
-      loss_batch = self.robust_train_step(x, y, window_size, bin_size, verbose,rev_comp = rev_comp, crop_window = crop_window)
+      loss_batch = self.robust_train_step(x, y, window_size, bin_size, verbose,
+                                        rev_comp = rev_comp, crop = 'r_crop',smooth = smooth)
       self.metrics['train'].running_loss.append(loss_batch)
       running_loss += loss_batch
       progress_bar(i+1, num_step, start_time, bar_length=30, loss=running_loss/(i+1))
@@ -217,13 +231,16 @@ class RobustTrainer(Trainer):
       else:
         self.metrics['train'].update()
 
-  def robust_evaluate(self, name, dataset, window_size, bin_size, batch_size=128, verbose=True, training=False, crop_window = True):
+  def robust_evaluate(self, name, dataset, window_size, bin_size, batch_size=128, verbose=True, training=False,crop = 'r_crop'):
     """Evaluate model in mini-batches"""
     batch_dataset = dataset
     for i, (x, y) in enumerate(batch_dataset):
-      if crop_window:
-          x,y = valid_window_crop(x,y,window_size,bin_size)
-      loss_batch = self.test_step(x, y, self.metrics[name], training, self.ori_bpnet_flag)
+      if crop == 'r_crop':
+          x,y = center_crop(x,y,window_size)
+          if bin_size != 1 :
+              y = bin_resolution(y,bin_size)
+
+      loss_batch = self.test_step(x, y,window_size, self.metrics[name], training, self.ori_bpnet_flag,crop=crop)
       self.metrics[name].running_loss.append(loss_batch)
 
     # store evaluation metrics
@@ -432,30 +449,7 @@ def ReverseComplement(seq_1hot,label_profile,chance = 0.5):
     src_profile = tf.cond(reverse_bool, lambda: rc_profile, lambda: label_profile)
     return src_seq_1hot, src_profile
 
-def valid_window_crop(x,y,window_size,bin_size):
-
-    #cropping return x_crop and y_crop
-    x_dim = x.shape
-    if x_dim[1] > window_size:
-        indice = (np.arange(window_size) +
-        np.repeat(int(0.5*(x_dim[1]-window_size)),x_dim[0])[:,np.newaxis])
-        indice = indice.reshape(window_size * x_dim[0])
-        row_indice = np.repeat(range(0,x_dim[0]),window_size)
-        f_index = np.vstack((row_indice,indice)).T.reshape(x_dim[0],window_size,2)
-        x_crop = tf.gather_nd(x,f_index)
-        y_crop = tf.gather_nd(y,f_index)
-    elif x_dim[1] == window_size:
-        x_crop = x
-        y_crop = y
-
-    y_dim = y_crop.shape
-    y_bin = tf.math.reduce_mean(tf.reshape(y_crop,(y_dim[0],int(window_size/bin_size),bin_size,y_dim[2])),axis = 2)
-    return x_crop,y_bin
-
-
-
-def window_crop(x,y,window_size,bin_size):
-
+def random_crop(x,y,window_size):
     #cropping return x_crop and y_crop
     x_dim = x.shape
     if x_dim[1] > window_size:
@@ -472,10 +466,34 @@ def window_crop(x,y,window_size,bin_size):
     else:
         raise Exception('bad combination of input size and window_size!')
 
+    return x_crop,y_crop
 
-    y_dim = y_crop.shape
-    y_bin = tf.math.reduce_mean(tf.reshape(y_crop,(y_dim[0],int(window_size/bin_size),bin_size,y_dim[2])),axis = 2)
-    return x_crop,y_bin
+def center_crop(x,y,window_size):
+    x_dim = x.shape
+    if x_dim[1] > window_size:
+        indice = (np.arange(window_size) +
+        np.repeat(int(0.5*(x_dim[1]-window_size)),x_dim[0])[:,np.newaxis])
+        indice = indice.reshape(window_size * x_dim[0])
+        row_indice = np.repeat(range(0,x_dim[0]),window_size)
+        f_index = np.vstack((row_indice,indice)).T.reshape(x_dim[0],window_size,2)
+        x_crop = tf.gather_nd(x,f_index)
+        y_crop = tf.gather_nd(y,f_index)
+    elif x_dim[1] == window_size:
+        x_crop = x
+        y_crop = y
+
+    return x_crop,y_crop
+
+def bin_resolution(y,bin_size):
+    y_dim = y.shape
+    y_bin = tf.math.reduce_mean(tf.reshape(y,(y_dim[0],int(y_dim[1]/bin_size),bin_size,y_dim[2])),axis = 2)
+    return y_bin
+
+def smooth_average(y,smooth_window):
+    y_dim = y.shape
+    y_smooth = tf.nn.avg_pool(y,smooth_window, 1, 'SAME')
+    return y_smooth
+
 
 def progress_bar(iter, num_batches, start_time, bar_length=30, **kwargs):
   """plots a progress bar to show remaining time for a full epoch.
