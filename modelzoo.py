@@ -40,7 +40,9 @@ def basenjimod(input_shape, output_shape, wandb_config={}):
     layer_dict = {32: [1, False], # if bin size 32 add 1 maxpool and no maxpool of size 2
                   64: [1, True], # if bin size 64 add 1 maxpool and 1 maxpool of size 2
                   128: [2, False], # if bin size 128 add 2 maxpool and no maxpool of size 2
-                  256: [2, True]} # if bin size 256 add 2 maxpool and 1 maxpool of size 2
+                  256: [2, True], # if bin size 256 add 2 maxpool and 1 maxpool of size 2
+                  512: [3, False],
+                  1024: [3, True]}
     L, _ = input_shape
     n_bins, n_exp = output_shape
     l_bin = L // n_bins
