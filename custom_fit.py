@@ -191,7 +191,7 @@ class RobustTrainer(Trainer):
                         rev_comp = True, crop = 'r_crop',smooth = False):
     """performs a training epoch with attack to inputs"""
     if smooth:
-        y = smooth_average(y)
+        y = smooth_average(y,10)
     if crop == 'r_crop':
         x,y = random_crop(x, y,window_size)
     if rev_comp:
@@ -489,7 +489,7 @@ def bin_resolution(y,bin_size):
     y_bin = tf.math.reduce_mean(tf.reshape(y,(y_dim[0],int(y_dim[1]/bin_size),bin_size,y_dim[2])),axis = 2)
     return y_bin
 
-def smooth_average(y,smooth_window):
+def smooth_average(y,smooth_window = 10):
     y_dim = y.shape
     y_smooth = tf.nn.avg_pool(y,smooth_window, 1, 'SAME')
     return y_smooth
