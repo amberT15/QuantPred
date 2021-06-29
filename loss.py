@@ -1,16 +1,25 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-def norm_tensor(a):
-    norm_a = tf.math.divide(
-               tf.subtract(
-                  a, tf.reduce_min(a) ),
-               tf.subtract(
-                  tf.reduce_max(a),
-                  tf.reduce_min(a)
-               )
-            )
-    return norm_a
+class zero_infl_poiss(tf.keras.losses.Loss):
+    def __init__(self, name="zero_infl_poiss"):
+        super().__init__(name=name)
+
+    def call(self, y_true, y_pred):
+        tfd = tfp.distributions
+        #multinomial part of loss function
+        rate = tf.math.exp(y_pred)
+        nonzero_prob = tf.math.divide(tf.cast(
+                                     tf.math.count_nonzero(y_pred), tf.float32),
+                                     tf.cast(tf.size(y_pred), tf.float32))
+        zip_dist = tfd.Mixture(cat = tfd.Categorical(probs=tf.stack([nonzero_prob,
+                                                1 - nonzero_prob], -1)),
+                          components=[tfd.Deterministic(loc=tf.zeros_like(rate)),
+                          tfd.Poisson(rate)])
+        # get the sequence length for normalization
+        seqlen = tf.cast(tf.shape(y_true)[0],dtype=tf.float32)
+        zip_loss = -tf.reduce_sum(zip_dist.log_prob(y_true)) / seqlen
+        return zip_loss
 
 class pearsonr_mse(tf.keras.losses.Loss):
     def __init__(self, name="pearsonr_mse", alpha=0.1):
