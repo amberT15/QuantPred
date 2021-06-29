@@ -171,13 +171,22 @@ def train_config(config=None):
     print(config.data_dir)
     print(config.l_rate)
 
+    if 'crop' in config:
+        current_crop = config.crop
+    else:
+        current_crop = 'r_crop'
+
+    if 'smooth' in config:
+        current_smooth = config.crop
+    else:
+        current_smooth = False
 
 
     history = fit_robust(config.model_fn, config.loss_fn,
                        config.window_size, config.bin_size, config.data_dir,
                        l_rate=config.l_rate, num_epochs=config.epochN,
-                       output_dir=wandb.run.dir, rev_comp = True,
-                       crop_window = True)
+                       output_dir=wandb.run.dir, rev_comp=True, crop=current_crop,
+                       smooth=current_smooth)
 
 
 def main():
