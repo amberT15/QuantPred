@@ -56,9 +56,9 @@ class Trainer():
     """test step for a mini-batch"""
     preds = self.model(x, training=training)
     if crop =='c_crop':
-        y,preds = center_crop(y,preds,window_size)
-        if preds.shape[1] < y.shape[1]:
-            y = bin_resolution(y,y.shape[1]/preds.shape[1])
+        bin_size = int(y.shape[1]/preds.shape[1])
+        y = bin_resolution(y,bin_size)
+        y,preds = center_crop(y,preds,int(window_size/bin_size))
     if ori_bpnet_flag == True:
         true_cov = tf.math.log(tf.math.reduce_sum(y,axis=1)+1)
         pred_cov = tf.squeeze(preds[1])
