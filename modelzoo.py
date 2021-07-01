@@ -514,10 +514,9 @@ class GELU(tf.keras.layers.Layer):
 
 def bpnet(input_shape, output_shape, wandb_config={}):
 
-    # filtN_2 [64, 128, 256]
-    # filtN_1 [64, 128]
+    # filtN_1 [64, 128,256]
     # trnaspose kernel_size [7, 17, 25]
-    config = {'strand_num': 1, 'filtN_1': 64, 'filtN_2': 64, 'kern_1': 25,
+    config = {'strand_num': 1, 'filtN_1': 64, 'kern_1': 25,
               'kern_2': 3, 'kern_3': 25}
     for k in config.keys():
         if k in wandb_config.keys():
@@ -529,7 +528,7 @@ def bpnet(input_shape, output_shape, wandb_config={}):
     x = keras.layers.Conv1D(config['filtN_1'], kernel_size=config['kern_1'],
                             padding='same', activation='relu')(input)
     for i in range(1,10):
-        conv_x = keras.layers.Conv1D(config['filtN_2'],
+        conv_x = keras.layers.Conv1D(config['filtN_1'],
                                      kernel_size=config['kern_2'],
                                      padding='same', activation='relu',
                                      dilation_rate=2**i)(x)
@@ -540,7 +539,7 @@ def bpnet(input_shape, output_shape, wandb_config={}):
     #heads
     outputs = []
     for task in range(0,output_shape[1]):
-        px = keras.layers.Reshape((-1,1,config['filtN_2']))(bottleneck)
+        px = keras.layers.Reshape((-1,1,config['filtN_1']))(bottleneck)
         px = keras.layers.Conv2DTranspose(config['strand_num'],
                                           kernel_size=(config['kern_3'], 1),
                                           padding='same')(px)
@@ -555,7 +554,7 @@ def bpnet(input_shape, output_shape, wandb_config={}):
     return model
 
 def ori_bpnet(input_shape, output_shape, wandb_config={}):
-    config = {'strand_num': 1, 'filtN_1': 64, 'filtN_2': 64, 'kern_1': 25,
+    config = {'strand_num': 1, 'filtN_1': 64, 'kern_1': 25,
               'kern_2': 3, 'kern_3': 25}
     for k in config.keys():
         if k in wandb_config.keys():
@@ -566,7 +565,7 @@ def ori_bpnet(input_shape, output_shape, wandb_config={}):
     x = keras.layers.Conv1D(config['filtN_1'], kernel_size=config['kern_1'],
                             padding='same', activation='relu')(input)
     for i in range(1,10):
-        conv_x = keras.layers.Conv1D(config['filtN_2'],
+        conv_x = keras.layers.Conv1D(config['filtN_1'],
                                      kernel_size=config['kern_2'],
                                      padding='same', activation='relu',
                                      dilation_rate=2**i)(x)
@@ -579,7 +578,7 @@ def ori_bpnet(input_shape, output_shape, wandb_config={}):
     count_outputs = []
     for task in range(0,output_shape[1]):
         #profile shape head
-        px = keras.layers.Reshape((-1, 1, config['filtN_2']))(bottleneck)
+        px = keras.layers.Reshape((-1, 1, config['filtN_1']))(bottleneck)
         px = keras.layers.Conv2DTranspose(config['strand_num'],
                                           kernel_size=(config['kern_3'], 1),
                                           padding='same')(px)
