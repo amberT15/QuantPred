@@ -188,6 +188,7 @@ def train_config(config=None):
 
     history = fit_robust(config.model_fn, config.loss_fn,
                        config.window_size, config.bin_size, config.data_dir,
+                       config=config,
                        l_rate=config.l_rate, num_epochs=config.epochN,
                        output_dir=wandb.run.dir, rev_comp=True, crop=current_crop,
                        smooth=current_smooth, smooth_window=smooth_window)
