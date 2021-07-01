@@ -177,13 +177,14 @@ def train_config(config=None):
         current_crop = 'r_crop'
 
     if 'smooth' in config:
-        current_smooth = config.crop
+        current_smooth = config.smooth
         if 'smooth_window' in config:
             smooth_window = config['smooth_window']
         else:
             smooth_window = 10
     else:
         current_smooth = False
+        smooth_window = 10
 
 
     history = fit_robust(config.model_fn, config.loss_fn,
