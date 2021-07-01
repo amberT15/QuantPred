@@ -28,7 +28,7 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
                es_criterion='min', lr_decay=0.3, lr_patience=10,
                lr_metric='loss', lr_criterion='min', verbose = True,
                log_wandb=True,rev_comp = True,crop = 'r_crop', smooth = False,
-               record_test=False, alpha=False):
+               record_test=False, alpha=False, smooth_window=10):
 
   if '2048' in data_dir:
       rev_comp = False
@@ -178,6 +178,10 @@ def train_config(config=None):
 
     if 'smooth' in config:
         current_smooth = config.crop
+        if 'smooth_window' in config:
+            smooth_window = config['smooth_window']
+        else:
+            smooth_window = 10
     else:
         current_smooth = False
 
@@ -186,7 +190,7 @@ def train_config(config=None):
                        config.window_size, config.bin_size, config.data_dir,
                        l_rate=config.l_rate, num_epochs=config.epochN,
                        output_dir=wandb.run.dir, rev_comp=True, crop=current_crop,
-                       smooth=current_smooth)
+                       smooth=current_smooth, smooth_window=smooth_window)
 
 
 def main():
