@@ -151,7 +151,7 @@ def basenjiw1(input_shape, output_shape, wandb_config={}):
         if k in wandb_config.keys():
             config[k] = wandb_config[k]
 
-    filtN_list = [config[f] for f in ['filtN_1', 'filtN_2', 'filtN_4', 'filtN_5']]
+    filtN_list = [config[f] for f in ['filtN_1', 'filtN_2', 'filtN_3', 'filtN_4', 'filtN_5']]
     filt_drp_dict = {64: 0.1, 128: 0.2, 256: 0.3, 512: 0.4, 1024: 0.5}
     if config['add_dropout']:
         drp1, drp2, drp3, drp4, drp5  = [filt_drp_dict[f] for f in filtN_list]
