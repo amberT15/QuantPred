@@ -47,7 +47,7 @@ def generate_parser(seq_length, target_length, num_targets, coords):
 
     # define features
     features = {
-      # TFR_COORD: tf.io.FixedLenFeature([], tf.string),
+      TFR_COORD: tf.io.FixedLenFeature([], tf.string),
       TFR_INPUT: tf.io.FixedLenFeature([], tf.string),
       TFR_OUTPUT: tf.io.FixedLenFeature([], tf.string)
     }
@@ -56,7 +56,7 @@ def generate_parser(seq_length, target_length, num_targets, coords):
     parsed_features = tf.io.parse_single_example(example_protos, features=features)
 
     # decode coords
-    # coordinate = parsed_features[TFR_COORD]
+    coordinate = parsed_features[TFR_COORD]
 
     # decode sequence
     # sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.uint8)
@@ -77,7 +77,7 @@ def generate_parser(seq_length, target_length, num_targets, coords):
 
 
 
-def make_dataset(data_dir, split_label, data_stats, batch_size=64, seed=None, coords=False):
+def make_dataset(data_dir, split_label, data_stats, batch_size=64, seed=None, shuffle=True, coords=False):
     seq_length = data_stats['seq_length']
     target_length = data_stats['target_length']
     num_targets = data_stats['num_targets']
@@ -107,10 +107,11 @@ def make_dataset(data_dir, split_label, data_stats, batch_size=64, seed=None, co
       dataset = dataset.flat_map(file_to_records)
 
     dataset = dataset.map(generate_parser(seq_length, target_length, num_targets, coords))
-    if seed:
-        dataset = dataset.shuffle(32, seed=seed)
-    else:
-        dataset = dataset.shuffle(32)
+    if shuffle:
+        if seed:
+            dataset = dataset.shuffle(32, seed=seed)
+        else:
+            dataset = dataset.shuffle(32)
     # dataset = dataset.batch(64)
     # batch
     dataset = dataset.batch(batch_size)
