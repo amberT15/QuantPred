@@ -28,7 +28,7 @@ mkdir -p $output_dir
 
 #check if basset_samplefile exists
 echo ${samplefile_basset}
-if [ ${samplefile_basset} = 'random' ] || [ ${samplefile_basset} = 'Random' ]; then
+if [ "$samplefile_basset" = 'random' ] || [ "$samplefile_basset" = 'Random' ]; then
   echo Chopping randomly
     # set avoid regions as unmap regions only
   avoid_regions=$genomefile_unmap
