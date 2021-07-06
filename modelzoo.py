@@ -139,7 +139,7 @@ def basenjiw1(input_shape, output_shape, wandb_config={}):
 
 
     config = {'filtN_1': 64, 'filtN_2':64, 'filtN_3':64, 'filtN_4':64, 'filtN_5':64,
-                'filt_mlt':1.125, 'add_dropout': False, 'mult_rate1': 2, 'mult_rate2': 1.125}
+                'add_dropout': False, 'mult_rate1': 2, 'mult_rate2': 1.125}
 
     def mult_filt(n, factor=config['mult_rate2']):
         return int(np.round(n*factor))
