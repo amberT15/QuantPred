@@ -83,6 +83,7 @@ def make_dataset(data_dir, split_label, data_stats, batch_size=64, seed=None, sh
     num_targets = data_stats['num_targets']
     tfr_path = '%s/tfrecords/%s-*.tfr' % (data_dir, split_label)
     num_seqs = data_stats['%s_seqs' % split_label]
+
     tfr_files = natsorted(glob.glob(tfr_path))
     dataset = tf.data.Dataset.list_files(tf.constant(tfr_files), shuffle=False)
 
@@ -123,14 +124,14 @@ def make_dataset(data_dir, split_label, data_stats, batch_size=64, seed=None, sh
 
 def tfr_to_np(data, choose, array_shape):
     if choose=='x':
-        data_part = data.map(lambda x,y: x)
+        data_part = data.map(lambda z,x,y: x)
     elif choose=='y':
-        data_part = data.map(lambda x,y: y)
+        data_part = data.map(lambda z,x,y: y)
     data_np = np.zeros(array_shape)
     # load data to a numpy array
     iter_data = iter(data_part)
     j=0
-    for i in array_shape[0]:
+    for i in iter_data:
         n_seqs = i.shape[0]
         data_np[j:j+n_seqs,:,:] = i
         j+=n_seqs
