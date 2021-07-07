@@ -14,6 +14,21 @@ from scipy.fft import fft
 import sklearn.metrics as skm
 from tensorflow.python.keras import backend as K
 
+def np_mse(a, b):
+    return ((a - b)**2)
+
+def scipy_pr(y_true, y_pred):
+
+    pr = scipy.stats.pearsonr(y_true, y_pred)[0]
+    return pr
+
+def scipy_sc(a, b):
+    sc = scipy.stats.spearmanr(a, b)
+    return sc[0]
+
+def np_poiss(y_true, y_pred):
+    return y_pred - y_true * np.log(y_pred)
+
 
 class PearsonR(tf.keras.metrics.Metric):
   def __init__(self, summarize=True, name='pearsonr', **kwargs):
