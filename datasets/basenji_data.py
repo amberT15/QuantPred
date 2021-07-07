@@ -305,12 +305,15 @@ def main():
       fold_mseqs.append(fold_mseqs_fi)
 
       # shuffle
-      if fold_labels[fi] in ['valid','test']:
+      if fold_labels[fi] in ['valid','train']:
           random.shuffle(fold_mseqs[fi])
 
       # down-sample
       if options.sample_pct < 1.0:
-        fold_mseqs[fi] = random.sample(fold_mseqs[fi], int(options.sample_pct*len(fold_mseqs[fi])))
+        if fold_labels[fi] == 'test':
+          fold_mseqs[fi] = fold_mseqs[fi][:int(options.sample_pct*len(fold_mseqs[fi]))]
+        else:
+          fold_mseqs[fi] = random.sample(fold_mseqs[fi], int(options.sample_pct*len(fold_mseqs[fi])))
 
     # merge into one list
     mseqs = [ms for fm in fold_mseqs for ms in fm]
