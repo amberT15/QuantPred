@@ -305,7 +305,8 @@ def main():
       fold_mseqs.append(fold_mseqs_fi)
 
       # shuffle
-      random.shuffle(fold_mseqs[fi])
+      if fold_labels[fi] in ['valid','test']:
+          random.shuffle(fold_mseqs[fi])
 
       # down-sample
       if options.sample_pct < 1.0:
