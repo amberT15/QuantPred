@@ -11,6 +11,7 @@ import plotly.express as px
 import flask
 import scipy.stats
 import plotly.graph_objects as go
+from metrics import *
 
 # y axis fixed somewhere in the Average
 # remove mse
@@ -22,20 +23,6 @@ CELL_LINE=1
 server = flask.Flask(__name__)
 app = dash.Dash(__name__, server=server)
 
-def np_mse(a, b):
-    return ((a - b)**2)
-
-def scipy_pr(y_true, y_pred):
-
-    pr = scipy.stats.pearsonr(y_true, y_pred)[0]
-    return pr
-
-def scipy_sc(a, b):
-    sc = scipy.stats.spearmanr(a, b)
-    return sc[0]
-
-def np_poiss(y_true, y_pred):
-    return y_pred - y_true * np.log(y_pred)
 
 def get_data(pred, cell_line=1):
     # pred = '/home/shush/profile/QuantPred/datasets/ATAC_v2/grid5/pred_i_3072_w_128_bpnet_fftmse.h5'
