@@ -15,26 +15,13 @@ from modelzoo import *
 import pickle
 import custom_fit
 import util
+from metrics import *
 
 # y axis fixed somewhere in the Average
 # remove mse
 # dropdown menu for cell lines
 # plot extra cell lines
 
-def np_mse(a, b):
-    return ((a - b)**2)
-
-def scipy_pr(y_true, y_pred):
-
-    pr = scipy.stats.pearsonr(y_true, y_pred)[0]
-    return pr
-
-def scipy_sc(a, b):
-    sc = scipy.stats.spearmanr(a, b)
-    return sc[0]
-
-def np_poiss(y_true, y_pred):
-    return y_pred - y_true * np.log(y_pred)
 
 
 fold_name='valid'
