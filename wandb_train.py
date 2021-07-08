@@ -22,13 +22,19 @@ from wandb_callbacks import *
 import custom_fit
 
 def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
-               config={}, num_epochs=100, batch_size=64, shuffle=True, output_dir='.',
-               metrics=['mse','pearsonr', 'poisson'], mix_epoch=50,  es_start_epoch=50,
-               l_rate=0.001, es_patience=6, es_metric='val_loss',
-               es_criterion='min', lr_decay=0.3, lr_patience=10,
-               lr_metric='loss', lr_criterion='min', verbose = True,
-               log_wandb=True,rev_comp = True,crop = 'r_crop', smooth = False,
-               record_test=False, alpha=False, smooth_window=10):
+               config={}):
+
+  default_config = {'num_epochs':100, 'batch_size':64, 'shuffle':True, 'output_dir':'.',
+  'metrics':['mse','pearsonr', 'poisson'], 'mix_epoch':50,  'es_start_epoch':50,
+  'l_rate':0.001, 'es_patience':6, 'es_metric':'val_loss',
+  'es_criterion':'min', 'lr_decay':0.3, 'lr_patience':10,
+  'lr_metric':'loss', 'lr_criterion':'min', 'verbose' : True,
+  'log_wandb':True,'rev_comp' : True,'crop' : 'r_crop', 'smooth' : False,
+  'record_test':False, 'alpha':False, 'smooth_window':10}
+
+  for key in default_config.keys():
+      if key in config.keys():
+          default_config[key] = config[key]
 
   if '2048' in data_dir:
       rev_comp = False
@@ -36,15 +42,15 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
 
 
 
-  if not os.path.isdir(output_dir):
-      os.mkdir(output_dir)
+  if not os.path.isdir(default_config['output_dir']):
+      os.mkdir(default_config['output_dir'])
 
-  optimizer = tf.keras.optimizers.Adam(learning_rate=l_rate)
+  optimizer = tf.keras.optimizers.Adam(learning_rate=default_config['l_rate'])
   model = eval(model_name_str) # get model function from model zoo
   output_len = window_size // bin_size
 
-  if alpha:
-      loss = eval(loss_type_str)(alpha=alpha) # get loss from loss.py
+  if default_config['alpha']:
+      loss = eval(loss_type_str)(alpha=default_config['alpha']) # get loss from loss.py
   else:
       loss = eval(loss_type_str)()
 
@@ -67,45 +73,48 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   train_seq_len = params['train_seqs']
   if model_name_str == 'ori_bpnet':
   # create trainer class
-    trainer =custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, metrics,
+    trainer =custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, default_config['metrics'],
                                     ori_bpnet_flag = True)
   else:
-    trainer = custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, metrics,
+    trainer = custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, default_config['metrics'],
                                     ori_bpnet_flag = False)
 
   # set up learning rate decay
-  trainer.set_lr_decay(decay_rate=lr_decay, patience=lr_patience, metric=lr_metric, criterion=lr_criterion)
-  trainer.set_early_stopping(patience=es_patience, metric=es_metric, criterion=es_criterion)
+  trainer.set_lr_decay(decay_rate=default_config['lr_decay'], patience=default_config['lr_patience'],
+                        metric=default_config['lr_metric'], criterion=default_config['lr_criterion'])
+  trainer.set_early_stopping(patience=default_config['es_patience'], metric=default_config['es_metric'],
+                            criterion=default_config['es_criterion'])
 
   # train model
-  for epoch in range(num_epochs):
+  for epoch in range(default_config['num_epochs']):
     sys.stdout.write("\rEpoch %d \n"%(epoch+1))
 
     #Robust train with crop and bin
     # print('blaanot')
     trainer.robust_train_epoch(trainset, window_size, bin_size,
-                                num_step=train_seq_len//batch_size+1,
-                                batch_size = batch_size,
-                                rev_comp = rev_comp,
-                                crop = crop,
-                                smooth = smooth)
+                                num_step=train_seq_len//default_config['batch_size']+1,
+                                batch_size = default_config['batch_size'],
+                                rev_comp = default_config['rev_comp'],
+                                crop = default_config['crop'],
+                                smooth = default_config['smooth'],
+                                smooth_window = default_config['smooth_window'])
 
     # validation performance
     trainer.robust_evaluate('val', validset,window_size, bin_size,
-                            batch_size=batch_size, verbose=verbose,
-                            crop = crop)
+                            batch_size=default_config['batch_size'], verbose=default_config['verbose'],
+                            crop = default_config['crop'])
 
 
     # check learning rate decay
     trainer.check_lr_decay('loss')
 
     # check early stopping
-    if epoch >= es_start_epoch:
+    if epoch >= default_config['es_start_epoch']:
 
       if trainer.check_early_stopping('val_loss'):
         print("Patience ran out... Early stopping.")
         break
-    if log_wandb:
+    if default_config['log_wandb']:
         # Logging with W&B
         current_hist = trainer.get_current_metrics('train')
         wandb.log(trainer.get_current_metrics('val', current_hist))
@@ -113,10 +122,10 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   # compile history
   history = trainer.get_metrics('train')
   history = trainer.get_metrics('val', history)
-  model.save(os.path.join(output_dir, "best_model.h5"))
+  model.save(os.path.join(default_config['output_dir'], "best_model.h5"))
   # print(history)
 
-  if record_test==True:
+  if default_config['record_test']==True:
       testset = util.make_dataset(data_dir, 'test', util.load_stats(data_dir), coords=True)
       out_pred_path = os.path.join(output_dir, 'pred.h5')
       # test_y = util.tfr_to_np(testset, 'y', (params['test_seqs'], window_size, params['num_targets']))
@@ -170,29 +179,26 @@ def train_config(config=None):
     config = wandb.config
     print(config.data_dir)
     print(config.l_rate)
-
-    if 'crop' in config:
-        current_crop = config.crop
-    else:
-        current_crop = 'r_crop'
-
-    if 'smooth' in config:
-        current_smooth = config.smooth
-        if 'smooth_window' in config:
-            smooth_window = config['smooth_window']
-        else:
-            smooth_window = 10
-    else:
-        current_smooth = False
-        smooth_window = 10
+#
+#     if 'crop' in config:
+#         current_crop = config.crop
+#     else:
+#         current_crop = 'r_crop'
+#
+#     if 'smooth' in config:
+#         current_smooth = config.smooth
+#         if 'smooth_window' in config:
+#             smooth_window = config['smooth_window']
+#         else:
+#             smooth_window = 10
+#     else:
+#         current_smooth = False
+#         smooth_window = 10
 
 
     history = fit_robust(config.model_fn, config.loss_fn,
                        config.window_size, config.bin_size, config.data_dir,
-                       config=config,
-                       l_rate=config.l_rate, num_epochs=config.epochN,
-                       output_dir=wandb.run.dir, rev_comp=True, crop=current_crop,
-                       smooth=current_smooth, smooth_window=smooth_window)
+                       config=config)
 
 
 def main():

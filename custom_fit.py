@@ -188,10 +188,10 @@ class RobustTrainer(Trainer):
     self.metrics['test'] = MonitorMetrics(metric_names, 'test')
 
   def robust_train_step(self, x, y, window_size, bin_size, verbose=False,
-                        rev_comp = True, crop = 'r_crop',smooth = False):
+                        rev_comp = True, crop = 'r_crop',smooth = False,smooth_window = 10):
     """performs a training epoch with attack to inputs"""
     if smooth:
-        y = smooth_average(y,10)
+        y = smooth_average(y,smooth_window)
     if crop == 'r_crop':
         x,y = random_crop(x, y,window_size)
     if rev_comp:
@@ -204,7 +204,7 @@ class RobustTrainer(Trainer):
 
   def robust_train_epoch(self, trainset, window_size, bin_size, num_step,
                         batch_size=128, shuffle=True, verbose=False, store=True,
-                        rev_comp = True, crop = 'r_crop',smooth = False):
+                        rev_comp = True, crop = 'r_crop',smooth = False,smooth_window=10):
     """performs a training epoch with attack to inputs"""
 
     # prepare dataset
@@ -219,7 +219,8 @@ class RobustTrainer(Trainer):
     running_loss = 0
     for i, (x, y) in enumerate(batch_dataset):
       loss_batch = self.robust_train_step(x, y, window_size, bin_size, verbose,
-                                        rev_comp = rev_comp, crop = 'r_crop',smooth = smooth)
+                                        rev_comp = rev_comp, crop = 'r_crop',
+                                        smooth = smooth,smooth_window = smooth_window)
       self.metrics['train'].running_loss.append(loss_batch)
       running_loss += loss_batch
       progress_bar(i+1, num_step, start_time, bar_length=30, loss=running_loss/(i+1))
