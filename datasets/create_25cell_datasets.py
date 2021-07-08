@@ -1,19 +1,20 @@
 #!/usr/bin/env python
 import subprocess
-import yaml, os, shutil
+import yaml, os, shutil, sys
 # import oyaml as yaml
 # parameter grid to loop over
 pool_window = 1
-input_sizes = [2048, 3072]
+input_sizes = [2048]
 # pool_window = [1]
 # input_size = [1024]
 # i_w = [(3072, 1)]
-base_dir = '0707_4grid'
+base_dir = sys.argv[1]
 # basset_samplefile_values = ['Random', '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basset_sample_file.tsv']
-basset_samplefile_values = ['Random', '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basset_sample_file.tsv']
-dataset_size = [0.001, 1]
-output_subdir_size = ['lite', 'complete']
+basset_samplefile_values = ['Random']
+dataset_size = [0.2]
+output_subdir_size = ['lite']
 output_subdir_bas = ['random_chop', 'peak_centered']
+limit_to_chroms = 'chr21,chr22'
 # i = 2048
 # p = 64
 for input_size in input_sizes:
@@ -27,6 +28,15 @@ for input_size in input_sizes:
                 config = yaml.safe_load(file)
 
             #update parameters
+            if 'chroms' not in config.keys():
+              config['chroms']={}
+            config['chroms']['only'] = limit_to_chroms
+            if 'all' != config['chroms']['only'] and 'none' != config['chroms']['only']:
+                config['chroms']['valid'] = 0
+                config['chroms']['test'] = 1.0
+            else:
+                config['chroms']['valid'] = 'chr8,chr9'
+                config['chroms']['test'] = 'chr20,chr21'
             config['input']['downsample'] = dilation_rate
             config['samplefile']['basset'] = basset_samplefile
             config['threshold'] = 2

@@ -78,22 +78,23 @@ fi
 
 # preprocess data using GRCh38, and using the bed file to select regions
 echo Running basenji data processing
+# ./basenji_data.py $genomefile_fa \
+#                     $samplefile_basenji \
+#                     -g $avoid_regions \
+#                     -l $input_size -o $output_dir/$output_prefix \
+#                     -t chr20,chr21 -v chr8,chr9 \
+#                     -w $input_pool --local -d $input_downsample --norm $input_norm \
+#                     --step $input_step --padding $input_padding -p 20 --threshold $threshold \
+#                     --test_threshold $test_threshold
 ./basenji_data.py $genomefile_fa \
                     $samplefile_basenji \
                     -g $avoid_regions \
                     -l $input_size -o $output_dir/$output_prefix \
-                    -t chr20,chr21 -v chr8,chr9 \
+                    -t $chroms_test -v $chroms_valid \
                     -w $input_pool --local -d $input_downsample --norm $input_norm \
                     --step $input_step --padding $input_padding -p 20 --threshold $threshold \
-                    --test_threshold $test_threshold
-# ./basenji_data.py $genomefile_fa \
-#                     $samplefile_basenji \
-#                     -g avoid_regions.bed \
-#                     -l $input_size -o $output_dir/$output_prefix \
-#                     -t chr1,chr8,chr9 -v chr2,chr3,ch4 \
-#                     -w $input_pool --local -d $input_downsample --norm $input_norm \
-#                     --step $input_step --padding $input_padding -p 20 --threshold $threshold \
-#                     --test_threshold $test_threshold
+                    --test_threshold $test_threshold \
+                    --only_chroms $chroms_only
 
 # scp merged_avoid_regions.bed "$output_dir/$output_prefix/"
 # rm merged_avoid_regions.bed
