@@ -107,7 +107,6 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
 
     # check learning rate decay
     trainer.check_lr_decay('loss')
-    print('lowering learning rate')
 
     # check early stopping
     if epoch >= default_config['es_start_epoch']:
