@@ -224,16 +224,17 @@ def str_to_onehot(coords_list, seqs_list, dsq_nonneg, window):
 
         onehot_alt[i, :, :] = onehot
         onehot_alt[i, mid, :] = dna_one_hot(alt)[0]
-        return (onehot_ref, onehot_alt, coord_np)
+
+    return (onehot_ref, onehot_alt, coord_np)
 
 
 def onehot_to_h5(onehot_ref, onehot_alt, coord_np, out_dir='.', filename='onehot.h5'):
     if not os.path.isdir(out_dir):
         os.mkdir(out_dir)
     onehot_ref_alt = h5py.File(os.path.join(out_dir, filename), 'w')
-    onehot_ref_alt.create_dataset('ref', data=onehot_ref)
-    onehot_ref_alt.create_dataset('alt', data=onehot_alt)
-    onehot_ref_alt.create_dataset('fasta_coords', data=coord_np)
+    # onehot_ref_alt.create_dataset('ref', data=onehot_ref, dtype='i')
+    # onehot_ref_alt.create_dataset('alt', data=onehot_alt, dtype='i')
+    onehot_ref_alt.create_dataset('fasta_coords', data=coord_np, dtype='i')
     onehot_ref_alt.close()
 
 def table_to_h5(dsq_path,
