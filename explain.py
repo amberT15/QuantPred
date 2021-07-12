@@ -113,11 +113,11 @@ def filter_dataset(dsq_path, out_path='dsq_all.bed'):
 
 def bed_intersect(dataset_bed, comb_peak, out_path):
     bashCmd = "bedtools intersect -a {} -b {} > {}".format(dataset_bed, comb_peak, out_path).split()
-    process = subprocess.Popen(bashCmd, stdout=subprocess.PIPE)
+    process = subprocess.Popen(bashCmd, shell=True)
     output, error = process.communicate()
     print(error)
 
-def extend_ranges(column_names, bedfile, out_path):
+def extend_ranges(column_names, bedfile, out_path, window):
     dsq_df = pd.read_csv(bedfile, sep='\t', header=None, index_col=None)
     dsq_df.columns = column_names #list(dsq_filt)
     dsq_filt = dsq_df[['chrom', 'snpChromStart', 'snpChromEnd', 'a1', 'a2',
@@ -133,8 +133,8 @@ def extend_ranges(column_names, bedfile, out_path):
 
 def bed_to_fa(bedfile='test_ds.csv', out_fa='test_ds.fa',
               genome_file='/home/shush/genomes/hg19.fa'):
-    bashCmd = "bedtools getfasta -fi {} -bed {} -s -fo {}".format(genome_file, bedfile, out_fa).split()
-    process = subprocess.Popen(bashCmd, stdout=subprocess.PIPE)
+    bashCmd = "bedtools getfasta -fi {} -bed {} -s -fo {}".format(genome_file, bedfile, out_fa)
+    process = subprocess.Popen(bashCmd, shell=True)
     output, error = process.communicate()
     print(error)
 
@@ -174,7 +174,7 @@ def str_to_onehot(coords_list, seqs_list, dsq_nonneg, window):
 
         onehot_alt[i, :, :] = onehot
         onehot_alt[i, mid, :] = dna_one_hot(alt)[0]
-        return onehot_ref, onehot_alt, coord_np
+        return (onehot_ref, onehot_alt, coord_np)
 
 
 def onehot_to_h5(onehot_ref, onehot_alt, coord_np, out_dir='.', filename='onehot.h5'):
@@ -188,14 +188,16 @@ def table_to_h5(dsq_path,
                 samplefile='/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basset_sample_file.tsv',
                 out_peaks='combined_atac.bed', out_filt='dsq_all.bed',
                 out_open='dsq_open.bed', out_fin='filt_open_ext.bed',
-                out_fa='ext.fa', genome_file=='/home/shush/genomes/hg19.fa',
+                out_fa='ext.fa', genome_file='/home/shush/genomes/hg19.fa',
                 window=3072, out_dir='.', out_h5='onehot.h5'):
+    print('Combining IDR beds')
     combine_beds(samplefile, out_peaks)
+    print('Filtering in test set chromosomes in the dataset ')
     column_names = filter_dataset(dsq_path, out_filt)
     bed_intersect(out_filt, out_peaks, out_open)
-    dsq_nonneg = extend_ranges(column_names, out_open, out_fin)
+    dsq_nonneg = extend_ranges(column_names, out_open, out_fin, window)
     bed_to_fa(out_fin, out_fa, genome_file)
-    coords_list, seqs_list = fasta2list(out_fin)
-    onehot_ref, onehot_alt, coord_n = str_to_onehot(coords_list, seqs_list,
+    coords_list, seqs_list = fasta2list(out_fa)
+    onehot_ref, onehot_alt, coord_np = str_to_onehot(coords_list, seqs_list,
                                                     dsq_nonneg, window)
     onehot_to_h5(onehot_ref, onehot_alt, coord_np, out_dir, out_h5)
