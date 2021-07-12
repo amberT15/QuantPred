@@ -1,6 +1,7 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
 import numpy as np
+
 class zero_infl_poiss(tf.keras.losses.Loss):
     def __init__(self, name="zero_infl_poiss"):
         super().__init__(name=name)
@@ -45,11 +46,12 @@ class fftmse(tf.keras.losses.Loss):
         super().__init__(name=name)
 
     def call(self, y_true, y_pred):
+
         y_true = tf.cast(y_true, 'complex64')
         y_pred = tf.cast(y_pred, 'complex64')
-
-        fft_y = tf.signal.fft(y_true)
-        fft_pred = tf.signal.fft(y_pred)
+        N, L, T = y_true.shape
+        fft_y = tf.math.abs(tf.slice(tf.signal.fft(y_true),[0,0,0], [N, L//2, T]))
+        fft_pred = tf.math.abs(tf.slice(tf.signal.fft(y_pred),[0,0,0], [N, L//2, T]))
         fft_diff = tf.math.subtract(fft_y, fft_pred)
         fft_diff = tf.dtypes.cast(fft_diff, 'float32')
         return tf.math.square(fft_diff)
