@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 import math
-import os, h5py
+import os, h5py, shutil
 import pandas as pd
 import subprocess
 
@@ -112,7 +112,7 @@ def filter_dataset(dsq_path, out_path='dsq_all.bed'):
     return list(dsq_filt)
 
 def bed_intersect(dataset_bed, comb_peak, out_path):
-    bashCmd = "bedtools intersect -a {} -b {} > {}".format(dataset_bed, comb_peak, out_path).split()
+    bashCmd = "bedtools intersect -a {} -b {} > {}".format(dataset_bed, comb_peak, out_path)
     process = subprocess.Popen(bashCmd, shell=True)
     output, error = process.communicate()
     print(error)
@@ -178,6 +178,8 @@ def str_to_onehot(coords_list, seqs_list, dsq_nonneg, window):
 
 
 def onehot_to_h5(onehot_ref, onehot_alt, coord_np, out_dir='.', filename='onehot.h5'):
+    if not os.path.isdir(out_dir):
+        os.mkdir(out_dir)
     onehot_ref_alt = h5py.File(os.path.join(out_dir, filename), 'w')
     onehot_ref_alt.create_dataset('ref', data=onehot_ref)
     onehot_ref_alt.create_dataset('alt', data=onehot_alt)
@@ -189,15 +191,29 @@ def table_to_h5(dsq_path,
                 out_peaks='combined_atac.bed', out_filt='dsq_all.bed',
                 out_open='dsq_open.bed', out_fin='filt_open_ext.bed',
                 out_fa='ext.fa', genome_file='/home/shush/genomes/hg19.fa',
-                window=3072, out_dir='.', out_h5='onehot.h5'):
+                window=3072, out_dir='.', out_h5='onehot.h5', save_files=True):
     print('Combining IDR beds')
     combine_beds(samplefile, out_peaks)
     print('Filtering in test set chromosomes in the dataset ')
     column_names = filter_dataset(dsq_path, out_filt)
+    print('Filtering SNPs in the open chromatin regions')
     bed_intersect(out_filt, out_peaks, out_open)
+    print('Extending regions around the SNP')
     dsq_nonneg = extend_ranges(column_names, out_open, out_fin, window)
+    print('Converting bed to fa')
     bed_to_fa(out_fin, out_fa, genome_file)
+    print('converting fa to one hot encoding')
     coords_list, seqs_list = fasta2list(out_fa)
     onehot_ref, onehot_alt, coord_np = str_to_onehot(coords_list, seqs_list,
                                                     dsq_nonneg, window)
+    print('Saving onehots as h5')
     onehot_to_h5(onehot_ref, onehot_alt, coord_np, out_dir, out_h5)
+    
+    interm_files = [out_peaks, out_filt, out_open, out_fin, out_fa]
+    if save_files:
+        for f in interm_files:
+            dst_f = os.path.join(out_dir, f)
+            shutil.move(f, dst_f)
+    else:
+        for f in interm_files:
+            os.remove(f)
