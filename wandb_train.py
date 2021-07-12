@@ -24,8 +24,8 @@ import custom_fit
 def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
                config={}):
 
-  default_config = {'num_epochs':100, 'batch_size':64, 'shuffle':True, 'output_dir':'.',
-  'metrics':['mse','pearsonr', 'poisson'], 'mix_epoch':50,  'es_start_epoch':50,
+  default_config = {'num_epochs':30, 'batch_size':64, 'shuffle':True, 'output_dir':'.',
+  'metrics':['mse','pearsonr', 'poisson'], 'es_start_epoch':50,
   'l_rate':0.001, 'es_patience':6, 'es_metric':'loss',
   'es_criterion':'min', 'lr_decay':0.3, 'lr_patience':10,
   'lr_metric':'loss', 'lr_criterion':'min', 'verbose' : True,

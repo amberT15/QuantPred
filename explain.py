@@ -36,9 +36,10 @@ def select_top_pred(pred,num_task,top_num):
     task_top_list = np.array(task_top_list)
     return task_top_list
 
-def vcf_test(alt,ref,model):
-    pred_ref = model.predict(ref)
-    pred_alt = model.predict(alt)
+def vcf_test(ref,alt,coords,model):
+
+    ref_pred = model.predict(ref)
+    alt_pred = model.predict(alt)
     ref_pred_cov = np.sum(ref_pred,axis = 1)
     alt_pred_cov = np.sum(alt_pred,axis = 1)
 
@@ -48,7 +49,12 @@ def vcf_test(alt,ref,model):
     cell_fold = np.log(alt_pred_cov) - np.log(ref_pred_cov)
     total_fold = np.mean(cell_fold,axis = 1)
 
-    return cell_diff,total_diff,cell_fold,total_fold
+    d = {'chromosome': coords[:,0], 'start': coords[:,1],'end':coords[:,2],'variant':coords[:,1]+1024}
+    df = pd.DataFrame(data=d)
+
+    df['diff'] = total_diff
+    df['fold'] = total_fold
+    return df
 
 def complete_saliency(X,model,class_index,func = tf.math.reduce_mean):
   """fast function to generate saliency maps"""
