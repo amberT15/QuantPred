@@ -17,14 +17,15 @@ import logomaker
 import sys
 
 
+
+
 #model_path = '/home/shush/profile/QuantPred/datasets/top25/grid2/model_i_1024_w_1_bpnet_mse.h5'
 model_path = sys.argv[1]
 grid_point = os.path.basename(model_path)
 _,_, input_size, _, window, model_name, loss_name = grid_point.split('.h5')[0].split('_')
 #data_dir = '/home/shush/profile/QuantPred/datasets/top25/i_1024_w_1'
-data_dir = '/home/shush/profile/QuantPred/datasets/top25/i_' + input_size + '_w_' + window
-json_path = os.path.join(data_dir, 'statistics.json')
-num_task = 25
+data_dir = '/mnt/1a18a49e-9a31-4dbf-accd-3fb8abbfab2d/shush/4grid_atac/complete/random_chop/i_3072_w_1'
+num_task = 15
 
 
 #load model and test set
@@ -44,23 +45,24 @@ def load_basenji(model_path):
 
 #load model, load test set.
 model = load_basenji(model_path)
-test_data = util.make_dataset(data_dir, 'test', util.load_stats(data_dir))
+json_path = os.path.join(data_dir, 'statistics.json')
+test_data = util.make_dataset(data_dir, 'test', util.load_stats(data_dir),coords=True)
 with open(json_path) as json_file:
         params = json.load(json_file)
-output_length = int(params['seq_length']/params['pool_width'])
-test_y = util.tfr_to_np(test_data, 'y', (params['test_seqs'], output_length, params['num_targets']))
-test_x = util.tfr_to_np(test_data, 'x', (params['test_seqs'], params['seq_length'], 4))
+y_test = util.tfr_to_np(test_data, 'y', (params['test_seqs'], params['seq_length'], params['num_targets']))
+x_test = util.tfr_to_np(test_data, 'x', (params['test_seqs'], params['seq_length'], 4))
 
 #select sequences with hight number of reads
-task_top_list = explain.select_top_pred(test_y,num_task)
+top_num = 2
+task_top_list = explain.select_top_pred(test_y,num_task,top_num)
 
 
-fig, axs = plt.subplots(2*num_task,1,figsize=(200,15*num_task))
+fig, axs = plt.subplots(top_num*num_task,1,figsize=(200,15*num_task))
 for i in range(0,num_task):
     X = tf.cast(test_x[task_top_list[i]],dtype='float64')
     saliency_map = explain.peak_saliency_map(X,model,class_index = i,window_size = window)
     saliency_map = saliency_map * X
-    
+
     for n, w in enumerate(saliency_map):
         ax = axs[i*2+n]
 
