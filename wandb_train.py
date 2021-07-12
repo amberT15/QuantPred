@@ -26,7 +26,7 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
 
   default_config = {'num_epochs':100, 'batch_size':64, 'shuffle':True, 'output_dir':'.',
   'metrics':['mse','pearsonr', 'poisson'], 'mix_epoch':50,  'es_start_epoch':50,
-  'l_rate':0.001, 'es_patience':6, 'es_metric':'val_loss',
+  'l_rate':0.001, 'es_patience':6, 'es_metric':'loss',
   'es_criterion':'min', 'lr_decay':0.3, 'lr_patience':10,
   'lr_metric':'loss', 'lr_criterion':'min', 'verbose' : True,
   'log_wandb':True,'rev_comp' : True,'crop' : 'r_crop', 'smooth' : False,
@@ -107,11 +107,12 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
 
     # check learning rate decay
     trainer.check_lr_decay('loss')
+    print('lowering learning rate')
 
     # check early stopping
     if epoch >= default_config['es_start_epoch']:
 
-      if trainer.check_early_stopping('val_loss'):
+      if trainer.check_early_stopping('val'):
         print("Patience ran out... Early stopping.")
         break
     if default_config['log_wandb']:
