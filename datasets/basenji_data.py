@@ -143,6 +143,9 @@ def main():
   parser.add_option('--padding', dest='padding',
         default='valid', type='str',
         help='Padding method for sliding window approach')
+  parser.add_option('--only_chroms', dest='only_chroms',
+        default='', type='str',
+        help='Limit the dataset to only these chromosomes and use test set threshold')
   (options, args) = parser.parse_args()
 
 
@@ -213,10 +216,18 @@ def main():
     # ditch the chromosomes for contigs
     contigs = []
     for chrom in chrom_contigs:
-      if len(chrom.split('_'))==1 and chrom not in ['chrM', 'chrX', 'chrY']:
-        contigs += [Contig(chrom, ctg_start, ctg_end)
-                   for ctg_start, ctg_end in chrom_contigs[chrom]]
+      if options.only_chroms != 'all' and options.only_chroms != 'none': # if limit the dataset to only certain whole chromosomes
+          include_chroms = options.only_chroms.split(',') # get list of chromosomes
 
+          if chrom in include_chroms: # if list chrom add contigs
+            contigs += [Contig(chrom, ctg_start, ctg_end)
+                       for ctg_start, ctg_end in chrom_contigs[chrom]]
+
+            print(chrom)
+      # if not limited to chrom list remove bad chromosomes and add contigs
+      elif len(chrom.split('_'))==1 and chrom not in ['chrM', 'chrX', 'chrY']:
+            contigs += [Contig(chrom, ctg_start, ctg_end)
+                       for ctg_start, ctg_end in chrom_contigs[chrom]]
 
     # limit to a BED file
     if options.limit_bed is not None:
@@ -454,7 +465,11 @@ def main():
 
   write_jobs = []
 
+  if options.only_chroms != 'all' and options.only_chroms != 'none':
+    fold_labels = ['test']
+
   for fold_set in fold_labels:
+
     #TODO:remove
     fold_set_indexes = [i for i in range(len(mseqs)) if mseqs[i].label == fold_set]
     fold_set_start = fold_set_indexes[0]
@@ -462,7 +477,13 @@ def main():
 
     tfr_i = 0
     tfr_start = fold_set_start
-    tfr_end = min(tfr_start+options.seqs_per_tfr, fold_set_end)
+    if fold_set == 'test':
+        # increase limit for test set to get only one tfr file for test set to
+        # preserve order
+        seqs_per_tfr = 999999999
+    else:
+        seqs_per_tfr = options.seqs_per_tfr
+    tfr_end = min(tfr_start+seqs_per_tfr, fold_set_end)
 
     while tfr_start <= fold_set_end:
       tfr_stem = '%s/%s-%d' % (tfr_dir, fold_set, tfr_i)
@@ -498,8 +519,8 @@ def main():
 
       # update
       tfr_i += 1
-      tfr_start += options.seqs_per_tfr
-      tfr_end = min(tfr_start+options.seqs_per_tfr, fold_set_end)
+      tfr_start += seqs_per_tfr
+      tfr_end = min(tfr_start+seqs_per_tfr, fold_set_end)
 
   if options.run_local:
     util.exec_par(write_jobs, options.processes, verbose=True)

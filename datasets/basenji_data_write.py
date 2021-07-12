@@ -206,7 +206,14 @@ def main():
         'sequence': feature_bytes(seq_1hot),
         'target': feature_bytes(targets[si,:,:])
         }
-
+      # features_dict = {
+      #   'chrom': feature_str(mseq.chr.encode()),
+      #   # 'sequence': feature_bytes(seq_1hot),
+      #   'start': feature_floats(mseq.start),
+      #   'end': feature_floats(mseq.end),
+      #   'sequence': feature_bytes(seq_1hot),
+      #   'target': feature_bytes(targets[si,:,:])
+      #   }
       # add unmappability
       if options.umap_tfr:
         features_dict['umap'] = feature_bytes(unmap_mask[msi,:])

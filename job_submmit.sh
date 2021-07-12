@@ -5,7 +5,7 @@ NAME=bpnet_loss_test
 DIR_CODE=/grid/koo/home/ztang/QuantPred/
 d=`date +%y-%m-%d-%H-%M-%S`
 DIR_LOG=/grid/koo/home/ztang/quantlog/$NAME/$d
-SWEEP_ID=ambert/bpnet_loss_bin_test/sweeps/nnon9ynf
+SWEEP_ID=ambert/bpnet_loss_bin_test/sweeps/unm15rtz
 export SWEEP_ID
 
 #$ -N bpnet_loss_test_4
@@ -15,4 +15,4 @@ export SWEEP_ID
 #$ -o /grid/koo/home/ztang/quantlog/log
 
 cd $DIR_CODE
-singularity exec quantpred_latest.sif python wandb_train.py $SWEEP_ID 7
+singularity exec --nv quantpred_latest.sif python wandb_train.py $SWEEP_ID 6

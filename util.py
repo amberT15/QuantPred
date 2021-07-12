@@ -75,6 +75,49 @@ def generate_parser(seq_length, target_length, num_targets, coords):
 
   return parse_proto
 
+def generate_parser_5(seq_length, target_length, num_targets, coords):
+  def parse_proto(example_protos):
+    """Parse TFRecord protobuf."""
+    # TFRecord constants
+    TFR_CHROM = 'chrom'
+    TFR_START = 'start'
+    TFR_END = 'end'
+    TFR_INPUT = 'sequence'
+    TFR_OUTPUT = 'target'
+
+    # define features
+    features = {
+      TFR_CHROM: tf.io.FixedLenFeature([], tf.string),
+      TFR_START: tf.io.FixedLenFeature([], tf.string),
+      TFR_END: tf.io.FixedLenFeature([], tf.string),
+      TFR_INPUT: tf.io.FixedLenFeature([], tf.string),
+      TFR_OUTPUT: tf.io.FixedLenFeature([], tf.string)
+    }
+
+    # parse example into features
+    parsed_features = tf.io.parse_single_example(example_protos, features=features)
+
+    # decode coords
+    # decode targets
+    starts = tf.io.decode_raw(parsed_features[TFR_START], tf.float16)
+
+
+    # decode sequence
+    # sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.uint8)
+    sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.float16)
+    sequence = tf.reshape(sequence, [seq_length, 4])
+    sequence = tf.cast(sequence, tf.float32)
+
+    # decode targets
+    targets = tf.io.decode_raw(parsed_features[TFR_OUTPUT], tf.float16)
+    targets = tf.reshape(targets, [target_length, num_targets])
+    targets = tf.cast(targets, tf.float32)
+    if coords:
+        return starts, sequence, targets
+    else:
+        return sequence, targets
+
+  return parse_proto
 
 
 def make_dataset(data_dir, split_label, data_stats, batch_size=64, seed=None, shuffle=True, coords=False):
@@ -121,6 +164,31 @@ def make_dataset(data_dir, split_label, data_stats, batch_size=64, seed=None, sh
     dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
     return dataset
 
+def make_dataset_5(data_dir, split_label, data_stats, batch_size=64, seed=None, shuffle=True, coords=False):
+    seq_length = data_stats['seq_length']
+    target_length = data_stats['target_length']
+    num_targets = data_stats['num_targets']
+    tfr_path = '%s/tfrecords/%s-*.tfr' % (data_dir, split_label)
+    num_seqs = data_stats['%s_seqs' % split_label]
+
+    tfr_files = natsorted(glob.glob(tfr_path))
+    dataset = tf.data.Dataset.list_files(tf.constant(tfr_files), shuffle=False)
+
+    dataset = dataset.flat_map(file_to_records)
+
+    dataset = dataset.map(generate_parser_5(seq_length, target_length, num_targets, coords))
+    if shuffle:
+        if seed:
+            dataset = dataset.shuffle(32, seed=seed)
+        else:
+            dataset = dataset.shuffle(32)
+    # dataset = dataset.batch(64)
+    # batch
+    dataset = dataset.batch(batch_size)
+
+    # prefetch
+    dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
+    return dataset
 
 def tfr_to_np(data, choose, array_shape):
     if choose=='x':
