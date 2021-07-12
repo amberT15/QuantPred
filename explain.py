@@ -226,8 +226,8 @@ def onehot_to_h5(onehot_ref, onehot_alt, coord_np, out_dir='.', filename='onehot
     if not os.path.isdir(out_dir):
         os.mkdir(out_dir)
     onehot_ref_alt = h5py.File(os.path.join(out_dir, filename), 'w')
-    # onehot_ref_alt.create_dataset('ref', data=onehot_ref, dtype='i')
-    # onehot_ref_alt.create_dataset('alt', data=onehot_alt, dtype='i')
+    onehot_ref_alt.create_dataset('ref', data=onehot_ref, dtype='i')
+    onehot_ref_alt.create_dataset('alt', data=onehot_alt, dtype='i')
     onehot_ref_alt.create_dataset('fasta_coords', data=coord_np, dtype='i')
     onehot_ref_alt.close()
 
