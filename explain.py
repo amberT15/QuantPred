@@ -5,6 +5,8 @@ import math
 import matplotlib.pyplot as plt
 import pandas as pd
 import logomaker
+import subprocess
+import os, shutil, h5py
 
 def plot_saliency(saliency_map):
 
