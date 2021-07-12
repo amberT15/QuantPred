@@ -41,7 +41,7 @@ class pearsonr_mse(tf.keras.losses.Loss):
         return total_loss
 
 
-class fftmse(tf.keras.losses.Loss):
+class fft_mse(tf.keras.losses.Loss):
     def __init__(self, name="fftmse"):
         super().__init__(name=name)
 
