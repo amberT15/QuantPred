@@ -38,12 +38,12 @@ def select_top_pred(pred,num_task,top_num):
 
 def vcf_test(ref,alt,coords,model,background_size = 100):
     # score for reference and alternative allele
-    rref_pred = model.predict(ref)
+    ref_pred = model.predict(ref)
     alt_pred = model.predict(alt)
     ref_pred_cov = np.sum(ref_pred,axis = (1,2))
     alt_pred_cov = np.sum(alt_pred,axis = (1,2))
 
-    d = {'chromosome': coords[:,0], 'start': coords[:,1],'end':coords[:,2],'pct_sign':p_score}
+    d = {'chromosome': coords[:,0], 'start': coords[:,1],'end':coords[:,2]}
     df = pd.DataFrame(data=d)
 
     df['ref'] = ref_pred_cov
