@@ -36,24 +36,36 @@ def select_top_pred(pred,num_task,top_num):
     task_top_list = np.array(task_top_list)
     return task_top_list
 
-def vcf_test(ref,alt,coords,model):
-
+def vcf_test(ref,alt,coords,model,background_size = 100):
+    # score for reference and alternative allele
     ref_pred = model.predict(ref)
     alt_pred = model.predict(alt)
     ref_pred_cov = np.sum(ref_pred,axis = 1)
     alt_pred_cov = np.sum(alt_pred,axis = 1)
 
-    cell_diff = alt_pred_cov-ref_pred_cov
-    total_diff = np.sum(cell_diff, axis = 1)
-
-    cell_fold = np.log(alt_pred_cov) - np.log(ref_pred_cov)
-    total_fold = np.mean(cell_fold,axis = 1)
-
-    d = {'chromosome': coords[:,0], 'start': coords[:,1],'end':coords[:,2],'variant':coords[:,1]+1024}
+    d = {'chromosome': coords[:,0], 'start': coords[:,1],'end':coords[:,2],}
     df = pd.DataFrame(data=d)
 
-    df['diff'] = total_diff
-    df['fold'] = total_fold
+    df['ref'] = ref_pred_cov
+    df['alt'] = alt_pred_cov
+
+    #creating random background mutations
+    #mutations will be at least 100 nt apart from SNP position
+    background_distribution = []
+    for i,ref_seq in enumerate(ref):
+        mut_loci = np.random.randint(100,923,size = background_size)
+        direction = np.random.choice([-1,1])
+        mut_loci = len(ref_seq)/2 + mut_loci * direction
+        mut_loci = mut_loci.astype('int')
+        mut_batch = np.tile(ref_seq,(background_size,1,1))
+        mut_batch[range(0,100),mut_loci] = [0,0,0,0]
+        mut_base = np.random.randint(0,4,size = background_size)
+        mut_batch[range(0,100),mut_loci,mut_base] = 1
+
+        mut_pred = model.predict(mut_batch)
+        mut_pred_cov = np.sum(mut_pred,axis = 1)
+        background_distribution.append(mut_pred_cov)
+    df['background'] = background_distribution
     return df
 
 def complete_saliency(X,model,class_index,func = tf.math.reduce_mean):
