@@ -11,10 +11,10 @@ input_sizes = [2048]
 base_dir = sys.argv[1]
 # basset_samplefile_values = ['Random', '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basset_sample_file.tsv']
 basset_samplefile_values = ['Random']
-dataset_size = [0.2]
-output_subdir_size = ['lite']
+dataset_size = [1]
+output_subdir_size = ['complete']
 output_subdir_bas = ['random_chop', 'peak_centered']
-limit_to_chroms = 'chr21,chr22'
+limit_to_chroms = 'chr8'
 # i = 2048
 # p = 64
 for input_size in input_sizes:
@@ -35,8 +35,8 @@ for input_size in input_sizes:
                 config['chroms']['valid'] = 0
                 config['chroms']['test'] = 1.0
             else:
-                config['chroms']['valid'] = 'chr8,chr9'
-                config['chroms']['test'] = 'chr20,chr21'
+                config['chroms']['valid'] = 'chr9'
+                config['chroms']['test'] = 'chr8'
             config['input']['downsample'] = dilation_rate
             config['samplefile']['basset'] = basset_samplefile
             config['threshold'] = 2
