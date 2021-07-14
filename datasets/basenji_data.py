@@ -275,7 +275,13 @@ def main():
         assert(0 <= test_pct <= 1)
 
         # divide by pct
-        fold_contigs = divide_contigs_pct(contigs, test_pct, valid_pct)
+        if test_pct == 1.0:
+            train_contigs = []
+            valid_contigs = []
+            test_contigs = contigs
+            fold_contigs = [train_contigs, valid_contigs, test_contigs]
+        else:
+            fold_contigs = divide_contigs_pct(contigs, test_pct, valid_pct)
 
       except (ValueError, AssertionError):
         # divide by chr
@@ -788,7 +794,7 @@ def curate_peaks(targets_df, out_dir, pool_width, crop_bp):
 def divide_contigs_chr(contigs, test_chrs, valid_chrs):
   """Divide list of contigs into train/valid/test lists
      by chromosome."""
-
+  print('CHR')
   # initialize current train/valid/test nucleotides
   train_nt = 0
   valid_nt = 0
@@ -823,6 +829,7 @@ def divide_contigs_chr(contigs, test_chrs, valid_chrs):
   print(' Test:  %5d contigs, %10d nt (%.4f)' % \
       (len(test_contigs), test_nt, test_nt/total_nt))
 
+  print(len(f) for f in [train_contigs, valid_contigs, test_contigs])
   return [train_contigs, valid_contigs, test_contigs]
 
 
@@ -875,6 +882,7 @@ def divide_contigs_folds(contigs, folds):
 def divide_contigs_pct(contigs, test_pct, valid_pct, pct_abstain=0.2):
   """Divide list of contigs into train/valid/test lists,
      aiming for the specified nucleotide percentages."""
+  print('PCT')
 
   # sort contigs descending by length
   length_contigs = [(ctg.end-ctg.start,ctg) for ctg in contigs]
@@ -888,6 +896,8 @@ def divide_contigs_pct(contigs, test_pct, valid_pct, pct_abstain=0.2):
   valid_nt_aim = valid_pct * total_nt
   train_nt_aim = total_nt - valid_nt_aim - test_nt_aim
 
+  if test_pct == 1.0:
+      train_nt_aim = 0
   # initialize current train/valid/test nucleotides
   train_nt = 0
   valid_nt = 0
@@ -897,6 +907,7 @@ def divide_contigs_pct(contigs, test_pct, valid_pct, pct_abstain=0.2):
   train_contigs = []
   valid_contigs = []
   test_contigs = []
+
 
   # process contigs
   for ctg_len, ctg in length_contigs:
@@ -933,6 +944,7 @@ def divide_contigs_pct(contigs, test_pct, valid_pct, pct_abstain=0.2):
       print('TVT random number beyond 0,1,2', file=sys.stderr)
       exit(1)
 
+
   print('Contigs divided into')
   print(' Train: %5d contigs, %10d nt (%.4f)' % \
       (len(train_contigs), train_nt, train_nt/total_nt))
@@ -940,7 +952,8 @@ def divide_contigs_pct(contigs, test_pct, valid_pct, pct_abstain=0.2):
       (len(valid_contigs), valid_nt, valid_nt/total_nt))
   print(' Test:  %5d contigs, %10d nt (%.4f)' % \
       (len(test_contigs), test_nt, test_nt/total_nt))
-
+  print(len(test_contigs))
+  print(len(train_contigs))
   return [train_contigs, valid_contigs, test_contigs]
 
 #
