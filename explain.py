@@ -25,8 +25,6 @@ def plot_saliency(saliency_map):
     return plt
 
 
-
-
 def select_top_pred(pred,num_task,top_num):
 
     task_top_list = []
@@ -111,6 +109,46 @@ def peak_saliency_map(X, model, class_index,window_size,func=tf.math.reduce_mean
             outputs = func(tf.gather_nd(pred[:,:,class_index],batch_indices),axis=2)
 
         return tape.gradient(outputs, X)
+
+def saliency_robustness(X,model,window_size,class_index,shift_num=10):
+
+    #enusre all input dim are compatiable to function
+    dim = len(X.shape)
+    if dim < 3:
+        X = tf.expand_dims(X, axis=0)
+
+    #calculate range of center conserved regions and output sizes
+    chop_size = X.shape[1]
+    input_seq_num = X.shape[0]
+    output_num = shift_num*input_seq_num
+    conserve_size = window_size*2 - chop_size
+    conserve_start = chop_size//2 - conserve_size//2
+    conserve_end = conserve_start + conserve_size-1
+
+    #grep $shift_num copies of randomly cropped window
+    ori_X = tf.tile(X,[shift_num,1,1])
+    shift_idx = (np.arange(window_size) +
+                np.random.randint(low = 0,high = chop_size-window_size,
+                                  size = output_num)[:,np.newaxis])
+    col_idx = shift_idx.reshape(window_size *output_num)
+    row_idx = np.repeat(range(0,output_num),window_size)
+    f_index = np.vstack((row_idx,col_idx)).T.reshape(output_num,window_size,2)
+    shift_x = tf.gather_nd(X,f_index)
+
+    #calculate saliency and orgnize by input sequences
+    shift_saliency = complete_saliency(shift_x,model,class_index)
+    #shift_saliency = np.reshape(shift_saliency,(input_seq_num,shift_num,window_size,4))
+
+    #crop the conserved part
+    crop_start_i = np.argwhere(shift_idx == conserve_start)[:,1]
+    crop_idx = crop_start_i[:,None] + np.arange(conserve_size)
+    crop_idx = crop_idx.reshape(conserve_size *output_num)
+    crop_row_idx = np.repeat(range(0,output_num),conserve_size)
+    crop_f_index = np.vstack((crop_row_idx,crop_idx)).T.reshape(output_num,conserve_size,2)
+    shift_saliency=tf.gather_nd(shift_saliency,crop_f_index)
+
+    return shift_saliency
+
 
 def fasta2list(fasta_file):
     fasta_coords = []
