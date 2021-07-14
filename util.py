@@ -19,6 +19,10 @@ import tensorflow as tf
  # functions for loading tfr files into tfr dataset
  ################################################################
 
+def make_dir(dir_path):
+    if not os.path.isdir(dir_path):
+        os.mkdir(dir_path)
+
 def replace_all(text):
     dic = {'X': '23', 'Y': '24'}
     for i, j in dic.items():
