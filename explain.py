@@ -168,7 +168,7 @@ def combine_beds(samplefile, out_path):
 
 def filter_dataset(dsq_path, out_path='dsq_all.bed'):
     dsq_all = pd.read_csv(dsq_path, sep='\t')
-    dsq_filt = dsq_all[(dsq_all['chrom']=='chr20') | (dsq_all['chrom']=='chr21')]
+    dsq_filt = dsq_all[(dsq_all['chrom']=='chr8')]
     dsq_filt[['a1','a2']] = dsq_filt['genotypes'].str.split('/',expand=True) # write into separate columns
     dsq_filt.to_csv(out_path, sep='\t', header=False, index=None)
     return list(dsq_filt)
