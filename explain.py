@@ -36,24 +36,36 @@ def select_top_pred(pred,num_task,top_num):
     task_top_list = np.array(task_top_list)
     return task_top_list
 
-def vcf_test(ref,alt,coords,model):
-
+def vcf_test(ref,alt,coords,model,background_size = 100):
+    # score for reference and alternative allele
     ref_pred = model.predict(ref)
     alt_pred = model.predict(alt)
-    ref_pred_cov = np.sum(ref_pred,axis = 1)
-    alt_pred_cov = np.sum(alt_pred,axis = 1)
+    ref_pred_cov = np.sum(ref_pred,axis = (1,2))
+    alt_pred_cov = np.sum(alt_pred,axis = (1,2))
 
-    cell_diff = alt_pred_cov-ref_pred_cov
-    total_diff = np.sum(cell_diff, axis = 1)
-
-    cell_fold = np.log(alt_pred_cov) - np.log(ref_pred_cov)
-    total_fold = np.mean(cell_fold,axis = 1)
-
-    d = {'chromosome': coords[:,0], 'start': coords[:,1],'end':coords[:,2],'variant':coords[:,1]+1024}
+    d = {'chromosome': coords[:,0], 'start': coords[:,1],'end':coords[:,2]}
     df = pd.DataFrame(data=d)
 
-    df['diff'] = total_diff
-    df['fold'] = total_fold
+    df['ref'] = ref_pred_cov
+    df['alt'] = alt_pred_cov
+
+    #creating random background mutations
+    #mutations will be at least 100 nt apart from SNP position
+    background_distribution = []
+    for i,ref_seq in enumerate(ref):
+        mut_loci = np.random.randint(100,923,size = background_size)
+        direction = np.random.choice([-1,1])
+        mut_loci = len(ref_seq)/2 + mut_loci * direction
+        mut_loci = mut_loci.astype('int')
+        mut_batch = np.tile(ref_seq,(background_size,1,1))
+        mut_batch[range(0,100),mut_loci] = [0,0,0,0]
+        mut_base = np.random.randint(0,4,size = background_size)
+        mut_batch[range(0,100),mut_loci,mut_base] = 1
+
+        mut_pred = model.predict(mut_batch)
+        mut_pred_cov = np.sum(mut_pred,axis = (1,2))
+        background_distribution.append(mut_pred_cov)
+    df['background'] = background_distribution
     return df
 
 def complete_saliency(X,model,class_index,func = tf.math.reduce_mean):
@@ -151,20 +163,18 @@ def enforce_const_range(site, window):
 
 def combine_beds(samplefile, out_path):
     bed_paths = pd.read_csv(samplefile, sep='\t', header=None)[1].values
-    combined_csv = pd.concat([(pd.read_csv(f, sep='\t', header=None).iloc[:,:3]).drop_duplicates() for f in bed_paths ])
+    combined_csv = pd.concat([pd.read_csv(f, sep='\t', header=None) for f in bed_paths ])
     combined_csv.to_csv(out_path, sep='\t', header=None, index=None)
-
 
 def filter_dataset(dsq_path, out_path='dsq_all.bed'):
     dsq_all = pd.read_csv(dsq_path, sep='\t')
-    dsq_all['ID'] = dsq_all.index
     dsq_filt = dsq_all[(dsq_all['chrom']=='chr20') | (dsq_all['chrom']=='chr21')]
     dsq_filt[['a1','a2']] = dsq_filt['genotypes'].str.split('/',expand=True) # write into separate columns
     dsq_filt.to_csv(out_path, sep='\t', header=False, index=None)
     return list(dsq_filt)
 
 def bed_intersect(dataset_bed, comb_peak, out_path):
-    bashCmd = "bedtools intersect -wa -a {} -b {} > {}".format(dataset_bed, comb_peak, out_path)
+    bashCmd = "bedtools intersect -a {} -b {} > {}".format(dataset_bed, comb_peak, out_path)
     process = subprocess.Popen(bashCmd, shell=True)
     output, error = process.communicate()
     print(error)
@@ -173,19 +183,15 @@ def extend_ranges(column_names, bedfile, out_path, window):
     dsq_df = pd.read_csv(bedfile, sep='\t', header=None, index_col=None)
     dsq_df.columns = column_names #list(dsq_filt)
     dsq_filt = dsq_df[['chrom', 'snpChromStart', 'snpChromEnd', 'a1', 'a2',
-                        'strand', 'rsid', 'pred.fit.pctSig', 'ID']]
+                        'strand', 'rsid', 'pred.fit.pctSig']]
     start, end = enforce_const_range(dsq_filt['snpChromEnd']-1, window)
     dsq_ext = dsq_filt.copy()
     dsq_ext.iloc[:,1] = start.values
     dsq_ext.iloc[:,2] = end.values
     dsq_nonneg = dsq_ext[dsq_ext['snpChromStart']>0]
     dsq_nonneg = dsq_nonneg.reset_index(drop=True)
-    dsq_nonneg['counts'] = dsq_nonneg.groupby(['chrom', 'snpChromStart'])['snpChromStart'].transform('count').values
-    dsq_nonneg = dsq_nonneg.drop_duplicates().reset_index(drop=True)
     dsq_nonneg.to_csv(out_path, header=None, sep='\t', index=None)
-    counts_per_cell = dsq_nonneg['counts'].values
-    pct_sign = dsq_nonneg['pred.fit.pctSig'].values
-    return dsq_nonneg, counts_per_cell, pct_sign
+    return dsq_nonneg
 
 def bed_to_fa(bedfile='test_ds.csv', out_fa='test_ds.fa',
               genome_file='/home/shush/genomes/hg19.fa'):
@@ -234,15 +240,13 @@ def str_to_onehot(coords_list, seqs_list, dsq_nonneg, window):
     return (onehot_ref, onehot_alt, coord_np)
 
 
-def onehot_to_h5(onehot_ref, onehot_alt, coord_np, counts_per_cell, pct_sign, out_dir='.', filename='onehot.h5'):
+def onehot_to_h5(onehot_ref, onehot_alt, coord_np, out_dir='.', filename='onehot.h5'):
     if not os.path.isdir(out_dir):
         os.mkdir(out_dir)
     onehot_ref_alt = h5py.File(os.path.join(out_dir, filename), 'w')
     onehot_ref_alt.create_dataset('ref', data=onehot_ref, dtype='float32')
     onehot_ref_alt.create_dataset('alt', data=onehot_alt, dtype='float32')
     onehot_ref_alt.create_dataset('fasta_coords', data=coord_np, dtype='i')
-    onehot_ref_alt.create_dataset('cell_counts', data=counts_per_cell, dtype='i')
-    onehot_ref_alt.create_dataset('pct_sign', data=pct_sign, dtype='float32')
     onehot_ref_alt.close()
 
 def table_to_h5(dsq_path,
@@ -258,7 +262,7 @@ def table_to_h5(dsq_path,
     print('Filtering SNPs in the open chromatin regions')
     bed_intersect(out_filt, out_peaks, out_open)
     print('Extending regions around the SNP')
-    dsq_nonneg, counts_per_cell, pct_sign = extend_ranges(column_names, out_open, out_fin, window)
+    dsq_nonneg = extend_ranges(column_names, out_open, out_fin, window)
     print('Converting bed to fa')
     bed_to_fa(out_fin, out_fa, genome_file)
     print('converting fa to one hot encoding')
@@ -266,7 +270,7 @@ def table_to_h5(dsq_path,
     onehot_ref, onehot_alt, coord_np = str_to_onehot(coords_list, seqs_list,
                                                     dsq_nonneg, window)
     print('Saving onehots as h5')
-    onehot_to_h5(onehot_ref, onehot_alt, coord_np, counts_per_cell, pct_sign, out_dir, out_h5)
+    onehot_to_h5(onehot_ref, onehot_alt, coord_np, out_dir, out_h5)
 
     interm_files = [out_peaks, out_filt, out_open, out_fin, out_fa]
     if save_files:
