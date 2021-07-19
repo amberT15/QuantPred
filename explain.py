@@ -61,7 +61,7 @@ def vcf_test(ref,alt,coords,model,background_size = 100):
         mut_row = mut_batch[range(0,background_size),mut_loci]
         ori_empty_base = np.where(mut_row!= 1)[1].reshape(mut_row.shape[0],3)
         mut_base = np.apply_along_axis(np.random.choice, axis=1, arr=ori_empty_base, size=1)
-        mut_batch[range(0,background_size),mut_loci,mut_base] = [0,0,0,0]
+        mut_batch[range(0,background_size),mut_loci] = [0,0,0,0]
         mut_batch[range(0,background_size),mut_loci,mut_base] = 1
 
         mut_pred = model.predict(mut_batch)
