@@ -14,7 +14,7 @@ def plot_saliency(saliency_map):
     for n, w in enumerate(saliency_map):
         ax = axs[n]
         #plot saliency map representation
-        saliency_df = pd.DataFrame(w.numpy(), columns = ['A','C','G','T'])
+        saliency_df = pd.DataFrame(w, columns = ['A','C','G','T'])
         logomaker.Logo(saliency_df, ax=ax)
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
@@ -58,9 +58,11 @@ def vcf_test(ref,alt,coords,model,background_size = 100):
         mut_loci = len(ref_seq)/2 + mut_loci * direction
         mut_loci = mut_loci.astype('int')
         mut_batch = np.tile(ref_seq,(background_size,1,1))
-        mut_batch[range(0,100),mut_loci] = [0,0,0,0]
-        mut_base = np.random.randint(0,4,size = background_size)
-        mut_batch[range(0,100),mut_loci,mut_base] = 1
+        mut_row = mut_batch[range(0,background_size),mut_loci]
+        ori_empty_base = np.where(mut_row!= 1)[1].reshape(mut_row.shape[0],3)
+        mut_base = np.apply_along_axis(np.random.choice, axis=1, arr=ori_empty_base, size=1)
+        mut_batch[range(0,background_size),mut_loci,mut_base] = [0,0,0,0]
+        mut_batch[range(0,background_size),mut_loci,mut_base] = 1
 
         mut_pred = model.predict(mut_batch)
         mut_pred_cov = np.sum(mut_pred,axis = (1,2))
@@ -126,18 +128,18 @@ def saliency_robustness(X,model,window_size,class_index,shift_num=10):
     conserve_end = conserve_start + conserve_size-1
 
     #grep $shift_num copies of randomly cropped window
-    ori_X = tf.tile(X,[shift_num,1,1])
+    ori_X = np.repeat(X,shift_num,axis=0)
     shift_idx = (np.arange(window_size) +
                 np.random.randint(low = 0,high = chop_size-window_size,
                                   size = output_num)[:,np.newaxis])
     col_idx = shift_idx.reshape(window_size *output_num)
     row_idx = np.repeat(range(0,output_num),window_size)
     f_index = np.vstack((row_idx,col_idx)).T.reshape(output_num,window_size,2)
-    shift_x = tf.gather_nd(X,f_index)
+    shift_x = tf.gather_nd(ori_X,f_index)
 
     #calculate saliency and orgnize by input sequences
     shift_saliency = complete_saliency(shift_x,model,class_index)
-    #shift_saliency = np.reshape(shift_saliency,(input_seq_num,shift_num,window_size,4))
+    shift_saliency = shift_saliency*shift_x
 
     #crop the conserved part
     crop_start_i = np.argwhere(shift_idx == conserve_start)[:,1]
@@ -146,6 +148,7 @@ def saliency_robustness(X,model,window_size,class_index,shift_num=10):
     crop_row_idx = np.repeat(range(0,output_num),conserve_size)
     crop_f_index = np.vstack((crop_row_idx,crop_idx)).T.reshape(output_num,conserve_size,2)
     shift_saliency=tf.gather_nd(shift_saliency,crop_f_index)
+    shift_saliency = np.split(shift_saliency,input_seq_num)
 
     return shift_saliency
 
