@@ -12,7 +12,10 @@ def plot_saliency(saliency_map):
 
     fig, axs = plt.subplots(saliency_map.shape[0],1,figsize=(200,5*saliency_map.shape[0]))
     for n, w in enumerate(saliency_map):
-        ax = axs[n]
+        if saliency_map.shape[0] == 1:
+            ax = axs
+        else:
+            ax = axs[n]
         #plot saliency map representation
         saliency_df = pd.DataFrame(w, columns = ['A','C','G','T'])
         logomaker.Logo(saliency_df, ax=ax)
@@ -152,6 +155,20 @@ def saliency_robustness(X,model,window_size,class_index,shift_num=10):
 
     return shift_saliency
 
+def saliency_evaluate(saliency):
+    if len(saliency.shape) == 3:
+        saliency = np.expand_dims(saliency,0)
+    average_saliency = np.average(np.array(saliency),axis = 1)
+    var_list = []
+    var_sum_list = []
+    for i in range(average_saliency.shape[0]):
+        variance = np.log(saliency[i]+1) - np.log(average_saliency[i]+1)
+        variance = np.sum(variance,axis = 0)
+        var_list.append(variance)
+        var_sum = np.sum(variance)
+        var_sum_list.append(var_sum)
+
+    return average_saliency,var_sum_list,var_list
 
 def fasta2list(fasta_file):
     fasta_coords = []
