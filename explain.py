@@ -232,7 +232,7 @@ def filter_dataset(dsq_path, out_path='dsq_all.bed'):
     dsq_filt = dsq_all[(dsq_all['chrom']=='chr8')]
     dsq_filt[['a1','a2']] = dsq_filt['genotypes'].str.split('/',expand=True) # write into separate columns
     dsq_filt.to_csv(out_path, sep='\t', header=False, index=None)
-    return list(dsq_filt)
+    return dsq_filt
 
 def bed_intersect(dataset_bed, comb_peak, out_path):
     bashCmd = "bedtools intersect -wa -a {} -b {} > {}".format(dataset_bed, comb_peak, out_path)
@@ -245,8 +245,10 @@ def extend_ranges(column_names, bedfile, out_path, window):
     dsq_df.columns = column_names #list(dsq_filt)
     dsq_filt = dsq_df[['chrom', 'snpChromStart', 'snpChromEnd', 'a1', 'a2',
                         'strand', 'rsid', 'pred.fit.pctSig','ID']]
+    # get the 3K range start and end
     start, end = enforce_const_range(dsq_filt['snpChromEnd']-1, window)
     dsq_ext = dsq_filt.copy()
+    #
     dsq_ext.iloc[:,1] = start.values
     dsq_ext.iloc[:,2] = end.values
     dsq_nonneg = dsq_ext[dsq_ext['snpChromStart']>0]
@@ -305,14 +307,14 @@ def str_to_onehot(coords_list, seqs_list, dsq_nonneg, window):
     return (onehot_ref, onehot_alt, coord_np)
 
 
-def onehot_to_h5(onehot_ref, onehot_alt, coord_np, counts_per_cell, pct_sign, out_dir='.', filename='onehot.h5'):
+def onehot_to_h5(onehot_ref, onehot_alt, coord_np, pct_sign, out_dir='.', filename='onehot.h5'):
     if not os.path.isdir(out_dir):
         os.mkdir(out_dir)
     onehot_ref_alt = h5py.File(os.path.join(out_dir, filename), 'w')
     onehot_ref_alt.create_dataset('ref', data=onehot_ref, dtype='float32')
     onehot_ref_alt.create_dataset('alt', data=onehot_alt, dtype='float32')
     onehot_ref_alt.create_dataset('fasta_coords', data=coord_np, dtype='i')
-    onehot_ref_alt.create_dataset('cell_counts', data=counts_per_cell, dtype='i')
+    # onehot_ref_alt.create_dataset('cell_lines', data=cell_lines, dtype='i')
     onehot_ref_alt.create_dataset('pct_sign', data=pct_sign, dtype='float32')
     onehot_ref_alt.close()
 
@@ -340,6 +342,75 @@ def table_to_h5(dsq_path,
     onehot_to_h5(onehot_ref, onehot_alt, coord_np, counts_per_cell, pct_sign, out_dir, out_h5)
 
     interm_files = [out_peaks, out_filt, out_open, out_fin, out_fa]
+    if save_files:
+        for f in interm_files:
+            dst_f = os.path.join(out_dir, f)
+            shutil.move(f, dst_f)
+    else:
+        for f in interm_files:
+            os.remove(f)
+
+def merge_one_cell_line(chr8_dsq_file, idr_bed, i='0', out_merged_bed='merged.bed'):
+    assert isinstance(i, str), 'Input str as identifier!'
+
+    bashCmd = "bedtools intersect -wa -a {} -b {} > {}".format(chr8_dsq_file, idr_bed, out_merged_bed)
+    process = subprocess.Popen(bashCmd, shell=True)
+    output, error = process.communicate()
+    chr8_dsq = pd.read_csv(chr8_dsq_file,  header=None, sep='\t')
+    # keep_cols = ['chrom', 'snpChromStart', 'snpChromEnd']
+    keep_cols = ['chrom', 'snpChromStart', 'snpChromEnd', 'rsid',
+                 'pred.fit.pctSig', 'strand', 'motifname',
+                 'position', 'genotypes', 'ID', 'a1', 'a2']
+    chr8_dsq.columns = keep_cols
+    merged = pd.read_csv('merged.bed', header=None, sep='\t')
+    merged.columns = keep_cols
+    merged['idr_N'] = i
+    merged_dsq = chr8_dsq.merge(merged, how='outer')
+    open_vcfs = merged_dsq[merged_dsq['idr_N']==i]
+    open_vcfs = open_vcfs.drop_duplicates().reset_index(drop=True)
+    return open_vcfs
+
+def get_h5_with_cells(dsq_path, window=3072, out_dir='.',
+                      samplefile='/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basset_sample_file.tsv',
+                      save_files=False):
+    dsq = pd.read_csv(dsq_path, sep='\t') # dataframe from the paper
+    dsq_chr8 = filter_dataset(dsq_path, 'dsq_chr8.bed') # filter chr8 VCFs
+    # list to save per cell line vcfs in the open chromatin regions
+    per_cell_open_vcfs = []
+    # open samplefile and get IDR filepaths
+    bed_paths = pd.read_csv(samplefile, sep='\t', header=None)[1].values
+    # per cell line
+    for f, bed_file in enumerate(bed_paths):
+        # get VCFs in the open chromatin region
+        open_vcfs = merge_one_cell_line('dsq_chr8.bed', bed_file, i=str(f))
+        per_cell_open_vcfs.append(open_vcfs) #save it
+    # put all into one df
+    conc_vcfs = pd.concat(per_cell_open_vcfs)
+    # merge redundant ones and collect cell line info
+    merged_vcfs = conc_vcfs.groupby(['chrom','snpChromStart','snpChromEnd'])['idr_N'].apply(', '.join).reset_index()
+    # reattach columsn with metadata
+    complete_df = merged_vcfs.merge(conc_vcfs, how='left', on=['chrom', 'snpChromStart', 'snpChromEnd'])
+    # remove redundant columns and rows
+    complete_unq = complete_df.drop(columns='idr_N_y').drop_duplicates().reset_index(drop=True)
+    # get the 3K range start and end
+    start, end = enforce_const_range(complete_unq['snpChromEnd']-1, window)
+    complete_unq.insert(1, '3K_start', start.values) # add starts
+    complete_unq.insert(2, '3K_end', end.values) # add ends
+    complete_unq = complete_unq[complete_unq['3K_start']>0] # remove ones starting at negative coords
+    complete_unq.rename(columns={'idr_N_x':'cell_lines'}, inplace=True) # rename column
+    complete_unq.to_csv(os.path.join(out_dir, 'vcf_metadata.csv'), sep='\t', index=None) # save the complete metadata table
+    # save version needed for fa conversion
+    complete_unq[['chrom', '3K_start', '3K_end', 'rsid','pred.fit.pctSig',
+                 'strand']].to_csv('out_fin.bed', sep='\t', header=None, index=None)
+    bed_to_fa('out_fin.bed', 'out.fa', genome_file='/home/shush/genomes/hg19.fa')
+    coords_list, seqs_list = fasta2list('out.fa')
+    onehot_ref, onehot_alt, coord_np = str_to_onehot(coords_list, seqs_list,
+                                                    complete_unq, window)
+
+    onehot_to_h5(onehot_ref, onehot_alt, coord_np,
+                np.array(complete_unq['pred.fit.pctSig'].values), out_dir)
+    shutil.copy(dsq_path, os.path.join(out_dir, dsq_path))
+    interm_files = ['dsq_chr8.bed', 'out_fin.bed', 'out.fa']
     if save_files:
         for f in interm_files:
             dst_f = os.path.join(out_dir, f)
