@@ -183,9 +183,8 @@ def process_cell_line(run_path, cell_line_index,
         bw_from_ranges(binned_filename, cell_line_true_idr, out_bw, chrom_size_path)
     # threshold all using IDR file of true bw
     thresh_bedfile = true_bw_filename.split('.bw')[0]+'_thresh{}.bed'.format(threshold)
-    true_thresh_filename = true_bw_filename.split('.bw')[0]+'_bin_thresh{}.bw'.format(threshold)
+    true_thresh_filename = true_bw_filename.split('.bw')[0]+'_thresh{}.bw'.format(threshold)
     bw_from_ranges(true_bw_filename, bed_filename, true_thresh_filename, chrom_size_path, threshold=threshold, out_bed_filename=thresh_bedfile)
     for binned_filename in binned_filenames+[pred_bw_filename]:
-        if 'true' not in binned_filename:
-            out_thresh = binned_filename.split('.bw')[0]+'_bin_thresh{}.bw'.format(threshold)
-            bw_from_ranges(binned_filename, thresh_bedfile, out_thresh, chrom_size_path)
+        out_thresh = binned_filename.split('.bw')[0]+'_thresh{}.bw'.format(threshold)
+        bw_from_ranges(binned_filename, thresh_bedfile, out_thresh, chrom_size_path)
