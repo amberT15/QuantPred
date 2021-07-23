@@ -12,6 +12,8 @@ import custom_fit
 import time
 from loss import *
 import yaml
+import subprocess
+import gzip
 import pandas as pd
 
 
@@ -46,24 +48,22 @@ def read_chrom_size(chrom_size_path):
     return chrom_size
 
 
-def open_bw(bw_filename, chrom_size_path, output_dir='.'):
+def open_bw(bw_filename, chrom_size_path):
     chrom_sizes = read_chrom_size(chrom_size_path)
-    bw = pyBigWig.open(os.path.join(output_dir, bw_filename), "w")
+    # bw_filepath = os.path.join(output_dir, bw_filename)
+    bw = pyBigWig.open(bw_filename, "w")
     bw.addHeader([(k, v) for k, v in chrom_sizes.items()], maxZooms=0)
     return bw
 
 
-def make_true_pred_bw(testset, trained_model, targets, cell_line, bin_size,
-              chrom_size_path, output_dir):
+def make_true_pred_bw(true_bw_filename, pred_bw_filename, bed_filename, testset,
+                      trained_model, cell_line, bin_size,
+                      chrom_size_path):
 
-    cell_line_name = targets[cell_line]
-    true_bw_filename = os.path.join(output_dir, cell_line_name+"_true.bw")
-    pred_bw_filename = os.path.join(output_dir, cell_line_name+"_pred.bw")
-    bed_filename = os.path.join(output_dir, cell_line_name+"_true.bed")
+
     bedfile = open(bed_filename, "w")
-    true_bw = open_bw(true_bw_filename, chrom_size_path, output_dir)
-    pred_bw = open_bw(pred_bw_filename, chrom_size_path, output_dir)
-    print('Processing cell line '+targets[cell_line])
+    true_bw = open_bw(true_bw_filename, chrom_size_path)
+    pred_bw = open_bw(pred_bw_filename, chrom_size_path)
     for C, X, Y in testset: #per batch
         C = [str(c).strip('b\'').strip('\'') for c in C.numpy()] # coordinates
         P = trained_model(X) # make batch predictions
@@ -82,39 +82,110 @@ def make_true_pred_bw(testset, trained_model, targets, cell_line, bin_size,
     pred_bw.close()
     bedfile.close()
 
+def get_replicates(cell_line_name, repl_labels = ['r2', 'r12'], basenji_samplefiles=['/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basenji_sample_r2_file.tsv', '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basenji_sample_r1,2_file.tsv']):
+    replicate_filepaths = {}
+    for b, basenji_samplefile in enumerate(basenji_samplefiles):
+        basenji_samplefile_df = pd.read_csv(basenji_samplefile, sep='\t')
+        cell_row = basenji_samplefile_df[basenji_samplefile_df['identifier']==cell_line_name]['file']
+        assert not(len(cell_row) > 1), 'Multiple cell lines detected!'
+        if len(cell_row) == 1:
+            replicate_filepaths[repl_labels[b]] = cell_row.values[0]
+    return replicate_filepaths
 
 
-def dataset_to_bw(data_path, run_path, cell_line, out_prefix='testset_bws',
-                  chrom_size_path="/home/shush/genomes/GRCh38_EBV.chrom.sizes.tsv"):
+def get_idr(cell_line_name, idr_filename, basset_samplefile='/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basset_sample_file.tsv'):
+
+    basset_samplefile_df=pd.read_csv(basset_samplefile, sep='\t', header=None)
+    idr_file_gz = basset_samplefile_df[basset_samplefile_df[0]==cell_line_name][1].values[0]
+    bashCmd = "scp {} temp.bed.gz; gunzip temp.bed.gz; grep chr8 temp.bed|awk '{{print $1, $2, $3}}'|sort -k1,1 -k2,2n|uniq > {}; rm temp.bed; rm temp.bed.gz".format(idr_file_gz, idr_filename)
+    process = subprocess.Popen(bashCmd, shell=True)
+    output, error = process.communicate()
+
+
+
+def bw_from_ranges(in_bw_filename, in_bed_filename, out_bw_filename,
+                   chrom_size_path, bin_size=1, threshold=-1,
+                   out_bed_filename=''):
+    '''
+    This function creates bw file from existing bw file but only from specific
+    bed ranges provided in the bed file, and optionally thresholds the bed file
+    as well as optionally outputs the regions selected if out_bed_filename provided
+    '''
+    if len(out_bed_filename) > 0:
+        # bedfile_path = os.path.join(out_dir, out_bed_filename)
+        bedfile = open(out_bed_filename, "w")
+    in_bw = pyBigWig.open(in_bw_filename)
+    out_bw = open_bw(out_bw_filename, chrom_size_path)
+    in_bedfile = open(in_bed_filename)
+    for line in in_bedfile:
+        cols = line.strip().split()
+        vals = in_bw.values(cols[0], int(cols[1]), int(cols[2]))
+        vals = np.array(vals, dtype='float64')
+        if np.max(vals) > threshold:
+            vals = vals.reshape(len(vals)//bin_size, bin_size).mean(axis=1)
+            out_bw.addEntries(cols[0], int(cols[1]), values=vals, span=bin_size,
+                              step=bin_size)
+            if len(out_bed_filename) > 0:
+                bedfile.write(line)
+
+    in_bw.close()
+    out_bw.close()
+    if len(out_bed_filename) > 0:
+        bedfile.close()
+        # return bedfile_path
+
+
+#     # bin nonthresholded true and replicates (pred is already binned)
+#     true_bin_filename = cell_line_name+'_true_bin.bw'
+#     r2_bin_filename = cell_line_name+'_r2_bin.bw'
+#     bw_from_ranges(true_bw_filename, bed_filename, true_bin_filename, chrom_size_path, output_dir, bin_size=bin_size)
+#     bw_from_ranges(os.path.join(output_dir, r2_bw_filename), bed_filename, r2_bin_filename, chrom_size_path, output_dir, bin_size=bin_size)
+
+
+def process_cell_line(run_path, cell_line_index,
+                      threshold=2,
+                      data_path='datasets/only_test/lite/random_chop/i_2048_w_1',
+                      chrom_size_path="/home/shush/genomes/GRCh38_EBV.chrom.sizes.tsv"):
+
+    out_prefix = 'bw'+str(cell_line_index)
     testset, targets = read_dataset(data_path) # get dataset
     trained_model, bin_size = read_model(run_path) # get model
     output_dir = os.path.join(run_path, 'files', out_prefix) # save output in wandb folder
     util.make_dir(output_dir)
-    make_true_pred_bw(testset, trained_model, targets, cell_line, bin_size,
-                  chrom_size_path, output_dir)
+    cell_line_name = targets[cell_line_index]
+    replicate_filepaths = get_replicates(cell_line_name)
+    cell_line_true_idr = os.path.join(output_dir, cell_line_name+'_IDR.bed')
+    get_idr(cell_line_name, cell_line_true_idr)
+    print('Processing cell line '+targets[cell_line_index])
 
-def bw_from_ranges(in_bw_filename, in_bed_filename, out_bw_filename,
-                   chrom_size_path, out_dir, bin_size=1):
-    '''
-    This function creates bw file from existing bw file but only from specific
-    bed ranges provided in the bed file
-    '''
-    in_bw = pyBigWig.open(in_bw_filename)
-    out_bw = open_bw(out_bw_filename, chrom_size_path, out_dir)
-    for line in open(in_bed_filename):
-        cols = line.strip().split()
-        vals = in_bw.values(cols[0], int(cols[1]), int(cols[2]))
-        vals = np.array(vals, dtype='float64')
-        vals = vals.reshape(len(vals)//bin_size, bin_size).mean(axis=1)
-        out_bw.addEntries(cols[0], int(cols[1]), values=vals, span=bin_size,
-                          step=bin_size)
-    in_bw.close()
-    out_bw.close()
+    true_bw_filename = os.path.join(output_dir, cell_line_name+"_true.bw")
+    pred_bw_filename = os.path.join(output_dir, cell_line_name+"_pred.bw")
+    bed_filename = os.path.join(output_dir, cell_line_name+"_true.bed")
 
+    make_true_pred_bw(true_bw_filename, pred_bw_filename, bed_filename, testset,
+                      trained_model, cell_line_index, bin_size, chrom_size_path)
 
-def bw_with_threshold(in_bw, threshold, out_bw, out_bed):
-    '''
-    This function filters a bw file based on a given threshold and outputs a bw
-    file with filtered values only and a bed file with the regions selected
-    '''
-    pass
+    # make nonthresholded non binned replicates
+    rX_bw_filenames = []
+    for rX, rX_bw_path in replicate_filepaths.items():
+        out_rX = os.path.join(output_dir, cell_line_name+'_{}.bw'.format(rX))
+        rX_bw_filenames.append(out_rX)
+        bw_from_ranges(rX_bw_path, bed_filename, out_rX, chrom_size_path)
+    # bin true, rXs
+    binned_filenames = []
+    for in_bw in rX_bw_filenames+[true_bw_filename]:
+        out_bw = in_bw.split('.bw')[0]+'_bin.bw'
+        binned_filenames.append(out_bw)
+        bw_from_ranges(in_bw, bed_filename, out_bw, chrom_size_path, bin_size=bin_size)
+    # threshold all using IDR file of true bw
+    for binned_filename in binned_filenames+[pred_bw_filename]:
+        out_bw = binned_filename.split('.bw')[0]+'_idr.bw'
+        bw_from_ranges(binned_filename, cell_line_true_idr, out_bw, chrom_size_path)
+    # threshold all using IDR file of true bw
+    thresh_bedfile = true_bw_filename.split('.bw')[0]+'_thresh{}.bed'.format(threshold)
+    true_thresh_filename = true_bw_filename.split('.bw')[0]+'_bin_thresh{}.bw'.format(threshold)
+    bw_from_ranges(true_bw_filename, bed_filename, true_thresh_filename, chrom_size_path, threshold=threshold, out_bed_filename=thresh_bedfile)
+    for binned_filename in binned_filenames+[pred_bw_filename]:
+        if 'true' not in binned_filename:
+            out_thresh = binned_filename.split('.bw')[0]+'_bin_thresh{}.bw'.format(threshold)
+            bw_from_ranges(binned_filename, thresh_bedfile, out_thresh, chrom_size_path)
