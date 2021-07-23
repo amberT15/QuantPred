@@ -46,43 +46,21 @@ def read_chrom_size(chrom_size_path):
     return chrom_size
 
 
-#
-# def open_bws(bws_dict, cell_line_name, chrom_size, output_dir):
-#     for bw_type in bws_dict.keys():
-#         bw_filename = cell_line_name+'_'+bw_type+".bw"
-#         bw = pyBigWig.open(os.path.join(output_dir, bw_filename), "w")
-#         bw.addHeader([(k, v) for k, v in chrom_size.items()], maxZooms=0)
-#         bws_dict[bw_type] = bw
-#     print('BigWigs opened!')
-
 def open_bw(bw_filename, chrom_size_path, output_dir='.'):
     chrom_sizes = read_chrom_size(chrom_size_path)
     bw = pyBigWig.open(os.path.join(output_dir, bw_filename), "w")
     bw.addHeader([(k, v) for k, v in chrom_sizes.items()], maxZooms=0)
     return bw
 
-# def close_bws(bws_dict, cell_lines):
-#     for bw_type in bws_dict.keys():
-#         bws_dict[bw_type].close()
-#     print('Closed them all!')
-
-    # if bin_size > 1:
-    #     binned_bw_filename = cell_line_name+"_truebin.bw"
-    #     truebin_bw = open_bw(binned_bw_filename)
-    #         if bin_size>1:
-    #             # binned ground truth
-    #             bws_dict['true_binned_cov'].addEntries(chrom, start,
-    #                 values=np.array(np.squeeze(Y_bin[i,:,cell_line]),
-    #                 dtype='float64'), span=bin_size, step=bin_size)
-
-        # if bin_size>1:
-        #     Y_bin = custom_fit.bin_resolution(Y, bin_size) # bin Y
 
 def make_true_pred_bw(testset, trained_model, targets, cell_line, bin_size,
               chrom_size_path, output_dir):
+
     cell_line_name = targets[cell_line]
-    true_bw_filename = cell_line_name+"_true.bw"
-    pred_bw_filename = cell_line_name+"_pred.bw"
+    true_bw_filename = os.path.join(output_dir, cell_line_name+"_true.bw")
+    pred_bw_filename = os.path.join(output_dir, cell_line_name+"_pred.bw")
+    bed_filename = os.path.join(output_dir, cell_line_name+"_true.bed")
+    bedfile = open(bed_filename, "w")
     true_bw = open_bw(true_bw_filename, chrom_size_path, output_dir)
     pred_bw = open_bw(pred_bw_filename, chrom_size_path, output_dir)
     print('Processing cell line '+targets[cell_line])
@@ -91,7 +69,7 @@ def make_true_pred_bw(testset, trained_model, targets, cell_line, bin_size,
         P = trained_model(X) # make batch predictions
 
         for i, pred in enumerate(P): # per batch element
-            chrom, start, _ = C[i].split('_') # get chr, start, end
+            chrom, start, end = C[i].split('_') # get chr, start, end
             start = int(start)
             true_bw.addEntries(chrom, start,
                 values=np.array(np.squeeze(Y[i,:,cell_line]), dtype='float64'),
@@ -99,8 +77,10 @@ def make_true_pred_bw(testset, trained_model, targets, cell_line, bin_size,
             pred_bw.addEntries(chrom, start,
                 values=np.array(np.squeeze(pred[:,cell_line]), dtype='float64'),
                 span=bin_size, step=bin_size) # predictions
+            bedfile.write('{}\t{}\t{}\n'.format(chrom, start, end))
     true_bw.close()
     pred_bw.close()
+    bedfile.close()
 
 
 
@@ -113,12 +93,23 @@ def dataset_to_bw(data_path, run_path, cell_line, out_prefix='testset_bws',
     make_true_pred_bw(testset, trained_model, targets, cell_line, bin_size,
                   chrom_size_path, output_dir)
 
-def bw_from_ranges(in_bw, bed, out_bw):
+def bw_from_ranges(in_bw_filename, in_bed_filename, out_bw_filename,
+                   chrom_size_path, out_dir, bin_size=1):
     '''
     This function creates bw file from existing bw file but only from specific
     bed ranges provided in the bed file
     '''
-    pass
+    in_bw = pyBigWig.open(in_bw_filename)
+    out_bw = open_bw(out_bw_filename, chrom_size_path, out_dir)
+    for line in open(in_bed_filename):
+        cols = line.strip().split()
+        vals = in_bw.values(cols[0], int(cols[1]), int(cols[2]))
+        vals = np.array(vals, dtype='float64')
+        vals = vals.reshape(len(vals)//bin_size, bin_size).mean(axis=1)
+        out_bw.addEntries(cols[0], int(cols[1]), values=vals, span=bin_size,
+                          step=bin_size)
+    in_bw.close()
+    out_bw.close()
 
 
 def bw_with_threshold(in_bw, threshold, out_bw, out_bed):
@@ -127,8 +118,3 @@ def bw_with_threshold(in_bw, threshold, out_bw, out_bed):
     file with filtered values only and a bed file with the regions selected
     '''
     pass
-
-def bin_bw(bw, bin_size):
-    '''
-    Given a bw file bin it and write the binned version to a new bw
-    '''
