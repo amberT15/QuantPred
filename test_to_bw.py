@@ -16,6 +16,19 @@ import subprocess
 import gzip
 import pandas as pd
 
+def change_filename(filepath, new_binningsize=None, new_thresholdmethod=None):
+
+    filename = os.path.basename(filepath)
+    directory = filepath.split(filename)[0]
+    cellline, bigwigtype, bin, threshold = filename.split('.bw')[0].split('_')
+
+    if new_binningsize != None:
+        bin = new_binningsize
+    if new_thresholdmethod != None:
+        threshold = new_thresholdmethod
+
+    new_filename = '_'.join([cellline, bigwigtype, bin, threshold])+'.bw'
+    return os.path.join(directory, new_filename)
 
 
 def read_dataset(data_path):
@@ -117,7 +130,9 @@ def bw_from_ranges(in_bw_filename, in_bed_filename, out_bw_filename,
     in_bw = pyBigWig.open(in_bw_filename)
     out_bw = open_bw(out_bw_filename, chrom_size_path)
     in_bedfile = open(in_bed_filename)
+    print(in_bw_filename)
     for line in in_bedfile:
+        # print(line)
         cols = line.strip().split()
         vals = in_bw.values(cols[0], int(cols[1]), int(cols[2]))
         vals = np.array(vals, dtype='float64')
@@ -132,15 +147,6 @@ def bw_from_ranges(in_bw_filename, in_bed_filename, out_bw_filename,
     out_bw.close()
     if len(out_bed_filename) > 0:
         bedfile.close()
-        # return bedfile_path
-
-
-#     # bin nonthresholded true and replicates (pred is already binned)
-#     true_bin_filename = cell_line_name+'_true_bin.bw'
-#     r2_bin_filename = cell_line_name+'_r2_bin.bw'
-#     bw_from_ranges(true_bw_filename, bed_filename, true_bin_filename, chrom_size_path, output_dir, bin_size=bin_size)
-#     bw_from_ranges(os.path.join(output_dir, r2_bw_filename), bed_filename, r2_bin_filename, chrom_size_path, output_dir, bin_size=bin_size)
-
 
 def process_cell_line(run_path, cell_line_index,
                       threshold=2,
@@ -158,9 +164,9 @@ def process_cell_line(run_path, cell_line_index,
     get_idr(cell_line_name, cell_line_true_idr)
     print('Processing cell line '+targets[cell_line_index])
 
-    true_bw_filename = os.path.join(output_dir, cell_line_name+"_true.bw")
-    pred_bw_filename = os.path.join(output_dir, cell_line_name+"_pred.bw")
-    bed_filename = os.path.join(output_dir, cell_line_name+"_true.bed")
+    true_bw_filename = os.path.join(output_dir, cell_line_name+"_true_1_raw.bw")
+    pred_bw_filename = os.path.join(output_dir, cell_line_name+"_pred_{}_raw.bw".format(bin_size))
+    bed_filename = os.path.join(output_dir, cell_line_name+"_true_1_raw.bed")
 
     make_true_pred_bw(true_bw_filename, pred_bw_filename, bed_filename, testset,
                       trained_model, cell_line_index, bin_size, chrom_size_path)
@@ -168,23 +174,26 @@ def process_cell_line(run_path, cell_line_index,
     # make nonthresholded non binned replicates
     rX_bw_filenames = []
     for rX, rX_bw_path in replicate_filepaths.items():
-        out_rX = os.path.join(output_dir, cell_line_name+'_{}.bw'.format(rX))
+        out_rX = os.path.join(output_dir, cell_line_name+'_{}_1_raw.bw'.format(rX))
         rX_bw_filenames.append(out_rX)
         bw_from_ranges(rX_bw_path, bed_filename, out_rX, chrom_size_path)
     # bin true, rXs
     binned_filenames = []
     for in_bw in rX_bw_filenames+[true_bw_filename]:
-        out_bw = in_bw.split('.bw')[0]+'_bin.bw'
+        out_bw = change_filename(in_bw, new_binningsize=str(bin_size))
         binned_filenames.append(out_bw)
         bw_from_ranges(in_bw, bed_filename, out_bw, chrom_size_path, bin_size=bin_size)
+
     # threshold all using IDR file of true bw
     for binned_filename in binned_filenames+[pred_bw_filename]:
-        out_bw = binned_filename.split('.bw')[0]+'_idr.bw'
+        out_bw = change_filename(binned_filename, new_thresholdmethod='idr')
         bw_from_ranges(binned_filename, cell_line_true_idr, out_bw, chrom_size_path)
+
     # threshold all using IDR file of true bw
     thresh_bedfile = true_bw_filename.split('.bw')[0]+'_thresh{}.bed'.format(threshold)
-    true_thresh_filename = true_bw_filename.split('.bw')[0]+'_thresh{}.bw'.format(threshold)
+    thresh_str = 'thresh'+str(threshold)
+    true_thresh_filename = change_filename(true_bw_filename, new_thresholdmethod=thresh_str)
     bw_from_ranges(true_bw_filename, bed_filename, true_thresh_filename, chrom_size_path, threshold=threshold, out_bed_filename=thresh_bedfile)
     for binned_filename in binned_filenames+[pred_bw_filename]:
-        out_thresh = binned_filename.split('.bw')[0]+'_thresh{}.bw'.format(threshold)
+        out_thresh = change_filename(binned_filename, new_thresholdmethod=thresh_str)
         bw_from_ranges(binned_filename, thresh_bedfile, out_thresh, chrom_size_path)
