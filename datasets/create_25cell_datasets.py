@@ -11,9 +11,11 @@ input_sizes = [2048]
 base_dir = sys.argv[1]
 # basset_samplefile_values = ['Random', '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basset_sample_file.tsv']
 basset_samplefile_values = ['Random']
+# basset_samplefile_values = ['/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basset_sample_file.tsv']
+
 dataset_size = [1]
 output_subdir_size = ['complete']
-output_subdir_bas = ['random_chop', 'peak_centered']
+output_subdir_bas = ['random_chop']
 limit_to_chroms = 'chr8'
 # i = 2048
 # p = 64
