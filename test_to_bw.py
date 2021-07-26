@@ -110,7 +110,7 @@ def get_idr(cell_line_name, idr_filename, basset_samplefile='/mnt/906427d6-fddf-
 
     basset_samplefile_df=pd.read_csv(basset_samplefile, sep='\t', header=None)
     idr_file_gz = basset_samplefile_df[basset_samplefile_df[0]==cell_line_name][1].values[0]
-    bashCmd = "scp {} temp.bed.gz; gunzip temp.bed.gz; grep chr8 temp.bed|awk '{{print $1, $2, $3}}'|sort -k1,1 -k2,2n|uniq > {}; rm temp.bed; rm temp.bed.gz".format(idr_file_gz, idr_filename)
+    bashCmd = "scp {} temp.bed.gz; gunzip temp.bed.gz; grep chr8 temp.bed|awk '{{print $1, $2, $3}}'|sort -k1,1 -k2,2n|uniq > {}; rm temp.bed".format(idr_file_gz, idr_filename)
     process = subprocess.Popen(bashCmd, shell=True)
     output, error = process.communicate()
 
@@ -136,6 +136,9 @@ def bw_from_ranges(in_bw_filename, in_bed_filename, out_bw_filename,
         cols = line.strip().split()
         vals = in_bw.values(cols[0], int(cols[1]), int(cols[2]))
         vals = np.array(vals, dtype='float64')
+        if np.sum(np.isnan(vals))>0:
+            print(in_bw_filename, in_bed_filename)
+            print(cols)
         if np.max(vals) > threshold:
             vals = vals.reshape(len(vals)//bin_size, bin_size).mean(axis=1)
             out_bw.addEntries(cols[0], int(cols[1]), values=vals, span=bin_size,
@@ -150,7 +153,7 @@ def bw_from_ranges(in_bw_filename, in_bed_filename, out_bw_filename,
 
 def process_cell_line(run_path, cell_line_index,
                       threshold=2,
-                      data_path='datasets/only_test/lite/random_chop/i_2048_w_1',
+                      data_path='datasets/chr8/complete/random_chop/i_2048_w_1',
                       chrom_size_path="/home/shush/genomes/GRCh38_EBV.chrom.sizes.tsv"):
 
     out_prefix = 'bw'+str(cell_line_index)
@@ -160,7 +163,7 @@ def process_cell_line(run_path, cell_line_index,
     util.make_dir(output_dir)
     cell_line_name = targets[cell_line_index]
     replicate_filepaths = get_replicates(cell_line_name)
-    cell_line_true_idr = os.path.join(output_dir, cell_line_name+'_IDR.bed')
+    cell_line_true_idr = os.path.join(output_dir, cell_line_name+'_true_1_idr.bed')
     get_idr(cell_line_name, cell_line_true_idr)
     print('Processing cell line '+targets[cell_line_index])
 
