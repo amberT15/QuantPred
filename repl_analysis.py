@@ -17,9 +17,9 @@ from test_to_bw import *
 import util
 import metrics
 import itertools
-
-N_cell_line = 12
-run_dir ='/home/shush/profile/QuantPred/wandb/run-20210702_234001-u3vwup7j/'
+#
+# N_cell_line = 12
+# run_dir ='/home/shush/profile/QuantPred/wandb/run-20210702_234001-u3vwup7j/'
 
 class SeabornFig2Grid():
 
@@ -73,6 +73,17 @@ class SeabornFig2Grid():
     def _resize(self, evt=None):
         self.sg.fig.set_size_inches(self.fig.get_size_inches())
 
+def remove_nans(all_vals_dict):
+    for i,(k, v) in enumerate(all_vals_dict.items()):
+        if i==0:
+            nan_mask = ~(np.isnan(v))
+        else:
+            nan_mask *= ~(np.isnan(v))
+    nonan_dict = {}
+    for k,v in all_vals_dict.items():
+        nonan_dict[k] = v[nan_mask]
+    return nonan_dict
+
 def get_mean_per_range(bw_path, bed_path, keep_all=False):
     bw = pyBigWig.open(bw_path)
     bw_list = []
@@ -95,24 +106,40 @@ def plot_and_pr(run_dir, N_cell_line):
                  }
 
 
-
     res_dir = os.path.join(run_dir, 'files/bw{}/'.format(str(N_cell_line)))
-    plt_dir = util.make_dir(os.path.join(res_dir, 'jointplots'))
+    plt_dir = util.make_dir(os.path.join(res_dir, 'summary_performance'))
     for title, fileid in label_dict.items():
 
         bw_paths = [os.path.join(res_dir, f) for f in os.listdir(res_dir) if fileid['bw'] in f]
-
         bed_path = [os.path.join(res_dir, f) for f in os.listdir(res_dir) if fileid['bed'] in f][0]
-        all_vals_dict = {}
+        print('*********')
+        print(len(bw_paths))
+        print(bw_paths)
+        assert not(len(bw_paths)<2), 'Only 1 bigwig found!'
+        assert not(len(bw_paths)>4), 'Too many bigwigs found!'
+        if len(bw_paths)==4:
+            x_axes, y_axes = (2, 3)
+            comb_of_columns = [('pred', 'truth'), ('pred', 'r2'), ('pred', 'r12'), ('truth', 'r2'), ('truth', 'r12'), ('r12', 'r2')]
+        elif len(bw_paths)==3:
+            x_axes, y_axes = (1, 3)
+            comb_of_columns = [('pred', 'truth'), ('pred', 'r2'), ('truth', 'r2')]
+        elif len(bw_paths)==2:
+            x_axes, y_axes = (1, 1)
+            comb_of_columns = [('pred', 'truth')]
+
+
+
+        all_vals_dict_nans = {}
         mean_vals_dict = {}
         for bw_path in bw_paths:
             key = os.path.basename(bw_path).split('.bw')[0].split('_')[1]
             vals = get_mean_per_range(bw_path, bed_path, keep_all=True)
-            all_vals_dict[key] = np.expand_dims(np.array(vals), -1)
-            mean_vals_dict[key] = np.mean(np.array(vals), axis=1)
+            all_vals_dict_nans[key] = np.array([v  for v_sub in vals for v in v_sub])
+            all_vals_dict_1d = remove_nans(all_vals_dict_nans)
+            all_vals_dict = {k:np.expand_dims(np.expand_dims(v, -1), -1) for k, v in all_vals_dict_1d.items()}
+            mean_vals_dict[key] = np.array([np.mean(v) for v in vals])
         mean_cov = pd.DataFrame(mean_vals_dict)
 
-        comb_of_columns = list(itertools.combinations(mean_vals_dict.keys(), 2))
         joint_grids = []
         titles = []
         pr_vals = {}
@@ -124,6 +151,7 @@ def plot_and_pr(run_dir, N_cell_line):
             else:
                 pr_vals[x_lab] = {}
                 pr_vals[x_lab][y_lab] = pr.result().numpy()
+            assert ~np.isnan(pr_vals[x_lab][y_lab]), 'NA in Pearson R!'
             titles.append('Pearson r = {}'.format(pr_vals[x_lab][y_lab]))
             if (x_lab == 'pred') or (y_lab == 'pred'):
                 c = 'red'
@@ -142,7 +170,8 @@ def plot_and_pr(run_dir, N_cell_line):
 
         # A JointGrid
         fig = plt.figure(figsize=(20, 10))
-        gs = gridspec.GridSpec(2, 3)
+
+        gs = gridspec.GridSpec(x_axes, y_axes)
         for i, g in enumerate(joint_grids):
             mg = SeabornFig2Grid(g, fig, gs[i])
 
@@ -152,3 +181,13 @@ def plot_and_pr(run_dir, N_cell_line):
         plt.savefig(os.path.join(plt_dir, title+'.svg'))
         df = pd.DataFrame.from_dict(pr_vals, orient='index').T
         df.to_csv(os.path.join(plt_dir, title+'.csv'))
+
+def main():
+    N_cell_lines = range(15)
+    for N_cell_line in N_cell_lines:
+        run_dir = '/home/shush/profile/QuantPred/wandb/run-20210702_234001-u3vwup7j/'
+        process_cell_line(run_dir, N_cell_line)
+        plot_and_pr(run_dir, N_cell_line)
+
+if __name__ == '__main__':
+  main()

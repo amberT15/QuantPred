@@ -69,13 +69,13 @@ def open_bw(bw_filename, chrom_size_path):
     return bw
 
 
-def make_true_pred_bw(true_bw_filename, pred_bw_filename, bed_filename, testset,
+def make_truth_pred_bw(truth_bw_filename, pred_bw_filename, bed_filename, testset,
                       trained_model, cell_line, bin_size,
                       chrom_size_path):
 
 
     bedfile = open(bed_filename, "w")
-    true_bw = open_bw(true_bw_filename, chrom_size_path)
+    truth_bw = open_bw(truth_bw_filename, chrom_size_path)
     pred_bw = open_bw(pred_bw_filename, chrom_size_path)
     for C, X, Y in testset: #per batch
         C = [str(c).strip('b\'').strip('\'') for c in C.numpy()] # coordinates
@@ -84,14 +84,14 @@ def make_true_pred_bw(true_bw_filename, pred_bw_filename, bed_filename, testset,
         for i, pred in enumerate(P): # per batch element
             chrom, start, end = C[i].split('_') # get chr, start, end
             start = int(start)
-            true_bw.addEntries(chrom, start,
+            truth_bw.addEntries(chrom, start,
                 values=np.array(np.squeeze(Y[i,:,cell_line]), dtype='float64'),
                 span=1, step=1) # ground truth
             pred_bw.addEntries(chrom, start,
                 values=np.array(np.squeeze(pred[:,cell_line]), dtype='float64'),
                 span=bin_size, step=bin_size) # predictions
             bedfile.write('{}\t{}\t{}\n'.format(chrom, start, end))
-    true_bw.close()
+    truth_bw.close()
     pred_bw.close()
     bedfile.close()
 
@@ -163,15 +163,15 @@ def process_cell_line(run_path, cell_line_index,
     util.make_dir(output_dir)
     cell_line_name = targets[cell_line_index]
     replicate_filepaths = get_replicates(cell_line_name)
-    cell_line_true_idr = os.path.join(output_dir, cell_line_name+'_true_1_idr.bed')
-    get_idr(cell_line_name, cell_line_true_idr)
+    cell_line_truth_idr = os.path.join(output_dir, cell_line_name+'_truth_1_idr.bed')
+    get_idr(cell_line_name, cell_line_truth_idr)
     print('Processing cell line '+targets[cell_line_index])
 
-    true_bw_filename = os.path.join(output_dir, cell_line_name+"_true_1_raw.bw")
+    truth_bw_filename = os.path.join(output_dir, cell_line_name+"_truth_1_raw.bw")
     pred_bw_filename = os.path.join(output_dir, cell_line_name+"_pred_{}_raw.bw".format(bin_size))
-    bed_filename = os.path.join(output_dir, cell_line_name+"_true_1_raw.bed")
+    bed_filename = os.path.join(output_dir, cell_line_name+"_truth_1_raw.bed")
 
-    make_true_pred_bw(true_bw_filename, pred_bw_filename, bed_filename, testset,
+    make_truth_pred_bw(truth_bw_filename, pred_bw_filename, bed_filename, testset,
                       trained_model, cell_line_index, bin_size, chrom_size_path)
 
     # make nonthresholded non binned replicates
@@ -180,23 +180,23 @@ def process_cell_line(run_path, cell_line_index,
         out_rX = os.path.join(output_dir, cell_line_name+'_{}_1_raw.bw'.format(rX))
         rX_bw_filenames.append(out_rX)
         bw_from_ranges(rX_bw_path, bed_filename, out_rX, chrom_size_path)
-    # bin true, rXs
+    # bin truth, rXs
     binned_filenames = []
-    for in_bw in rX_bw_filenames+[true_bw_filename]:
+    for in_bw in rX_bw_filenames+[truth_bw_filename]:
         out_bw = change_filename(in_bw, new_binningsize=str(bin_size))
         binned_filenames.append(out_bw)
         bw_from_ranges(in_bw, bed_filename, out_bw, chrom_size_path, bin_size=bin_size)
 
-    # threshold all using IDR file of true bw
+    # threshold all using IDR file of truth bw
     for binned_filename in binned_filenames+[pred_bw_filename]:
         out_bw = change_filename(binned_filename, new_thresholdmethod='idr')
-        bw_from_ranges(binned_filename, cell_line_true_idr, out_bw, chrom_size_path)
+        bw_from_ranges(binned_filename, cell_line_truth_idr, out_bw, chrom_size_path)
 
-    # threshold all using IDR file of true bw
-    thresh_bedfile = true_bw_filename.split('.bw')[0]+'_thresh{}.bed'.format(threshold)
+    # threshold all using IDR file of truth bw
+    thresh_bedfile = truth_bw_filename.split('.bw')[0]+'_thresh{}.bed'.format(threshold)
     thresh_str = 'thresh'+str(threshold)
-    true_thresh_filename = change_filename(true_bw_filename, new_thresholdmethod=thresh_str)
-    bw_from_ranges(true_bw_filename, bed_filename, true_thresh_filename, chrom_size_path, threshold=threshold, out_bed_filename=thresh_bedfile)
+    truth_thresh_filename = change_filename(truth_bw_filename, new_thresholdmethod=thresh_str)
+    bw_from_ranges(truth_bw_filename, bed_filename, truth_thresh_filename, chrom_size_path, threshold=threshold, out_bed_filename=thresh_bedfile)
     for binned_filename in binned_filenames+[pred_bw_filename]:
         out_thresh = change_filename(binned_filename, new_thresholdmethod=thresh_str)
         bw_from_ranges(binned_filename, thresh_bedfile, out_thresh, chrom_size_path)
