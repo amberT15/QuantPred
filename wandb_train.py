@@ -21,10 +21,10 @@ from wandb_callbacks import *
 #import bpnet_original_fit as bpnet_fit
 import custom_fit
 
-def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
+def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,output_dir
                config={}):
 
-  default_config = {'num_epochs':30, 'batch_size':64, 'shuffle':True, 'output_dir':'.',
+  default_config = {'num_epochs':30, 'batch_size':64, 'shuffle':True,
   'metrics':['mse','pearsonr', 'poisson'], 'es_start_epoch':50,
   'l_rate':0.001, 'es_patience':6, 'es_metric':'loss',
   'es_criterion':'min', 'lr_decay':0.3, 'lr_patience':10,
@@ -42,8 +42,8 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
 
 
 
-  if not os.path.isdir(default_config['output_dir']):
-      os.mkdir(default_config['output_dir'])
+  if not os.path.isdir(output_dir):
+      os.mkdir(output_dir)
 
   optimizer = tf.keras.optimizers.Adam(learning_rate=default_config['l_rate'])
   model = eval(model_name_str) # get model function from model zoo
@@ -122,7 +122,7 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   # compile history
   history = trainer.get_metrics('train')
   history = trainer.get_metrics('val', history)
-  model.save(os.path.join(default_config['output_dir'], "best_model.h5"))
+  model.save(os.path.join(output_dir, "best_model.h5"))
   # print(history)
 
   if default_config['record_test']==True:
@@ -197,7 +197,7 @@ def train_config(config=None):
 
 
     history = fit_robust(config.model_fn, config.loss_fn,
-                       config.window_size, config.bin_size, config.data_dir,
+                       config.window_size, config.bin_size, config.data_dir,output_dir = wandb.run.dir
                        config=config)
 
 
