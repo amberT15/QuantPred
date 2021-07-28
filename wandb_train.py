@@ -21,8 +21,8 @@ from wandb_callbacks import *
 #import bpnet_original_fit as bpnet_fit
 import custom_fit
 
-def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,output_dir
-               config={}):
+def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
+               output_dir, config={}):
 
   default_config = {'num_epochs':30, 'batch_size':64, 'shuffle':True,
   'metrics':['mse','pearsonr', 'poisson'], 'es_start_epoch':50,
@@ -197,8 +197,8 @@ def train_config(config=None):
 
 
     history = fit_robust(config.model_fn, config.loss_fn,
-                       config.window_size, config.bin_size, config.data_dir,output_dir = wandb.run.dir
-                       config=config)
+                       config.window_size, config.bin_size, config.data_dir,
+                       output_dir = wandb.run.dir, config=config)
 
 
 def main():
