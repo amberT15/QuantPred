@@ -22,6 +22,7 @@ import tensorflow as tf
 def make_dir(dir_path):
     if not os.path.isdir(dir_path):
         os.mkdir(dir_path)
+    return dir_path
 
 def replace_all(text):
     dic = {'X': '23', 'Y': '24'}
