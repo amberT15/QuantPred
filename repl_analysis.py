@@ -2,21 +2,19 @@
 # coding: utf-8
 
 
-import pyBigWig, os
+import pyBigWig, os, sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy import stats
-import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import seaborn as sns
 import shutil
-import seaborn as sns
+import itertools
 import numpy as np
 from test_to_bw import *
 import util
 import metrics
-import itertools
 #
 # N_cell_line = 12
 # run_dir ='/home/shush/profile/QuantPred/wandb/run-20210702_234001-u3vwup7j/'
@@ -185,7 +183,8 @@ def plot_and_pr(run_dir, N_cell_line):
 def main():
     N_cell_lines = range(15)
     for N_cell_line in N_cell_lines:
-        run_dir = '/home/shush/profile/QuantPred/wandb/run-20210702_234001-u3vwup7j/'
+        run_dir = sys.argv[1]
+        # run_dir = '/home/shush/profile/QuantPred/wandb/run-20210702_234001-u3vwup7j/'
         process_cell_line(run_dir, N_cell_line)
         plot_and_pr(run_dir, N_cell_line)
 
