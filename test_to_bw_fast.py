@@ -105,6 +105,37 @@ def make_truth_pred_bws(truth_bw_filename_suffix, pred_bw_filename_suffix, bed_f
         pred_bws[cell_line].close()
         bedfiles[cell_line].close()
 
+def merge_bed(in_bed_filename):
+    split_filename = in_bed_filename.split('/')
+    in_bed_filename_merged = '/'.join(split_filename[:-1] + ['merged_' + split_filename[-1]])
+    bashCmd = 'bedtools merge -i {} > {}'.format(in_bed_filename, in_bed_filename_merged)
+    process = subprocess.Popen(bashCmd, shell=True)
+    output, error = process.communicate()
+    return in_bed_filename_merged
+
+def smoothen_bw(in_bw_filename, in_bed_filename, out_bw_filename, pool_width):
+    merge_bed(in_bed_filename)
+    in_bw = pyBigWig.open(in_bw_filename)
+    out_bw = open_bw(out_bw_filename, chrom_size_path="/home/shush/genomes/GRCh38_EBV.chrom.sizes.tsv")
+    in_bedfile = open(in_bed_filename)
+    all_smoothened = []
+    for l, line in enumerate(in_bedfile):
+        cols = line.strip().split()
+        vals = in_bw.values(cols[0], int(cols[1]), int(cols[2]))
+        vals = np.array(vals, dtype='float64')
+        vals_padded = np.pad(vals, (int(pool_width/2-1),
+                            int(pool_width/2)), 'edge')
+        vals_smoothened = np.array(list(more_itertools.windowed(vals_padded,
+                  n=pool_width, step=1)))
+        out_bw.addEntries(cols[0], int(cols[1]),
+            values=vals_smoothened.mean(axis=1), span=1, step=1)
+        # all_smoothened.append(vals_smoothened.mean(axis=1))
+
+
+    in_bw.close()
+    out_bw.close()
+    # return all_smoothened
+
 def get_replicates(cell_line_name, repl_labels = ['r2', 'r12'], basenji_samplefiles=['/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basenji_sample_r2_file.tsv', '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basenji_sample_r1,2_file.tsv']):
     replicate_filepaths = {}
     for b, basenji_samplefile in enumerate(basenji_samplefiles):

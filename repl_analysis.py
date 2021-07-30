@@ -9,10 +9,11 @@ import matplotlib.pyplot as plt
 from scipy import stats
 import matplotlib.gridspec as gridspec
 import seaborn as sns
-import shutil
+import shutil, wandb
 import itertools
 import numpy as np
-from test_to_bw import *
+# from test_to_bw import *
+from test_to_bw_fast import process_cell_line
 import util
 import metrics
 #
@@ -103,11 +104,16 @@ def plot_and_pr(run_dir, N_cell_line):
                   'IDR':{'bw': '128_idr.bw', 'bed':'idr.bed'}
                  }
 
-
-    res_dir = os.path.join(run_dir, 'files/bw{}/'.format(str(N_cell_line)))
-    plt_dir = util.make_dir(os.path.join(res_dir, 'summary_performance'))
+    # get the cell line specific directory
+    bigwigs_dir = os.path.join(run_dir, 'bigwigs')
+    folders_with_cell_line_N = [f for f in os.listdir(bigwigs_dir) if f.split('_')[0]==str(N_cell_line)]
+    print(folders_with_cell_line_N)
+    assert len(folders_with_cell_line_N) == 1, 'Folders for one cell line not identified!'
+    res_dir = os.path.join(bigwigs_dir, folders_with_cell_line_N[0])
+    cell_line_name = folders_with_cell_line_N[0].split('_')[1]
+    plt_dir = util.make_dir(os.path.join(run_dir, 'plots_and_tables'))
     for title, fileid in label_dict.items():
-
+        print(res_dir)
         bw_paths = [os.path.join(res_dir, f) for f in os.listdir(res_dir) if fileid['bw'] in f]
         bed_path = [os.path.join(res_dir, f) for f in os.listdir(res_dir) if fileid['bed'] in f][0]
         print('*********')
@@ -175,18 +181,33 @@ def plot_and_pr(run_dir, N_cell_line):
 
         plt.suptitle(title+' peaks')
         gs.tight_layout(fig)
-        # plt.show()
-        plt.savefig(os.path.join(plt_dir, title+'.svg'))
+        output_prefix = '{}_{}_{}'.format(N_cell_line, cell_line_name, title)
+        plt.savefig(os.path.join(plt_dir, output_prefix + '.svg'))
         df = pd.DataFrame.from_dict(pr_vals, orient='index').T
-        df.to_csv(os.path.join(plt_dir, title+'.csv'))
+        df.to_csv(os.path.join(plt_dir, output_prefix + '.csv'))
 
 def main():
     N_cell_lines = range(15)
-    for N_cell_line in N_cell_lines:
-        run_dir = sys.argv[1]
-        # run_dir = '/home/shush/profile/QuantPred/wandb/run-20210702_234001-u3vwup7j/'
-        process_cell_line(run_dir, N_cell_line)
-        plot_and_pr(run_dir, N_cell_line)
+    # wandb_path = '/home/shush/profile/QuantPred/wandb'
+    # run_paths = []
+    # wandb.login()
+    # api = wandb.Api()
+    # runs = api.runs('toneyan/PEAK_VS_RANDOM_BESTBASENJI')
+    # for run in runs:
+    #     folder_list = [os.path.join(wandb_path, folder) for folder in os.listdir(wandb_path) if run.id in folder]
+    #     assert len(folder_list) == 1, 'Too many or not enough runs with same ID!'
+    #     run_paths.append(folder_list[0])
+    # run_paths = [run_path for run_path in run_paths if 'best_model.h5' in os.listdir(run_path+'/files')]
+
+
+    # run_dir = sys.argv[1]
+    # run_dir = '/home/shush/profile/QuantPred/wandb/run-20210702_234001-u3vwup7j/'
+    run_paths = ['/home/shush/profile/QuantPred/wandb/run-20210729_110628-8368urpg',
+                '/home/shush/profile/QuantPred/wandb/run-20210729_110608-rnil3owe']
+    for run_dir in run_paths:
+        process_cell_line(run_dir)
+        for N_cell_line in N_cell_lines:
+            plot_and_pr(run_dir, N_cell_line)
 
 if __name__ == '__main__':
   main()
