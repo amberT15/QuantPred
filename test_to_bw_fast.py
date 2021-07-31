@@ -113,28 +113,30 @@ def merge_bed(in_bed_filename):
     output, error = process.communicate()
     return in_bed_filename_merged
 
-def smoothen_bw(in_bw_filename, in_bed_filename, out_bw_filename, pool_width):
-    merge_bed(in_bed_filename)
-    in_bw = pyBigWig.open(in_bw_filename)
-    out_bw = open_bw(out_bw_filename, chrom_size_path="/home/shush/genomes/GRCh38_EBV.chrom.sizes.tsv")
-    in_bedfile = open(in_bed_filename)
-    all_smoothened = []
-    for l, line in enumerate(in_bedfile):
-        cols = line.strip().split()
-        vals = in_bw.values(cols[0], int(cols[1]), int(cols[2]))
-        vals = np.array(vals, dtype='float64')
-        vals_padded = np.pad(vals, (int(pool_width/2-1),
-                            int(pool_width/2)), 'edge')
-        vals_smoothened = np.array(list(more_itertools.windowed(vals_padded,
-                  n=pool_width, step=1)))
-        out_bw.addEntries(cols[0], int(cols[1]),
-            values=vals_smoothened.mean(axis=1), span=1, step=1)
-        # all_smoothened.append(vals_smoothened.mean(axis=1))
+def smoothen_bw(in_bw_filename, in_bed_filename, sigma_value, out_dirs, chrom_size_path="/home/shush/genomes/GRCh38_EBV.chrom.sizes.tsv"):
+    for b, in_bw_filename in tqdm(enumerate(in_bw_filenames)):
+        util.make_dir(out_dirs[b])
+        out_bw_filename = os.path.join(out_dirs[b], os.path.basename(in_bw_filename).split('.bw')[0]+'_sigma{}.bw'.format(sigma_value))
+        if sigma_value == 0:
+            shutil.copy(in_bw_filename, out_bw_filename)
+            print('Copied bw because sigma = 0!')
+        else:
+            in_bed_filename_merged = merge_bed(in_bed_filename)
+            in_bw = pyBigWig.open(in_bw_filename)
+            out_bw = open_bw(out_bw_filename, chrom_size_path=chrom_size_path)
+            in_bedfile = open(in_bed_filename_merged)
 
+            for l, line in enumerate(in_bedfile):
+                cols = line.strip().split()
+                vals = in_bw.values(cols[0], int(cols[1]), int(cols[2]))
+                vals = np.array(vals, dtype='float64')
+                vals_smoothened = gaussian_filter1d(vals, sigma_value)
+                out_bw.addEntries(cols[0], int(cols[1]),
+                    values=vals_smoothened, span=1, step=1)
 
-    in_bw.close()
-    out_bw.close()
-    # return all_smoothened
+            in_bw.close()
+            out_bw.close()
+
 
 def get_replicates(cell_line_name, repl_labels = ['r2', 'r12'], basenji_samplefiles=['/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basenji_sample_r2_file.tsv', '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basenji_sample_r1,2_file.tsv']):
     replicate_filepaths = {}
