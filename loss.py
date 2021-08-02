@@ -233,3 +233,20 @@ def logthis(func):
             y_pred = tf.math.log(y_pred)
         return func(y_true,y_pred)
     return wrapper
+
+
+class multiscale(tf.keras.losses.Loss):
+    def __init__(self, loss_fn, bin_sizes, alpha_weights, name="multiscale"):
+        super().__init__(name=name)
+        self.loss_fn = loss_fn
+        self.bin_sizes = bin_sizes
+        self.alpha_weights = alpha_weights
+
+    def call(self, y_true, y_pred):
+        loss_values = []
+        for i, bin_size in enumerate(self.bin_sizes):
+            y_true_binned = bin_resolution(y_true, bin_size)
+            y_pred_binned = bin_resolution(y_pred, bin_size)
+            bin_loss = self.loss_fn(y_true_binned, y_pred_binned)
+            loss_values.append(self.alpha_weights[i]*bin_loss)
+        return loss_values
