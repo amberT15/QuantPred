@@ -209,3 +209,24 @@ def tfr_to_np(data, choose, array_shape):
         data_np[j:j+n_seqs,:,:] = i
         j+=n_seqs
     return data_np
+
+def window_shift(X,window_size,shift_num):
+    chop_size = X.shape[1]
+    input_seq_num = X.shape[0]
+    output_num = shift_num*input_seq_num
+
+    ori_X = np.repeat(X,shift_num,axis=0)
+    shift_idx = (np.arange(window_size) +
+                np.random.randint(low = 0,high = chop_size-window_size,
+                                  size = output_num)[:,np.newaxis])
+    col_idx = shift_idx.reshape(window_size *output_num)
+    row_idx = np.repeat(range(0,output_num),window_size)
+    f_index = np.vstack((row_idx,col_idx)).T.reshape(output_num,window_size,2)
+    shift_x = tf.gather_nd(ori_X,f_index)
+    shift_x= np.split(shift_x,input_seq_num)
+    shift_idx = shift_idx[:,0]
+    center_idx = int(0.5*(chop_size-window_size))
+    relative_shift_idx =shift_idx - center_idx
+    relative_shift_idx= np.split(relative_shift_idx,input_seq_num)
+
+    return shift_x, relative_shift_idx
