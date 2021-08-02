@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import util
-import os
+import os, shutil
 import numpy as np
 import csv
 import pyBigWig
@@ -15,6 +15,8 @@ import yaml
 import subprocess
 import gzip
 import pandas as pd
+from scipy.ndimage import gaussian_filter1d
+from tqdm import tqdm
 
 def change_filename(filepath, new_binningsize=None, new_thresholdmethod=None):
 
@@ -68,6 +70,30 @@ def open_bw(bw_filename, chrom_size_path):
     bw.addHeader([(k, v) for k, v in chrom_sizes.items()], maxZooms=0)
     return bw
 
+def get_mean_per_range(bw_path, bed_path, keep_all=False):
+    bw = pyBigWig.open(bw_path)
+    bw_list = []
+    for line in open(bed_path):
+        cols = line.strip().split()
+        vals = bw.values(cols[0], int(cols[1]), int(cols[2]))
+        if keep_all:
+            bw_list.append(vals)
+        else:
+            bw_list.append(np.mean(vals))
+    bw.close()
+    return bw_list
+
+def remove_nans(all_vals_dict):
+    for i,(k, v) in enumerate(all_vals_dict.items()):
+        if i==0:
+            nan_mask = ~(np.isnan(v))
+        else:
+            nan_mask *= ~(np.isnan(v))
+    nonan_dict = {}
+    for k,v in all_vals_dict.items():
+        nonan_dict[k] = v[nan_mask]
+    return nonan_dict
+
 
 def make_truth_pred_bws(truth_bw_filename_suffix, pred_bw_filename_suffix, bed_filename_suffix,
                       testset, trained_model, bin_size, cell_line_names,
@@ -113,29 +139,52 @@ def merge_bed(in_bed_filename):
     output, error = process.communicate()
     return in_bed_filename_merged
 
-def smoothen_bw(in_bw_filename, in_bed_filename, sigma_value, out_dirs, chrom_size_path="/home/shush/genomes/GRCh38_EBV.chrom.sizes.tsv"):
+def get_pr(bw_paths, bedfile='/home/shush/profile/QuantPred/bin_exp/truth/merged_truth_1_raw.bed'):
+    all_vals_dict_nans = {}
+    all_bws_dict = {}
+    mean_vals_dict = {}
+    for bw_path in bw_paths:
+        all_bws_dict[bw_path] = []
+        vals = get_mean_per_range(bw_path, bedfile, keep_all=True)
+        all_vals_dict_nans[bw_path] = np.array([v  for v_sub in vals for v in v_sub])
+        all_vals_dict_1d = remove_nans(all_vals_dict_nans)
+        all_vals_dict = {k:np.expand_dims(np.expand_dims(v, -1), -1) for k, v in all_vals_dict_1d.items()}
+
+
+    pr = metrics.PearsonR(1)
+    pr.update_state(all_vals_dict[bw_paths[0]], all_vals_dict[bw_paths[1]])
+    pr_value = pr.result().numpy()
+    assert ~np.isnan(pr_value)
+    return pr_value
+
+def smoothen_bw(in_bw_filenames, in_bed_filename, sigma_value, out_dirs, chrom_size_path="/home/shush/genomes/GRCh38_EBV.chrom.sizes.tsv"):
+    out_bw_filenames = []
     for b, in_bw_filename in tqdm(enumerate(in_bw_filenames)):
         util.make_dir(out_dirs[b])
         out_bw_filename = os.path.join(out_dirs[b], os.path.basename(in_bw_filename).split('.bw')[0]+'_sigma{}.bw'.format(sigma_value))
-        if sigma_value == 0:
-            shutil.copy(in_bw_filename, out_bw_filename)
-            print('Copied bw because sigma = 0!')
-        else:
-            in_bed_filename_merged = merge_bed(in_bed_filename)
-            in_bw = pyBigWig.open(in_bw_filename)
-            out_bw = open_bw(out_bw_filename, chrom_size_path=chrom_size_path)
-            in_bedfile = open(in_bed_filename_merged)
+        out_bw_filenames.append(out_bw_filename)
+        if not os.path.isfile(out_bw_filename):
 
-            for l, line in enumerate(in_bedfile):
-                cols = line.strip().split()
-                vals = in_bw.values(cols[0], int(cols[1]), int(cols[2]))
-                vals = np.array(vals, dtype='float64')
-                vals_smoothened = gaussian_filter1d(vals, sigma_value)
-                out_bw.addEntries(cols[0], int(cols[1]),
-                    values=vals_smoothened, span=1, step=1)
+            if sigma_value == 0:
+                shutil.copy(in_bw_filename, out_bw_filename)
+                print('Copied bw because sigma = 0!')
+            else:
+                in_bed_filename_merged = merge_bed(in_bed_filename)
+                in_bw = pyBigWig.open(in_bw_filename)
+                out_bw = open_bw(out_bw_filename, chrom_size_path=chrom_size_path)
+                in_bedfile = open(in_bed_filename_merged)
 
-            in_bw.close()
-            out_bw.close()
+                for l, line in enumerate(in_bedfile):
+                    cols = line.strip().split()
+                    vals = in_bw.values(cols[0], int(cols[1]), int(cols[2]))
+                    vals = np.array(vals, dtype='float64')
+                    vals_smoothened = gaussian_filter1d(vals, sigma_value)
+                    out_bw.addEntries(cols[0], int(cols[1]),
+                        values=vals_smoothened, span=1, step=1)
+
+                in_bw.close()
+                out_bw.close()
+    return out_bw_filenames
 
 
 def get_replicates(cell_line_name, repl_labels = ['r2', 'r12'], basenji_samplefiles=['/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basenji_sample_r2_file.tsv', '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basenji_sample_r1,2_file.tsv']):
