@@ -1,6 +1,7 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
 import numpy as np
+from custom_fit import bin_resolution
 
 class zero_infl_poiss(tf.keras.losses.Loss):
     def __init__(self, name="zero_infl_poiss"):
@@ -26,9 +27,10 @@ class zero_infl_poiss(tf.keras.losses.Loss):
         return zip_loss
 
 class pearsonr_mse(tf.keras.losses.Loss):
-    def __init__(self, name="pearsonr_mse", alpha=0.1):
+    def __init__(self, name="pearsonr_mse", **kwargs):
         super().__init__(name=name)
-        self.alpha=alpha
+        assert kwargs.get('alpha'), 'loss_params does not have argument alpha required for this loss!'
+        self.alpha=kwargs.get('alpha')
     def call(self, y_true, y_pred):
         #multinomial part of loss function
         pr_loss = basenjipearsonr()
@@ -94,7 +96,7 @@ class mse(tf.keras.losses.Loss):
         return tf.keras.losses.MSE(y_true,y_pred)
 
 class multinomialnll(tf.keras.losses.Loss):
-    def __init__(self, name="multinomial"):
+    def __init__(self, name="multinomial", **kwargs):
         super().__init__(name=name)
 
     def call(self, y_true, y_pred):
@@ -108,9 +110,9 @@ class multinomialnll(tf.keras.losses.Loss):
         return -tf.reduce_sum(dist.log_prob(true_counts_perm)) / seqlen
 
 class multinomialnll_mse(tf.keras.losses.Loss):
-    def __init__(self, name="multinomial_mse", alpha=10):
+    def __init__(self, name="multinomial_mse", **kwargs):
         super().__init__(name=name)
-        self.alpha=alpha
+        self.alpha=kwargs.get('alpha')
     def call(self, y_true, y_pred):
         #multinomial part of loss function
         logits_perm = tf.transpose(y_pred[0], (0, 2, 1))
@@ -236,11 +238,12 @@ def logthis(func):
 
 
 class multiscale(tf.keras.losses.Loss):
-    def __init__(self, loss_fn, bin_sizes, alpha_weights, name="multiscale"):
+
+    def __init__(self, name="multiscale", **kwargs):
         super().__init__(name=name)
-        self.loss_fn = loss_fn
-        self.bin_sizes = bin_sizes
-        self.alpha_weights = alpha_weights
+        self.loss_fn = eval(kwargs.get('loss_fn'))()
+        self.bin_sizes, self.alpha_weights = kwargs.get('bins_and_weights')
+        # self.alpha_weights = kwargs.get('alpha_values')
 
     def call(self, y_true, y_pred):
         loss_values = []
