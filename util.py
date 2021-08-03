@@ -14,7 +14,8 @@ import numpy as np
 import tensorflow as tf
 from natsort import natsorted
 import tensorflow as tf
-
+import metrics
+import scipy
  ################################################################
  # functions for loading tfr files into tfr dataset
  ################################################################
@@ -210,11 +211,11 @@ def tfr_to_np(data, choose, array_shape):
         j+=n_seqs
     return data_np
 
-def window_shift(X,window_size,shift_num):
+def window_shift(X,Y,window_size,shift_num):
     chop_size = X.shape[1]
     input_seq_num = X.shape[0]
     output_num = shift_num*input_seq_num
-
+    #Shift X around
     ori_X = np.repeat(X,shift_num,axis=0)
     shift_idx = (np.arange(window_size) +
                 np.random.randint(low = 0,high = chop_size-window_size,
@@ -223,10 +224,25 @@ def window_shift(X,window_size,shift_num):
     row_idx = np.repeat(range(0,output_num),window_size)
     f_index = np.vstack((row_idx,col_idx)).T.reshape(output_num,window_size,2)
     shift_x = tf.gather_nd(ori_X,f_index)
-    shift_x= np.split(shift_x,input_seq_num)
+
+    #shift Y accordingly
+    ori_Y = np.repeat(Y,shift_num,axis=0)
+    shift_y = tf.gather_nd(ori_Y,f_index)
+
     shift_idx = shift_idx[:,0]
     center_idx = int(0.5*(chop_size-window_size))
     relative_shift_idx =shift_idx - center_idx
-    relative_shift_idx= np.split(relative_shift_idx,input_seq_num)
 
-    return shift_x, relative_shift_idx
+    return np.array(shift_x),np.array(shift_y),relative_shift_idx
+
+def evaluate_shift(X,Y,model,window_size,shift_num):
+    shift_x,shift_y,shift_idx = window_shift(X,Y,window_size,shift_num)
+    pred_y = model.predict(shift_x)
+    p_r_list = []
+    for i,pred in enumerate(pred_y):
+        task_pr = []
+        for task in range(pred.shape[1]):
+            p_r = scipy.stats.pearsonr(shift_y[i,task],pred[task])[0]
+            task_pr.append(p_r)
+        p_r_list.append(task_pr)
+    return np.array(p_r_list),np.array(shift_idx)
