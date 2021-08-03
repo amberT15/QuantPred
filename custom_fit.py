@@ -7,7 +7,7 @@ from loss import *
 from modelzoo import *
 import metrics
 import wandb
-
+import tensorflow_probability as tfp
 #------------------------------------------------------------------------------------------
 # Trainer class
 #------------------------------------------------------------------------------------------
@@ -192,8 +192,6 @@ class RobustTrainer(Trainer):
     """performs a training epoch with attack to inputs"""
     if smooth:
         y = smooth_average(y,smooth_window)
-    if crop == 'r_crop':
-        x,y = random_crop(x, y,window_size)
     if rev_comp:
         x,y = ReverseComplement(x,y)
     if bin_size > 1:
@@ -494,6 +492,25 @@ def smooth_average(y,smooth_window = 10):
     y_dim = y.shape
     y_smooth = tf.nn.avg_pool(y,smooth_window, 1, 'SAME')
     return y_smooth
+
+def smooth_gaussian(y,sigma = 2):
+    size = int(4*sigma + 0.5)
+
+    y = tf.expand_dims(y, axis=3)
+    kernel = gaussian_kernel(size=size, mean=0.0, std=sigma)
+    conv = tf.nn.conv2d(y, kernel, strides=[1,1,1,1], padding="SAME")
+    return conv
+
+def gaussian_kernel(size, mean, std):
+    d = tfp.distributions.Normal(tf.cast(mean, tf.float64), tf.cast(std, tf.float64))
+    vals = d.prob(tf.range(start=-size, limit=size+1, dtype=tf.float64))
+    gauss_kernel = vals / tf.reduce_sum(vals)
+    gauss_kernel = tf.expand_dims(gauss_kernel, axis=-1)
+    gauss_kernel = tf.expand_dims(gauss_kernel, axis=-1)
+    gauss_kernel = tf.expand_dims(gauss_kernel, axis=-1)
+
+    return gauss_kernel
+
 
 
 def progress_bar(iter, num_batches, start_time, bar_length=30, **kwargs):
