@@ -30,7 +30,7 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   'es_criterion':'min', 'lr_decay':0.3, 'lr_patience':10,
   'lr_metric':'loss', 'lr_criterion':'min', 'verbose' : True,
   'log_wandb':True,'rev_comp' : True,'crop' : 'r_crop', 'smooth' : False,
-  'record_test':False, 'alpha':False, 'smooth_window':10,'sigma':20}
+  'record_test':False, 'alpha':False, 'smooth_window':10, 'loss_params':{},'sigma':20}
 
   for key in default_config.keys():
       if key in config.keys():
@@ -49,10 +49,14 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   model = eval(model_name_str) # get model function from model zoo
   output_len = window_size // bin_size
 
-  if default_config['alpha']:
-      loss = eval(loss_type_str)(alpha=default_config['alpha']) # get loss from loss.py
-  else:
-      loss = eval(loss_type_str)()
+  # if default_config['alpha']:
+  #     loss = eval(loss_type_str)(alpha=default_config['alpha']) # get loss from loss.py
+  # else:
+
+  loss = eval(loss_type_str)(**default_config['loss_params'])
+
+  # if default_config['multiscale']:
+  #     loss = multiscale()
 
 
 
