@@ -8,256 +8,192 @@ from modelzoo import *
 import metrics
 import wandb
 import tensorflow_probability as tfp
-#------------------------------------------------------------------------------------------
-# Trainer class
-#------------------------------------------------------------------------------------------
-class Trainer():
-  """Custom training loop from scratch"""
 
-  def __init__(self, model, loss, optimizer, metrics):
-    self.model = model
-    self.loss = loss
-    self.optimizer = optimizer
+class RobustTrainer():
+    """Custom training loop with flags incoporated"""
+    def __init__(self, model, loss, optimizer,
+                  input_window, bin_size, metrics, ori_bpnet_flag,
+                  rev_comp,crop,smooth,smooth_window,sigma):
+        #Added for data augmentation
+        self.window_size = input_window
+        self.bin_size = bin_size
 
-    # metrics to monitor
-    metric_names = []
-    for metric in metrics:
-        metric_names.append(metric)
+        self.model = model
+        self.loss = loss
+        self.optimizer = optimizer
+        self.ori_bpnet_flag = ori_bpnet_flag
+        self.rev_comp = rev_comp
+        self.crop = crop
+        self.smooth = smooth
+        self.smooth_window = smooth_window
+        self.sigma =sigma
 
-    # class to help monitor metrics
-    self.metrics = {}
-    self.metrics['train'] = MonitorMetrics(metric_names, 'train')
-    self.metrics['val'] = MonitorMetrics(metric_names, 'val')
-    self.metrics['test'] = MonitorMetrics(metric_names, 'test')
+        metric_names = []
+        for metric in metrics:
+            metric_names.append(metric)
 
-  @tf.function
-  def train_step(self, x, y, window_size,metrics, ori_bpnet_flag,crop = 'r_crop'):
-    """training step for a mini-batch"""
-    with tf.GradientTape() as tape:
-      preds = self.model(x, training=True)
-      if crop == 'c_crop':
-          y,preds = random_crop(y,preds,window_size)
-      if ori_bpnet_flag == True:
-          true_cov = tf.math.log(tf.math.reduce_sum(y,axis=1)+1)
-          pred_cov = tf.squeeze(preds[1])
-          loss = self.loss([y,true_cov], [preds[0],pred_cov])
-      else:
-          loss = self.loss(y, preds)
-    gradients = tape.gradient(loss, self.model.trainable_variables)
-    self.optimizer.apply_gradients(zip(gradients, self.model.trainable_weights))
-    if ori_bpnet_flag == True:
-        metrics.update_running_metrics(y, preds[0])
-    else:
-        metrics.update_running_metrics(y, preds)
-    return loss
+        self.metrics = {}
+        self.metrics['train'] = MonitorMetrics(metric_names, 'train')
+        self.metrics['val'] = MonitorMetrics(metric_names, 'val')
+        self.metrics['test'] = MonitorMetrics(metric_names, 'test')
 
-  @tf.function
-  def test_step(self, x, y, window_size, metrics, training=False,ori_bpnet_flag = False, crop = 'r_crop'):
-    """test step for a mini-batch"""
-    preds = self.model(x, training=training)
-    if crop =='c_crop':
-        bin_size = int(y.shape[1]/preds.shape[1])
-        y = bin_resolution(y,bin_size)
-        y,preds = center_crop(y,preds,int(window_size/bin_size))
-    if ori_bpnet_flag == True:
-        true_cov = tf.math.log(tf.math.reduce_sum(y,axis=1)+1)
-        pred_cov = tf.squeeze(preds[1])
-        loss = self.loss([y,true_cov], [preds[0],pred_cov])
-        metrics.update_running_metrics(y, preds[0])
-    else:
-        print(y.shape)
-        loss = self.loss(y, preds)
-        metrics.update_running_metrics(y, preds)
-    return loss
+    @tf.function
+    def robust_train_step(self,x,y,metrics):
+        #smooth
+        if self.smooth == 'average':
+            y = smooth_average(y,self.smooth_window)
+        elif self.smooth == 'gauss':
+            y = smooth_gaussian(y,self.sigma)
 
+        #random crop window
+        if self.crop == 'r_crop':
+            x,y = random_crop(x, y,self.window_size)
+            if self.bin_size > 1:
+                y = bin_resolution(y,self.bin_size)
+        elif self.crop == None and self.bin_size > 1:
+            y = bin_resolution(y,self.bin_size)
+        #reverse complement
+        if self.rev_comp:
+            x,y = ReverseComplement(x,y)
 
-  def train_epoch(self, trainset, batch_size=128, shuffle=True, verbose=False, store=True):
-    """train over all mini-batches and keep track of metrics"""
+        with tf.GradientTape() as tape:
+            preds = self.model(x, training=True)
 
-    # prepare data
-    if shuffle:
-      trainset.shuffle(buffer_size=batch_size)
-    batch_dataset = trainset
-    num_batches = len(list(batch_dataset))
+            #crop binned pred + target for context crop
+            if self.crop == 'c_crop':
+                if self.bin_size > 1:
+                    y = bin_resolution(y,self.bin_size)
+                y,preds = random_crop(y,preds,int(self.window_size/self.bin_size))
 
-    # train loop over all mini-batches
-    start_time = time.time()
-    running_loss = 0
-    for i, (x, y) in enumerate(batch_dataset):
-      loss_batch = self.train_step(x, y, self.metrics['train'])
-      self.metrics['train'].running_loss.append(loss_batch)
-      running_loss += loss_batch
-      progress_bar(i+1, num_batches, start_time, bar_length=30, loss=running_loss/(i+1))
+            #bpnet original shape adjustment
+            if self.ori_bpnet_flag == True:
+                true_cov = tf.math.log(tf.math.reduce_sum(y,axis=1)+1)
+                pred_cov = tf.squeeze(preds[1])
+                loss = self.loss([y,true_cov], [preds[0],pred_cov])
+            else:
+                loss = self.loss(y, preds)
+        #trace gradient for training
+        gradients = tape.gradient(loss, self.model.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.model.trainable_weights))
+        if self.ori_bpnet_flag == True:
+            metrics.update_running_metrics(y, preds[0])
+        else:
+            metrics.update_running_metrics(y, preds)
+        return loss
 
-    # store training metrics
-    if store:
-      if verbose:
-        self.metrics['train'].update_print()
-      else:
-        self.metrics['train'].update()
+    @tf.function
+    def test_step(self,x,y,metrics,training = False):
+        """test step for a mini-batch and always center crop window"""
+        if self.crop == 'r_crop':
+            x,y = center_crop(x,y,int(self.window_size))
+            y = bin_resolution(y,self.bin_size)
+        elif self.crop == None:
+            y = bin_resolution(y,self.bin_size)
 
+        preds = self.model(x, training=training)
 
-  def evaluate(self, name, dataset, batch_size=128, verbose=True, training=False):
-    """Evaluate model in mini-batches"""
-    batch_dataset = dataset.batch(batch_size)
-    num_batches = len(list(batch_dataset))
-    for i, (x, y) in enumerate(batch_dataset):
-      loss_batch = self.test_step(x, y, self.metrics[name], training)
-      self.metrics[name].running_loss.append(loss_batch)
+        if self.crop =='c_crop':
+            y = bin_resolution(y,self.bin_size)
+            y,preds = center_crop(y,preds,int(self.window_size/self.bin_size))
 
-    # store evaluation metrics
-    if verbose:
-      self.metrics[name].update_print()
-    else:
-      self.metrics[name].update()
+        if self.ori_bpnet_flag == True:
+            true_cov = tf.math.log(tf.math.reduce_sum(y,axis=1)+1)
+            pred_cov = tf.squeeze(preds[1])
+            loss = self.loss([y,true_cov], [preds[0],pred_cov])
+            metrics.update_running_metrics(y, preds[0])
+        else:
+            loss = self.loss(y, preds)
+            metrics.update_running_metrics(y, preds)
+        return loss
 
+    def robust_train_epoch(self, trainset, num_step,
+                          batch_size=128, shuffle=True, verbose=False, store=True):
+      """performs a training epoch with attack to inputs"""
 
-  def predict(self, x, batch_size=128):
-    """Get predictions of model"""
-    pred = self.model.predict(x, batch_size=batch_size)
-    return pred
+      # prepare dataset
+      if shuffle:
+        trainset.shuffle(buffer_size=batch_size)
+      batch_dataset = trainset
+      # loop through mini-batches and perform robust training steps
+      start_time = time.time()
+      running_loss = 0
+      for i, (x, y) in enumerate(batch_dataset):
+        loss_batch = self.robust_train_step(x, y, self.metrics['train'])
+        self.metrics['train'].running_loss.append(loss_batch)
+        running_loss += loss_batch
+        progress_bar(i+1, num_step, start_time, bar_length=30, loss=running_loss/(i+1))
 
+      # store training metrics
+      if store:
+        if verbose:
+          self.metrics['train'].update_print()
+        else:
+          self.metrics['train'].update()
 
-  def set_early_stopping(self, patience=10, metric='loss', criterion=None):
-    """set up early stopping"""
-    self.early_stopping = EarlyStopping(patience=patience, metric=metric, criterion=criterion)
+    def robust_evaluate(self,name,dataset,batch_size=128,verbose=True,training=False):
+        """Evaluate model in mini-batches"""
+        batch_dataset = dataset
+        for i, (x, y) in enumerate(batch_dataset):
+          loss_batch = self.test_step(x, y,self.metrics[name])
+          self.metrics[name].running_loss.append(loss_batch)
 
+        # store evaluation metrics
+        if verbose:
+          self.metrics[name].update_print()
+        else:
+          self.metrics[name].update()
 
-  def check_early_stopping(self, name='val'):
-    """check status of early stopping"""
-    return self.early_stopping.status(self.metrics[name].get(self.early_stopping.metric)[-1])
-
-
-  def set_lr_decay(self, decay_rate, patience, metric='loss', criterion=None):
-    """set up learning rate decay"""
-    self.lr_decay = LRDecay(optimizer=self.optimizer, decay_rate=decay_rate,
-                            patience=patience, metric=metric, criterion=criterion)
-
-  def check_lr_decay(self, name='loss'):
-    """check status and update learning rate decay"""
-    self.lr_decay.check(self.metrics['val'].get(self.lr_decay.metric)[-1])
-
-
-  def get_metrics(self, name, metrics=None):
-    """return a dictionary of metrics stored throughout training"""
-    if metrics is None:
-      metrics = {}
-    metrics[name+'_loss'] = self.metrics[name].loss
-    for metric_name in self.metrics[name].metric_names:
-      metrics[name+'_'+metric_name] = self.metrics[name].get(metric_name)
-    return metrics
-
-  def get_current_metrics(self, name, metrics=None):
-    """return a dictionary of metrics stored throughout training"""
-    if metrics is None:
-      metrics = {}
-
-    metrics[name+'_loss'] = self.metrics[name].loss[-1]
-    for metric_name in self.metrics[name].metric_names:
-      metrics[name+'_'+metric_name] = self.metrics[name].get(metric_name)[-1]
-    return metrics
+    def predict(self, x, batch_size=128):
+      """Get predictions of model"""
+      pred = self.model.predict(x, batch_size=batch_size)
+      return pred
 
 
-
-  def set_learning_rate(self, learning_rate):
-    """short-cut to set the learning rate"""
-    self.optimizer.learning_rate.assign(learning_rate)
-
+    def set_early_stopping(self, patience=10, metric='loss', criterion=None):
+      """set up early stopping"""
+      self.early_stopping = EarlyStopping(patience=patience, metric=metric, criterion=criterion)
 
 
-class RobustTrainer(Trainer):
-  """Custom robust training loop (inherits all functions/variables from Trainer)"""
-
-  def __init__(self, model, loss, optimizer, input_window, bin_size, metrics, ori_bpnet_flag):
-    #Added for data augmentation
-    self.window = input_window
-    self.bin = bin_size
-
-    self.model = model
-    self.loss = loss
-    self.optimizer = optimizer
-    self.ori_bpnet_flag = ori_bpnet_flag
-
-    metric_names = []
-    for metric in metrics:
-        metric_names.append(metric)
-
-    self.metrics = {}
-    self.metrics['train'] = MonitorMetrics(metric_names, 'train')
-    self.metrics['val'] = MonitorMetrics(metric_names, 'val')
-    self.metrics['test'] = MonitorMetrics(metric_names, 'test')
-
-  def robust_train_step(self, x, y, window_size, bin_size, verbose=False,
-                        rev_comp = True, crop = 'r_crop',smooth = False,smooth_window = 10):
-    """performs a training epoch with attack to inputs"""
-    if smooth:
-        y = smooth_average(y,smooth_window)
-    if rev_comp:
-        x,y = ReverseComplement(x,y)
-    if bin_size > 1:
-        y = bin_resolution(y,bin_size)
-
-    return self.train_step(x, y, window_size,self.metrics['train'],self.ori_bpnet_flag,crop = crop)
+    def check_early_stopping(self, name='val'):
+      """check status of early stopping"""
+      return self.early_stopping.status(self.metrics[name].get(self.early_stopping.metric)[-1])
 
 
-  def robust_train_epoch(self, trainset, window_size, bin_size, num_step,
-                        batch_size=128, shuffle=True, verbose=False, store=True,
-                        rev_comp = True, crop = 'r_crop',smooth = False,smooth_window=10):
-    """performs a training epoch with attack to inputs"""
+    def set_lr_decay(self, decay_rate, patience, metric='loss', criterion=None):
+      """set up learning rate decay"""
+      self.lr_decay = LRDecay(optimizer=self.optimizer, decay_rate=decay_rate,
+                              patience=patience, metric=metric, criterion=criterion)
 
-    # prepare dataset
-    if shuffle:
-      trainset.shuffle(buffer_size=batch_size)
-    batch_dataset = trainset
-    #num_batches = len(list(batch_datset))
-    #print(num_batches)
-
-    # loop through mini-batches and perform robust training steps
-    start_time = time.time()
-    running_loss = 0
-    for i, (x, y) in enumerate(batch_dataset):
-      loss_batch = self.robust_train_step(x, y, window_size, bin_size, verbose,
-                                        rev_comp = rev_comp, crop = 'r_crop',
-                                        smooth = smooth,smooth_window = smooth_window)
-      self.metrics['train'].running_loss.append(loss_batch)
-      running_loss += loss_batch
-      progress_bar(i+1, num_step, start_time, bar_length=30, loss=running_loss/(i+1))
-
-    # store training metrics
-    if store:
-      if verbose:
-        self.metrics['train'].update_print()
-      else:
-        self.metrics['train'].update()
-
-  def robust_evaluate(self, name, dataset, window_size, bin_size, batch_size=128, verbose=True, training=False,crop = 'r_crop'):
-    """Evaluate model in mini-batches"""
-    batch_dataset = dataset
-    for i, (x, y) in enumerate(batch_dataset):
-      if crop == 'r_crop':
-          x,y = center_crop(x,y,window_size)
-          if bin_size != 1 :
-              y = bin_resolution(y,bin_size)
-
-      loss_batch = self.test_step(x, y,window_size, self.metrics[name], training, self.ori_bpnet_flag,crop=crop)
-      self.metrics[name].running_loss.append(loss_batch)
-
-    # store evaluation metrics
-    if verbose:
-      self.metrics[name].update_print()
-    else:
-      self.metrics[name].update()
+    def check_lr_decay(self, name='loss'):
+      """check status and update learning rate decay"""
+      self.lr_decay.check(self.metrics['val'].get(self.lr_decay.metric)[-1])
 
 
+    def get_metrics(self, name, metrics=None):
+      """return a dictionary of metrics stored throughout training"""
+      if metrics is None:
+        metrics = {}
+      metrics[name+'_loss'] = self.metrics[name].loss
+      for metric_name in self.metrics[name].metric_names:
+        metrics[name+'_'+metric_name] = self.metrics[name].get(metric_name)
+      return metrics
 
+    def get_current_metrics(self, name, metrics=None):
+      """return a dictionary of metrics stored throughout training"""
+      if metrics is None:
+        metrics = {}
 
+      metrics[name+'_loss'] = self.metrics[name].loss[-1]
+      for metric_name in self.metrics[name].metric_names:
+        metrics[name+'_'+metric_name] = self.metrics[name].get(metric_name)[-1]
+      return metrics
 
-
+    def set_learning_rate(self, learning_rate):
+      """short-cut to set the learning rate"""
+      self.optimizer.learning_rate.assign(learning_rate)
 #------------------------------------------------------------------------------------------
 # Helper classes
 #------------------------------------------------------------------------------------------
-
-
 class LRDecay():
   def __init__(self, optimizer, decay_rate=0.3, patience=10, metric='loss', criterion=None):
 
@@ -494,24 +430,24 @@ def smooth_average(y,smooth_window = 10):
     return y_smooth
 
 def smooth_gaussian(y,sigma = 2):
+
     size = int(4*sigma + 0.5)
 
     y = tf.expand_dims(y, axis=3)
     kernel = gaussian_kernel(size=size, mean=0.0, std=sigma)
     conv = tf.nn.conv2d(y, kernel, strides=[1,1,1,1], padding="SAME")
+    conv = tf.squeeze(conv,axis=-1)
     return conv
 
 def gaussian_kernel(size, mean, std):
-    d = tfp.distributions.Normal(tf.cast(mean, tf.float64), tf.cast(std, tf.float64))
-    vals = d.prob(tf.range(start=-size, limit=size+1, dtype=tf.float64))
+    d = tfp.distributions.Normal(tf.cast(mean, tf.float32), tf.cast(std, tf.float32))
+    vals = d.prob(tf.range(start=-size, limit=size+1, dtype=tf.float32))
     gauss_kernel = vals / tf.reduce_sum(vals)
     gauss_kernel = tf.expand_dims(gauss_kernel, axis=-1)
     gauss_kernel = tf.expand_dims(gauss_kernel, axis=-1)
     gauss_kernel = tf.expand_dims(gauss_kernel, axis=-1)
 
     return gauss_kernel
-
-
 
 def progress_bar(iter, num_batches, start_time, bar_length=30, **kwargs):
   """plots a progress bar to show remaining time for a full epoch.
