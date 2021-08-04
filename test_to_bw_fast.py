@@ -85,13 +85,17 @@ def get_mean_per_range(bw_path, bed_path, keep_all=False):
 
 def remove_nans(all_vals_dict):
     for i,(k, v) in enumerate(all_vals_dict.items()):
-        if i==0:
-            nan_mask = ~(np.isnan(v))
-        else:
-            nan_mask *= ~(np.isnan(v))
+        if np.isnan(v).sum()>0:
+            if 'nan_mask' not in locals():
+                nan_mask = ~(np.isnan(v))
+            else:
+                nan_mask *= ~(np.isnan(v))
     nonan_dict = {}
     for k,v in all_vals_dict.items():
-        nonan_dict[k] = v[nan_mask]
+        if 'nan_mask' in locals():
+            nonan_dict[k] = v[nan_mask]
+        else:
+            nonan_dict[k] = v
     return nonan_dict
 
 
@@ -148,6 +152,8 @@ def get_pr(bw_paths, bedfile='/home/shush/profile/QuantPred/bin_exp/truth/merged
         vals = get_mean_per_range(bw_path, bedfile, keep_all=True)
         all_vals_dict_nans[bw_path] = np.array([v  for v_sub in vals for v in v_sub])
         all_vals_dict_1d = remove_nans(all_vals_dict_nans)
+        if len(all_vals_dict_1d) == 0:
+            all_vals_dict_1d = all_vals_dict_nans
         all_vals_dict = {k:np.expand_dims(np.expand_dims(v, -1), -1) for k, v in all_vals_dict_1d.items()}
 
 
