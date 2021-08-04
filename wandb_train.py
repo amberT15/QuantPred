@@ -30,7 +30,7 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   'es_criterion':'min', 'lr_decay':0.3, 'lr_patience':10,
   'lr_metric':'loss', 'lr_criterion':'min', 'verbose' : True,
   'log_wandb':True,'rev_comp' : True,'crop' : 'r_crop', 'smooth' : False,
-  'record_test':False, 'alpha':False, 'smooth_window':10, 'loss_params':{}}
+  'record_test':False, 'alpha':False, 'smooth_window':10, 'loss_params':{},'sigma':20}
 
   for key in default_config.keys():
       if key in config.keys():
@@ -78,10 +78,14 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   if model_name_str == 'ori_bpnet':
   # create trainer class
     trainer =custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, default_config['metrics'],
-                                    ori_bpnet_flag = True)
+                                    ori_bpnet_flag = True,rev_comp=default_config['rev_comp'],crop=default_config['crop'],
+                                    smooth = default_config['smooth'],smooth_window=default_config['smooth_window'],
+                                    sigma = default_config['sigma'])
   else:
-    trainer = custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, default_config['metrics'],
-                                    ori_bpnet_flag = False)
+    trainer =custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, default_config['metrics'],
+                                    ori_bpnet_flag = False,rev_comp=default_config['rev_comp'],crop=default_config['crop'],
+                                    smooth = default_config['smooth'],smooth_window=default_config['smooth_window'],
+                                    sigma = default_config['sigma'])
 
   # set up learning rate decay
   trainer.set_lr_decay(decay_rate=default_config['lr_decay'], patience=default_config['lr_patience'],
@@ -95,18 +99,12 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
 
     #Robust train with crop and bin
     # print('blaanot')
-    trainer.robust_train_epoch(trainset, window_size, bin_size,
-                                num_step=train_seq_len//default_config['batch_size']+1,
-                                batch_size = default_config['batch_size'],
-                                rev_comp = default_config['rev_comp'],
-                                crop = default_config['crop'],
-                                smooth = default_config['smooth'],
-                                smooth_window = default_config['smooth_window'])
+    trainer.robust_train_epoch(trainset,num_step=train_seq_len//default_config['batch_size']+1,
+                                batch_size = default_config['batch_size'])
 
     # validation performance
-    trainer.robust_evaluate('val', validset,window_size, bin_size,
-                            batch_size=default_config['batch_size'], verbose=default_config['verbose'],
-                            crop = default_config['crop'])
+    trainer.robust_evaluate('val', validset,
+                            batch_size=default_config['batch_size'], verbose=default_config['verbose'])
 
 
     # check learning rate decay
