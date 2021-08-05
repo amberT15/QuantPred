@@ -1,7 +1,7 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
 import numpy as np
-from custom_fit import bin_resolution
+from util import bin_resolution
 
 class zero_infl_poiss(tf.keras.losses.Loss):
     def __init__(self, name="zero_infl_poiss"):

@@ -19,6 +19,10 @@ import scipy
  ################################################################
  # functions for loading tfr files into tfr dataset
  ################################################################
+def bin_resolution(y,bin_size):
+    y_dim = y.shape
+    y_bin = tf.math.reduce_mean(tf.reshape(y,(y_dim[0],int(y_dim[1]/bin_size),bin_size,y_dim[2])),axis = 2)
+    return y_bin
 
 def make_dir(dir_path):
     if not os.path.isdir(dir_path):
