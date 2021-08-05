@@ -53,7 +53,9 @@ def set_up_dirs():
             [util.make_dir(os.path.join(folder, d)) for folder in [truth_dir, pred_dir]]
 
 
-def smoothen_one_pair(bin_sigma):
+def smoothen_one_pair(bin_size):
+    sigma_values = [0, 1, 5, 10, 20, 50, 100, 200, 500, 1000]
+    # sigma_values = [5]
     base_dir = '3smooth_exp'
     out_dir = os.path.join(base_dir, 'pr_csv')
     true_binned_dir = '/home/shush/profile/QuantPred/bin_exp/truth/'
@@ -71,45 +73,43 @@ def smoothen_one_pair(bin_sigma):
 
 
     pr_dict = {'truth_path':[], 'pred_path':[], 'cell_line_id':[], 'sigma':[], 'Pearson_R':[], 'bin_size':[]}
-    bin_size, sigma_value = bin_sigma
-    for file in os.listdir(true_binned_dir):
-    # for file in ['1_GM23338']:
+    for sigma_value in sigma_values:
+    # bin_size, sigma_value = bin_sigma
+        for file in os.listdir(true_binned_dir):
+        # for file in ['1_GM23338']:
 
-        subdirs = os.path.join(true_binned_dir, file)
-        if os.path.isdir(subdirs):
+            subdirs = os.path.join(true_binned_dir, file)
+            if os.path.isdir(subdirs):
 
-            true_raw_bw_list = [os.path.join(subdirs, bw_file) for bw_file in os.listdir(subdirs) if '_{}_raw.bw'.format(bin_size) in bw_file]
-            assert len(true_raw_bw_list) == 1, 'Too many or not enough bws found!'
-            true_raw_bw = true_raw_bw_list[0]
-            pred_raw_bw = true_raw_bw.replace('truth', 'pred').replace('_{}_'.format(bin_size), '_{}_{}_'.format(bin_size, bin_size))
-            cell_line_id = true_raw_bw.split('/')[-2]
-            print('************************')
-            print('Cell line {}, bin_size {}, sigma {} filenames {}, {}'.format(cell_line_id, bin_size, sigma_value, true_raw_bw, pred_raw_bw))
-            print('************************')
-            out_dirs = [os.path.join(folder, cell_line_id) for folder in [truth_dir, pred_dir]]
+                true_raw_bw_list = [os.path.join(subdirs, bw_file) for bw_file in os.listdir(subdirs) if '_{}_raw.bw'.format(bin_size) in bw_file]
+                assert len(true_raw_bw_list) == 1, 'Too many or not enough bws found in {}!'.format(subdirs)
+                true_raw_bw = true_raw_bw_list[0]
+                pred_raw_bw = true_raw_bw.replace('truth', 'pred').replace('_{}_'.format(bin_size), '_{}_{}_'.format(bin_size, bin_size))
+                cell_line_id = true_raw_bw.split('/')[-2]
+                print('************************')
+                print('Cell line {}, bin_size {}, sigma {} filenames {}, {}'.format(cell_line_id, bin_size, sigma_value, true_raw_bw, pred_raw_bw))
 
-            [sm_true, sm_pred] = smoothen_bw([true_raw_bw, pred_raw_bw], in_bed_filename, sigma_value, out_dirs)
-            pr = scipy_get_pr([sm_true, sm_pred])
+                out_dirs = [os.path.join(folder, cell_line_id) for folder in [truth_dir, pred_dir]]
 
-            pr_dict['truth_path'].append(sm_true)
-            pr_dict['pred_path'].append(sm_pred)
-            pr_dict['cell_line_id'].append(cell_line_id)
-            pr_dict['sigma'].append(sigma_value)
-            pr_dict['Pearson_R'].append(pr)
-            pr_dict['bin_size'].append(bin_size)
+                [sm_true, sm_pred] = smoothen_bw([true_raw_bw, pred_raw_bw], in_bed_filename, sigma_value, out_dirs)
+                pr = scipy_get_pr([sm_true, sm_pred])
+
+                pr_dict['truth_path'].append(sm_true)
+                pr_dict['pred_path'].append(sm_pred)
+                pr_dict['cell_line_id'].append(cell_line_id)
+                pr_dict['sigma'].append(sigma_value)
+                pr_dict['Pearson_R'].append(pr)
+                pr_dict['bin_size'].append(bin_size)
     pr_df = pd.DataFrame(pr_dict)
     pr_df.to_csv(os.path.join(out_dir, '{}_{}.csv'.format(bin_size, sigma_value)))
 
 def main():
     set_up_dirs()
-    bin_sizes = [1, 32, 64, 128, 256, 512, 1024, 2048]
-    smooth_values = [0, 1, 5, 10, 20, 50, 100, 200, 500, 1000]
-
-    bins_and_sigmas_list =[(b, s) for b in bin_sizes for s in smooth_values]
-
-
-    with mp.Pool(processes=20) as pool:
-        list(tqdm(pool.imap(smoothen_one_pair, bins_and_sigmas_list)))
+    bin_sizes = [1, 32, 128, 2048]
+    for bin_size in bin_sizes:
+        smoothen_one_pair(bin_size)
+    # with mp.Pool(processes=8) as pool:
+    #     list(tqdm(pool.imap(smoothen_one_pair, bin_sizes)))
 
 if __name__ == '__main__':
   main()
