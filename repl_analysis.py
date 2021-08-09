@@ -72,32 +72,6 @@ class SeabornFig2Grid():
     def _resize(self, evt=None):
         self.sg.fig.set_size_inches(self.fig.get_size_inches())
 
-# def remove_nans(all_vals_dict):
-#     for i,(k, v) in enumerate(all_vals_dict.items()):
-#         if i==0:
-#             nan_mask = ~(np.isnan(v))
-#         else:
-#             nan_mask *= ~(np.isnan(v))
-#     nonan_dict = {}
-#     for k,v in all_vals_dict.items():
-#         nonan_dict[k] = v[nan_mask]
-#     return nonan_dict
-#
-# def get_mean_per_range(bw_path, bed_path, keep_all=False):
-#     bw = pyBigWig.open(bw_path)
-#     bw_list = []
-#     for line in open(bed_path):
-#         cols = line.strip().split()
-#         vals = bw.values(cols[0], int(cols[1]), int(cols[2]))
-#         if keep_all:
-#             bw_list.append(vals)
-#         else:
-#             bw_list.append(np.mean(vals))
-#     bw.close()
-#     return bw_list
-
-
-# process_cell_line(run_dir, N_cell_line)
 def plot_and_pr(run_dir, N_cell_line, bin_size):
     label_dict = {'threshold_2':{'bw':'{}_thresh2.bw'.format(bin_size), 'bed':'thresh2.bed'},
                   'raw':{'bw':'_{}_raw.bw'.format(bin_size), 'bed':'raw.bed'},
