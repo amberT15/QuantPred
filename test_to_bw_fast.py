@@ -158,6 +158,12 @@ def merge_bed(in_bed_filename):
     output, error = process.communicate()
     return in_bed_filename_merged # return new filename
 
+def get_list_pr(list1, list2):
+    '''This function flattens np arrays and computes pearson r'''
+    pr = stats.pearsonr(np.concatenate(list1), np.concatenate(list2))[0]
+    assert ~np.isnan(pr)
+    return pr
+
 def scipy_get_pr(bw_paths, bedfile='/home/shush/profile/QuantPred/bin_exp/truth/merged_truth_1_raw.bed'):
     '''This function computes pearson r from two bigwig files'''
     all_vals_dict_nans = {} # dictionary of all values
@@ -191,17 +197,29 @@ def get_replicates(cell_line_name, repl_labels = ['r2', 'r12'],
     return replicate_filepaths # return dict of repl type and path
 
 def get_idr(cell_line_name, idr_filename,
-            basset_samplefile='/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basset_sample_file.tsv'):
-    '''This function makes cell line specific IDR file for test set'''
+            basset_samplefile='/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basset_sample_file.tsv',
+           range_size = 2048):
+    '''This function makes cell line specific IDR file with constant window size for test set'''
+
+    # make bed filename to be used in pearson r calculation with no merging of ranges
+    split_filename = idr_filename.split('/')
+    window_enf_idr = '/'.join(split_filename[:-1]+['const_' + split_filename[-1]])
     # read in IDR samplefile
     basset_samplefile_df=pd.read_csv(basset_samplefile, sep='\t', header=None)
     # find cell line specific IDR file
     idr_file_gz = basset_samplefile_df[basset_samplefile_df[0]==cell_line_name][1].values[0]
     # str of command line command to filter test set peaks for cell line into new bed file
-    bashCmd = "scp {} temp.bed.gz; gunzip temp.bed.gz; grep chr8 temp.bed|awk '{{print $1, $2, $3}}'|sort -k1,1 -k2,2n|uniq > {}; rm temp.bed".format(idr_file_gz, idr_filename)
-    process = subprocess.Popen(bashCmd, shell=True)
+    interm_bed = '{}_idr_strict_peaks.bed'.format(cell_line_name)
+    make_bedfile = "scp {} temp.bed.gz; gunzip temp.bed.gz; grep chr8 temp.bed|awk '{{print $1, $2, $3}}'|sort -k1,1 -k2,2n|uniq > {}; rm temp.bed".format(idr_file_gz, interm_bed)
+    process = subprocess.Popen(make_bedfile, shell=True)
     output, error = process.communicate()
-
+    # make new bedfile with constant bed ranges
+    enforce_constant_size(interm_bed, window_enf_idr, range_size)
+    # merge ranges so that bw writing can happen later
+    merge_bed = 'bedtools merge -i {} > {}; rm {}'.format(window_enf_idr, idr_filename, interm_bed)
+    process = subprocess.Popen(merge_bed, shell=True)
+    output, error = process.communicate()
+    
 def bw_from_ranges(in_bw_filename, in_bed_filename, out_bw_filename,
                    chrom_size_path, bin_size=1, threshold=-1,
                    out_bed_filename=''):
