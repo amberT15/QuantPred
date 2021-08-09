@@ -19,6 +19,41 @@ import pandas as pd
 from scipy.ndimage import gaussian_filter1d
 from tqdm import tqdm
 
+def enforce_constant_size(bed_path, output_path, window, compression=None):
+    """generate a bed file where all peaks have same size centered on original peak"""
+
+    # load bed file
+
+    df = pd.read_csv(bed_path, sep=' ', header=None, compression=compression)
+
+    df.columns = [0, 1, 2]
+    chrom = df[0].to_numpy().astype(str)
+    start = df[1].to_numpy()
+    end = df[2].to_numpy()
+    #print('# bed coordinates', len(end))
+    # calculate center point and create dataframe
+    middle = np.round((start + end)/2).astype(int)
+    half_window = np.round(window/2).astype(int)
+
+    # calculate new start and end points
+    start = middle - half_window
+    end = middle + half_window
+
+    # filter any negative start positions
+    data = {}
+    for i in range(len(df.columns)):
+        data[i] = df[i].to_numpy()
+    data[1] = start
+    data[2] = end
+    #print('# coordinates after removing negatives', len(end))
+    # create new dataframe
+    df_new = pd.DataFrame(data);
+#     print(df_new[df_new[1]<0])
+    df_new = df_new[df_new.iloc[:,1] > 0]
+    df_new = df_new[df_new.iloc[:,2] > 0]
+    # save dataframe with fixed width window size to a bed file
+    df_new.to_csv(output_path, sep='\t', header=None, index=False)
+
 def change_filename(filepath, new_binningsize=None, new_thresholdmethod=None):
     '''This funciton switches between filenames used for bw files'''
     filename = os.path.basename(filepath) # extract file name from path
@@ -219,7 +254,7 @@ def get_idr(cell_line_name, idr_filename,
     merge_bed = 'bedtools merge -i {} > {}; rm {}'.format(window_enf_idr, idr_filename, interm_bed)
     process = subprocess.Popen(merge_bed, shell=True)
     output, error = process.communicate()
-    
+
 def bw_from_ranges(in_bw_filename, in_bed_filename, out_bw_filename,
                    chrom_size_path, bin_size=1, threshold=-1,
                    out_bed_filename=''):
@@ -252,7 +287,7 @@ def bw_from_ranges(in_bw_filename, in_bed_filename, out_bw_filename,
 
 def process_run(run_path,
                       threshold=2,
-                      data_path='datasets/chr8/complete/random_chop/i_2048_w_1',
+                      data_path='datasets/only_test/complete/random_chop/i_2048_w_1',
                       chrom_size_path="/home/shush/genomes/GRCh38_EBV.chrom.sizes.tsv",
                       get_replicates=False,
                       bigwig_foldername='bigwigs'):
@@ -275,10 +310,12 @@ def process_run(run_path,
     run_subdir = util.make_dir(os.path.join(run_path, bigwig_foldername))
     # make ground truth, pred bigwigs and bed file of ranges where dataset is
     # for each cell line in a separate subdir in run_subdir
+    print('Making ground truth and prediction bigwigs')
     make_truth_pred_bws(truth_bw_filename_suffix, pred_bw_filename_suffix, bed_filename_suffix,
                           testset, trained_model, bin_size, targets,
                           chrom_size_path, run_subdir)
     for subdir in os.listdir(run_subdir): # per cell line directory
+        print(subdir)
         output_dir = os.path.join(run_subdir, subdir) # cell line full path
         subdir_split = subdir.split('_') # split into id and cell line name
         # make sure no other file is detected
