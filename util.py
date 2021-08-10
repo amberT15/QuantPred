@@ -17,7 +17,6 @@ import tensorflow as tf
 import metrics
 import scipy
 import yaml
-from loss import *
  ################################################################
  # functions for loading tfr files into tfr dataset
  ################################################################
