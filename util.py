@@ -242,6 +242,11 @@ def window_shift(X,Y,window_size,shift_num):
 def evaluate_shift(X,Y,model,window_size,shift_num):
     shift_x,shift_y,shift_idx = window_shift(X,Y,window_size,shift_num)
     pred_y = model.predict(shift_x)
+    if pred_y.shape[1] < shift_y.shape[1]:
+        bin_size =  int(shift_y.shape[1] / pred_y.shape[1])
+        pred_y = np.repeat(pred_y,bin_size,axis = 1)
+        shift_y = bin_resolution(shift_y,bin_size)
+        shift_y = np.repeat(shift_y,bin_size,axis=1)
     p_r_list = []
     for i,pred in enumerate(pred_y):
         task_pr = []
