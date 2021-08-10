@@ -13,7 +13,7 @@ import shutil, wandb
 import itertools
 import numpy as np
 # from test_to_bw import *
-from test_to_bw_fast import process_cell_line, get_mean_per_range
+from test_to_bw_fast import process_run, get_mean_per_range, remove_nans
 import util
 import metrics
 #
@@ -72,36 +72,10 @@ class SeabornFig2Grid():
     def _resize(self, evt=None):
         self.sg.fig.set_size_inches(self.fig.get_size_inches())
 
-# def remove_nans(all_vals_dict):
-#     for i,(k, v) in enumerate(all_vals_dict.items()):
-#         if i==0:
-#             nan_mask = ~(np.isnan(v))
-#         else:
-#             nan_mask *= ~(np.isnan(v))
-#     nonan_dict = {}
-#     for k,v in all_vals_dict.items():
-#         nonan_dict[k] = v[nan_mask]
-#     return nonan_dict
-#
-# def get_mean_per_range(bw_path, bed_path, keep_all=False):
-#     bw = pyBigWig.open(bw_path)
-#     bw_list = []
-#     for line in open(bed_path):
-#         cols = line.strip().split()
-#         vals = bw.values(cols[0], int(cols[1]), int(cols[2]))
-#         if keep_all:
-#             bw_list.append(vals)
-#         else:
-#             bw_list.append(np.mean(vals))
-#     bw.close()
-#     return bw_list
-
-
-# process_cell_line(run_dir, N_cell_line)
-def plot_and_pr(run_dir, N_cell_line):
-    label_dict = {'threshold_2':{'bw':'128_thresh2.bw', 'bed':'thresh2.bed'},
-                  'raw':{'bw':'_128_raw.bw', 'bed':'raw.bed'},
-                  'IDR':{'bw': '128_idr.bw', 'bed':'idr.bed'}
+def plot_and_pr(run_dir, N_cell_line, bin_size):
+    label_dict = {'threshold_2':{'bw':'{}_thresh2.bw'.format(bin_size), 'bed':'thresh2.bed'},
+                  'raw':{'bw':'_{}_raw.bw'.format(bin_size), 'bed':'raw.bed'},
+                  'IDR':{'bw': '{}_idr.bw'.format(bin_size), 'bed':'idr.bed'}
                  }
 
     # get the cell line specific directory
@@ -140,7 +114,7 @@ def plot_and_pr(run_dir, N_cell_line):
             vals = get_mean_per_range(bw_path, bed_path, keep_all=True)
             all_vals_dict_nans[key] = np.array([v  for v_sub in vals for v in v_sub])
             all_vals_dict_1d = remove_nans(all_vals_dict_nans)
-            all_vals_dict = {k:np.expand_dims(np.expand_dims(v, -1), -1) for k, v in all_vals_dict_1d.items()}
+            # all_vals_dict = {k:np.expand_dims(np.expand_dims(v for k, v in all_vals_dict_1d.items()}
             mean_vals_dict[key] = np.array([np.mean(v) for v in vals])
         mean_cov = pd.DataFrame(mean_vals_dict)
 
@@ -148,13 +122,17 @@ def plot_and_pr(run_dir, N_cell_line):
         titles = []
         pr_vals = {}
         for x_lab, y_lab in comb_of_columns:
-            pr = metrics.PearsonR(1)
-            pr.update_state(all_vals_dict[x_lab], all_vals_dict[y_lab])
+            print(all_vals_dict_1d[x_lab].shape)
+            print(all_vals_dict_1d[y_lab].shape)
+
+            pr_result = stats.pearsonr(all_vals_dict_1d[x_lab], all_vals_dict_1d[y_lab])[0]
+            print(pr_result)
             if x_lab in pr_vals.keys():
-                pr_vals[x_lab][y_lab] = pr.result().numpy()
+                pr_vals[x_lab][y_lab] = pr_result
             else:
                 pr_vals[x_lab] = {}
-                pr_vals[x_lab][y_lab] = pr.result().numpy()
+                pr_vals[x_lab][y_lab] = pr_result
+
             assert ~np.isnan(pr_vals[x_lab][y_lab]), 'NA in Pearson R!'
             titles.append('Pearson r = {}'.format(pr_vals[x_lab][y_lab]))
             if (x_lab == 'pred') or (y_lab == 'pred'):
@@ -202,12 +180,13 @@ def main():
 
     # run_dir = sys.argv[1]
     # run_dir = '/home/shush/profile/QuantPred/wandb/run-20210702_234001-u3vwup7j/'
-    run_paths = ['/home/shush/profile/QuantPred/wandb/run-20210729_110628-8368urpg',
-                '/home/shush/profile/QuantPred/wandb/run-20210729_110608-rnil3owe']
+    # run_paths = ['/home/shush/profile/QuantPred/wandb/run-20210729_110628-8368urpg',
+                # '/home/shush/profile/QuantPred/wandb/run-20210729_110608-rnil3owe']
+    run_paths = ['run-20210728_102932-z4wk24jl']
     for run_dir in run_paths:
-        process_cell_line(run_dir)
+        # process_run(run_dir)
         for N_cell_line in N_cell_lines:
-            plot_and_pr(run_dir, N_cell_line)
+            plot_and_pr(run_dir, N_cell_line, 1)
 
 if __name__ == '__main__':
   main()
