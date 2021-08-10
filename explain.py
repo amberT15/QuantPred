@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import logomaker
 import subprocess
-import os, shutil, h5py
+import os, shutil, h5py,scipy
 
 def plot_saliency(saliency_map):
 
@@ -72,6 +72,16 @@ def vcf_test(ref,alt,coords,model,background_size = 100):
         background_distribution.append(mut_pred_cov)
     df['background'] = background_distribution
     return df
+
+def vcf_pct(vcf_df):
+    pct_list = []
+    for (i,alt) in enumerate(vcf_df['alt']):
+        small_pct = len(np.where(np.array(vcf_df['background'][i]) < alt)[0])
+        large_pct = len(np.where(np.array(vcf_df['background'][i]) > alt)[0])
+        pct_list.append(np.minimum(small_pct,large_pct)/100)
+    vcf_df['pct_value'] = pct_list
+    return vcf_df
+
 
 def complete_saliency(X,model,class_index,func = tf.math.reduce_mean):
   """fast function to generate saliency maps"""
