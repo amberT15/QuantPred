@@ -18,6 +18,7 @@ import gzip
 import pandas as pd
 from scipy.ndimage import gaussian_filter1d
 from tqdm import tqdm
+import time
 
 def enforce_constant_size(bed_path, output_path, window, compression=None):
     """generate a bed file where all peaks have same size centered on original peak"""
@@ -115,7 +116,7 @@ def open_bw(bw_filename, chrom_size_path):
     return bw # bw file
 
 def get_mean_per_range(bw_path, bed_path):
-    '''This function reads a bw into numpy array'''
+    '''This function reads bw (specific ranges of bed file) into numpy array'''
     bw = pyBigWig.open(bw_path)
     bw_list = []
     for line in open(bed_path):
@@ -233,12 +234,14 @@ def get_replicates(cell_line_name, repl_labels = ['r2', 'r12'],
 
 def get_idr(cell_line_name, idr_filename,
             basset_samplefile='/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basset_sample_file.tsv',
-           range_size = 2048):
+           range_size = 2048,
+           unmap_bed='/home/shush/genomes/GRCh38_unmap.bed'):
     '''This function makes cell line specific IDR file with constant window size for test set'''
 
     # make bed filename to be used in pearson r calculation with no merging of ranges
     split_filename = idr_filename.split('/')
-    window_enf_idr = '/'.join(split_filename[:-1]+['const_' + split_filename[-1]])
+    window_enf_idr = '/'.join(split_filename[:-1]+[split_filename[-1].split('.bed')[0]+ '_const' +'.bed'])
+    nan_window_enf_idr = window_enf_idr + 'nan'
     # read in IDR samplefile
     basset_samplefile_df=pd.read_csv(basset_samplefile, sep='\t', header=None)
     # find cell line specific IDR file
@@ -249,11 +252,17 @@ def get_idr(cell_line_name, idr_filename,
     process = subprocess.Popen(make_bedfile, shell=True)
     output, error = process.communicate()
     # make new bedfile with constant bed ranges
-    enforce_constant_size(interm_bed, window_enf_idr, range_size)
+    enforce_constant_size(interm_bed, nan_window_enf_idr, range_size)
+    # remove regions partially in unmap regions
+    filter_bed = 'bedtools intersect -v -a {} -b {} > {}'.format(nan_window_enf_idr, unmap_bed, window_enf_idr)
+    process = subprocess.Popen(filter_bed, shell=True)
+    output, error = process.communicate()
     # merge ranges so that bw writing can happen later
     merge_bed = 'bedtools merge -i {} > {}; rm {}'.format(window_enf_idr, idr_filename, interm_bed)
     process = subprocess.Popen(merge_bed, shell=True)
     output, error = process.communicate()
+
+
 
 def bw_from_ranges(in_bw_filename, in_bed_filename, out_bw_filename,
                    chrom_size_path, bin_size=1, threshold=-1,
@@ -287,7 +296,7 @@ def bw_from_ranges(in_bw_filename, in_bed_filename, out_bw_filename,
 
 def process_run(run_path,
                       threshold=2,
-                      data_path='datasets/only_test/complete/random_chop/i_2048_w_1',
+                      data_path='datasets/chr8/complete/random_chop/i_2048_w_1',
                       chrom_size_path="/home/shush/genomes/GRCh38_EBV.chrom.sizes.tsv",
                       get_replicates=False,
                       bigwig_foldername='bigwigs'):
@@ -311,10 +320,13 @@ def process_run(run_path,
     # make ground truth, pred bigwigs and bed file of ranges where dataset is
     # for each cell line in a separate subdir in run_subdir
     print('Making ground truth and prediction bigwigs')
+    t0 = time.time()
     make_truth_pred_bws(truth_bw_filename_suffix, pred_bw_filename_suffix, bed_filename_suffix,
                           testset, trained_model, bin_size, targets,
                           chrom_size_path, run_subdir)
-    for subdir in os.listdir(run_subdir): # per cell line directory
+    t1 = time.time()
+    print('Time = {}mins'.format((t1-t0)//60))
+    for subdir in tqdm(os.listdir(run_subdir)): # per cell line directory
         print(subdir)
         output_dir = os.path.join(run_subdir, subdir) # cell line full path
         subdir_split = subdir.split('_') # split into id and cell line name
@@ -371,5 +383,7 @@ def process_run(run_path,
             bw_from_ranges(truth_bw_filename, bed_filename, truth_thresh_filename, chrom_size_path, threshold=threshold, out_bed_filename=thresh_bedfile)
             # for all binned bws that are to be thresholded
             for binned_filename in binned_filenames+[pred_bw_filename]:
+                print(binned_filename)
                 out_thresh = change_filename(binned_filename, new_thresholdmethod=thresh_str)
-                bw_from_ranges(binned_filename, thresh_bedfile, out_thresh, chrom_size_path)
+                if 'truth_1_thresh' not in out_thresh: # this one would already be made above
+                    bw_from_ranges(binned_filename, thresh_bedfile, out_thresh, chrom_size_path)
