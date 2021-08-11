@@ -549,6 +549,9 @@ def bpnet(input_shape, output_shape, wandb_config={}):
         outputs.append(px)
 
     outputs = tf.keras.layers.concatenate(outputs)
+
+    #TEMP for poisson
+    outputs = tf.keras.layers.Activation('softplus')(outputs)
     #outputs = keras.layers.Reshape((output_shape))(outputs)
     model = keras.models.Model([input],outputs)
     return model
@@ -759,3 +762,16 @@ def dilated_residual_block2(input_layer, num_filters, filter_size, activation='r
     residual_conv2_bn = keras.layers.BatchNormalization()(residual_conv2)
     residual_sum = keras.layers.add([input_layer, residual_conv2_bn])
     return keras.layers.Activation(activation)(residual_sum)
+
+
+
+def load_model(run_dir,compile):
+    config_dir = os.path.join(run_dir,'files','config.yaml')
+    config_file = open(config_dir)
+    best_model = os.path.join(run_dir,'files','best_model.h5')
+    custom_layers = {'GELU':modelzoo.GELU}
+    model = tf.keras.models.load_model(best_model,custom_objects = custom_layers,compile=False)
+    if compile ==True:
+        config = yaml.load(config_file)
+        loss_fn = yaml['loss_fn']['value']
+        model.compile(tf.keras.optimizers.Adam(lr=0.001), loss=eval(loss_fn)())

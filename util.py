@@ -16,6 +16,7 @@ from natsort import natsorted
 import tensorflow as tf
 import metrics
 import scipy
+import yaml
  ################################################################
  # functions for loading tfr files into tfr dataset
  ################################################################
@@ -174,6 +175,31 @@ def make_dataset(data_dir, split_label, data_stats, batch_size=64, seed=None, sh
     dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
     return dataset
 
+def make_dataset_5(data_dir, split_label, data_stats, batch_size=64, seed=None, shuffle=True, coords=False):
+    seq_length = data_stats['seq_length']
+    target_length = data_stats['target_length']
+    num_targets = data_stats['num_targets']
+    tfr_path = '%s/tfrecords/%s-*.tfr' % (data_dir, split_label)
+    num_seqs = data_stats['%s_seqs' % split_label]
+
+    tfr_files = natsorted(glob.glob(tfr_path))
+    dataset = tf.data.Dataset.list_files(tf.constant(tfr_files), shuffle=False)
+
+    dataset = dataset.flat_map(file_to_records)
+
+    dataset = dataset.map(generate_parser_5(seq_length, target_length, num_targets, coords))
+    if shuffle:
+        if seed:
+            dataset = dataset.shuffle(32, seed=seed)
+        else:
+            dataset = dataset.shuffle(32)
+    # dataset = dataset.batch(64)
+    # batch
+    dataset = dataset.batch(batch_size)
+
+    # prefetch
+    dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
+    return dataset
 
 def tfr_to_np(data, choose, array_shape):
     if choose=='x':
@@ -217,6 +243,11 @@ def window_shift(X,Y,window_size,shift_num):
 def evaluate_shift(X,Y,model,window_size,shift_num):
     shift_x,shift_y,shift_idx = window_shift(X,Y,window_size,shift_num)
     pred_y = model.predict(shift_x)
+    if pred_y.shape[1] < shift_y.shape[1]:
+        bin_size =  int(shift_y.shape[1] / pred_y.shape[1])
+        pred_y = np.repeat(pred_y,bin_size,axis = 1)
+        shift_y = bin_resolution(shift_y,bin_size)
+        shift_y = np.repeat(shift_y,bin_size,axis=1)
     p_r_list = []
     for i,pred in enumerate(pred_y):
         task_pr = []
