@@ -20,7 +20,7 @@ import util
 import multiprocessing as mp
 from scipy.ndimage import gaussian_filter1d
 
-def smooth_one_binsize_one_cell_line(file, bin_size=512, out_dir='gauss_smooth'):
+def smooth_one_binsize_one_cell_line(file, bin_size=2048, out_dir='gauss_smooth'):
     print('Smoothening bin size {}'.format(bin_size))
     summary_results = [] #bin_size, sigma, pearson r, cell_line
     # grab one bin size bw (e.g. 1)
