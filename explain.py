@@ -79,8 +79,8 @@ def vcf_pct(vcf_df):
         small_pct = len(np.where(np.array(vcf_df['background'][i]) < alt)[0])
         large_pct = len(np.where(np.array(vcf_df['background'][i]) > alt)[0])
         pct_list.append(np.minimum(small_pct,large_pct)/100)
-    vcf_df['pct_value'] = pct_list
-    return vcf_df
+
+    return pct_list
 
 
 def complete_saliency(X,model,class_index,func = tf.math.reduce_mean):

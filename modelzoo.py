@@ -2,6 +2,8 @@ import tensorflow as tf
 import tensorflow.keras as keras
 # import tensorflow_probability as tfp
 import numpy as np
+import os,yaml
+from loss import *
 
 
 def basenjimod(input_shape, output_shape, wandb_config={}):
@@ -769,9 +771,10 @@ def load_model(run_dir,compile):
     config_dir = os.path.join(run_dir,'files','config.yaml')
     config_file = open(config_dir)
     best_model = os.path.join(run_dir,'files','best_model.h5')
-    custom_layers = {'GELU':modelzoo.GELU}
+    custom_layers = {'GELU':GELU}
     model = tf.keras.models.load_model(best_model,custom_objects = custom_layers,compile=False)
     if compile ==True:
         config = yaml.load(config_file)
-        loss_fn = yaml['loss_fn']['value']
+        loss_fn = config['loss_fn']['value']
         model.compile(tf.keras.optimizers.Adam(lr=0.001), loss=eval(loss_fn)())
+    return model
