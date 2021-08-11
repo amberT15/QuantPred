@@ -43,33 +43,35 @@ def vcf_test(ref,alt,coords,model,background_size = 100):
     # score for reference and alternative allele
     ref_pred = model.predict(ref)
     alt_pred = model.predict(alt)
-    ref_pred_cov = np.sum(ref_pred,axis = (1,2))
-    alt_pred_cov = np.sum(alt_pred,axis = (1,2))
+
+    ref_pred_cov = np.sum(ref_pred,axis = 1)
+    alt_pred_cov = np.sum(alt_pred,axis = 1)
+    max_task = np.argmax(ref_pred_cov,axis = 1)
+    ref_max_cov = ref_pred_cov[range(0,ref.shape[0]),max_task]
+    alt_max_cov = alt_pred_cov[range(0,ref.shape[0]),max_task]
 
     d = {'chromosome': coords[:,0], 'start': coords[:,1],'end':coords[:,2]}
     df = pd.DataFrame(data=d)
 
-    df['ref'] = ref_pred_cov
-    df['alt'] = alt_pred_cov
+    df['ref'] = ref_max_cov
+    df['alt'] = alt_max_cov
 
-    #creating random background mutations
-    #mutations will be at least 100 nt apart from SNP position
+    #mutate very edge regions
     background_distribution = []
     for i,ref_seq in enumerate(ref):
-        mut_loci = np.random.randint(100,923,size = background_size)
-        direction = np.random.choice([-1,1])
-        mut_loci = len(ref_seq)/2 + mut_loci * direction
+        mut_loci = np.concatenate((range(0,512),range(1536,2048)))
         mut_loci = mut_loci.astype('int')
-        mut_batch = np.tile(ref_seq,(background_size,1,1))
-        mut_row = mut_batch[range(0,background_size),mut_loci]
+        mut_batch = np.tile(ref_seq,(1024,1,1))
+        mut_row = mut_batch[range(0,1024),mut_loci]
         ori_empty_base = np.where(mut_row!= 1)[1].reshape(mut_row.shape[0],3)
         mut_base = np.apply_along_axis(np.random.choice, axis=1, arr=ori_empty_base, size=1)
-        mut_batch[range(0,background_size),mut_loci] = [0,0,0,0]
-        mut_batch[range(0,background_size),mut_loci,mut_base] = 1
+        mut_batch[range(0,1024),mut_loci] = [0,0,0,0]
+        mut_batch[range(0,1024),mut_loci,mut_base] = 1
 
         mut_pred = model.predict(mut_batch)
-        mut_pred_cov = np.sum(mut_pred,axis = (1,2))
+        mut_pred_cov = np.sum(mut_pred,axis =1)[:,max_task[i]]
         background_distribution.append(mut_pred_cov)
+
     df['background'] = background_distribution
     return df
 
