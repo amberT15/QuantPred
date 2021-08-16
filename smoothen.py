@@ -10,7 +10,7 @@ import seaborn as sns
 import shutil
 import util, sys
 import wandb
-from test_to_bw_fast import get_mean_per_range, get_list_pr
+from test_to_bw_fast import get_vals_per_range, get_list_pr
 import time
 from tqdm import tqdm
 from scipy import stats
@@ -35,8 +35,8 @@ def smooth_one_binsize_one_cell_line(file, bin_size=2048, out_dir='gauss_smooth'
     pred_raw_bw = true_raw_bw.replace('truth', 'pred').replace('_{}_'.format(bin_size), '_{}_{}_'.format(bin_size, bin_size))
     assert os.path.isfile(pred_raw_bw), 'Pred bw {} not found!'.format(pred_raw_bw)
     # load bws for truth and pred into memory
-    true_raw_np = get_mean_per_range(true_raw_bw, in_bed_filename)
-    pred_raw_np = get_mean_per_range(pred_raw_bw, in_bed_filename)
+    true_raw_np = get_vals_per_range(true_raw_bw, in_bed_filename)
+    pred_raw_np = get_vals_per_range(pred_raw_bw, in_bed_filename)
     # compute pr
     pr = get_list_pr(true_raw_np, pred_raw_np)
     summary_results.append([bin_size, 0, pr, file])
