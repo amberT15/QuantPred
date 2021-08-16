@@ -90,6 +90,11 @@ class RobustTrainer():
         elif self.crop == None:
             y = bin_resolution(y,self.bin_size)
 
+        if self.smooth == 'average':
+            y = smooth_average(y,self.smooth_window)
+        elif self.smooth == 'gauss':
+            y = smooth_gaussian(y,self.sigma)
+
         preds = self.model(x, training=training)
 
         if self.crop =='c_crop':

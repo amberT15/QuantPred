@@ -43,17 +43,20 @@ def vcf_test(ref,alt,coords,model,background_size = 100):
     # score for reference and alternative allele
     ref_pred = model.predict(ref)
     alt_pred = model.predict(alt)
-    ref_pred_cov = np.sum(ref_pred,axis = (1,2))
-    alt_pred_cov = np.sum(alt_pred,axis = (1,2))
+
+    ref_pred_cov = np.sum(ref_pred,axis = 1)
+    alt_pred_cov = np.sum(alt_pred,axis = 1)
+    max_task = np.argmax(ref_pred_cov,axis = 1)
+    ref_max_cov = ref_pred_cov[range(0,ref.shape[0]),max_task]
+    alt_max_cov = alt_pred_cov[range(0,ref.shape[0]),max_task]
 
     d = {'chromosome': coords[:,0], 'start': coords[:,1],'end':coords[:,2]}
     df = pd.DataFrame(data=d)
 
-    df['ref'] = ref_pred_cov
-    df['alt'] = alt_pred_cov
+    df['ref'] = ref_max_cov
+    df['alt'] = alt_max_cov
 
-    #creating random background mutations
-    #mutations will be at least 100 nt apart from SNP position
+    #mutate very edge regions
     background_distribution = []
     for i,ref_seq in enumerate(ref):
         mut_loci = np.random.randint(100,923,size = background_size)
@@ -68,10 +71,28 @@ def vcf_test(ref,alt,coords,model,background_size = 100):
         mut_batch[range(0,background_size),mut_loci,mut_base] = 1
 
         mut_pred = model.predict(mut_batch)
-        mut_pred_cov = np.sum(mut_pred,axis = (1,2))
+        mut_pred_cov = np.sum(mut_pred,axis =1)[:,max_task[i]]
         background_distribution.append(mut_pred_cov)
+
     df['background'] = background_distribution
     return df
+
+def visualize_vcf(ref,alt,model):
+    ref = tf.expand_dims(ref,axis=0)
+    alt = tf.expand_dims(alt,axis=0)
+    ref_pred = model.predict(ref)
+    alt_pred = model.predict(alt)
+    ref_pred_cov = np.sum(ref_pred,axis = 1)
+    alt_pred_cov = np.sum(alt_pred,axis = 1)
+    max_task = np.argmax(ref_pred_cov,axis = 1)
+    ref_pred = np.squeeze(ref_pred[:,:,max_task])
+    alt_pred = np.squeeze(alt_pred[:,:,max_task])
+
+    plt.plot(ref_pred,label = 'reference')
+    plt.plot(alt_pred,label = 'alternative')
+    plt.legend()
+    plt.show()
+
 
 def vcf_pct(vcf_df):
     pct_list = []
@@ -79,8 +100,8 @@ def vcf_pct(vcf_df):
         small_pct = len(np.where(np.array(vcf_df['background'][i]) < alt)[0])
         large_pct = len(np.where(np.array(vcf_df['background'][i]) > alt)[0])
         pct_list.append(np.minimum(small_pct,large_pct)/100)
-    vcf_df['pct_value'] = pct_list
-    return vcf_df
+
+    return pct_list
 
 
 def complete_saliency(X,model,class_index,func = tf.math.reduce_mean):
