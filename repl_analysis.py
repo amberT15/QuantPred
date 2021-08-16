@@ -13,7 +13,7 @@ import shutil, wandb
 import itertools
 import numpy as np
 # from test_to_bw import *
-from test_to_bw_fast import process_run, get_mean_per_range, remove_nans
+from test_to_bw_fast import process_run, get_vals_per_range, remove_nans
 import util
 import metrics
 from util import SeabornFig2Grid
@@ -53,35 +53,26 @@ def summarize_replicates(run_dir, N_cell_line, bin_size):
         elif len(bw_paths)==2:
             x_axes, y_axes = (1, 1)
             comb_of_columns = [('pred', 'truth')]
-
-
-
         all_vals_dict_nans = {}
         mean_vals_dict = {}
         for bw_path in bw_paths:
             key = os.path.basename(bw_path).split('.bw')[0].split('_')[1]
-            vals = get_mean_per_range(bw_path, bed_path, keep_all=True)
+            vals = get_vals_per_range(bw_path, bed_path, keep_all=True)
             all_vals_dict_nans[key] = np.array([v  for v_sub in vals for v in v_sub])
             all_vals_dict_1d = remove_nans(all_vals_dict_nans)
             # all_vals_dict = {k:np.expand_dims(np.expand_dims(v for k, v in all_vals_dict_1d.items()}
             mean_vals_dict[key] = np.array([np.mean(v) for v in vals])
         mean_cov = pd.DataFrame(mean_vals_dict)
-
         joint_grids = []
         titles = []
         pr_vals = {}
         for x_lab, y_lab in comb_of_columns:
-            print(all_vals_dict_1d[x_lab].shape)
-            print(all_vals_dict_1d[y_lab].shape)
-
             pr_result = stats.pearsonr(all_vals_dict_1d[x_lab], all_vals_dict_1d[y_lab])[0]
-            print(pr_result)
             if x_lab in pr_vals.keys():
                 pr_vals[x_lab][y_lab] = pr_result
             else:
                 pr_vals[x_lab] = {}
                 pr_vals[x_lab][y_lab] = pr_result
-
             assert ~np.isnan(pr_vals[x_lab][y_lab]), 'NA in Pearson R!'
             titles.append('Pearson r = {}'.format(pr_vals[x_lab][y_lab]))
             if (x_lab == 'pred') or (y_lab == 'pred'):
@@ -95,9 +86,6 @@ def summarize_replicates(run_dir, N_cell_line, bin_size):
             lims = [max(x0, y0), min(x1, y1)]
             joint_grid.ax_joint.plot(lims, lims, '--k')
             joint_grids.append(joint_grid)
-
-
-
 
         # A JointGrid
         fig = plt.figure(figsize=(20, 10))
