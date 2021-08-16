@@ -12,13 +12,15 @@ import custom_fit
 import time
 from scipy import stats
 from loss import *
-import yaml
+import yaml, glob
 import subprocess
 import gzip
 import pandas as pd
 from scipy.ndimage import gaussian_filter1d
 from tqdm import tqdm
-import time
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.metrics import mean_squared_error
 
 def enforce_constant_size(bed_path, output_path, window, compression=None):
     """generate a bed file where all peaks have same size centered on original peak"""
@@ -115,7 +117,7 @@ def open_bw(bw_filename, chrom_size_path):
     bw.addHeader([(k, v) for k, v in chrom_sizes.items()], maxZooms=0)
     return bw # bw file
 
-def get_mean_per_range(bw_path, bed_path):
+def get_vals_per_range(bw_path, bed_path):
     '''This function reads bw (specific ranges of bed file) into numpy array'''
     bw = pyBigWig.open(bw_path)
     bw_list = []
@@ -124,7 +126,7 @@ def get_mean_per_range(bw_path, bed_path):
         vals = bw.values(cols[0], int(cols[1]), int(cols[2]))
         bw_list.append(vals)
     bw.close()
-    return bw_list
+    return np.array(bw_list)
 
 def remove_nans(all_vals_dict):
     '''This function masks nans in all values in a dict'''
@@ -141,6 +143,15 @@ def remove_nans(all_vals_dict):
         else: # if no nans were present
             nonan_dict[k] = v # just return original values
     return nonan_dict # return filtered dict of values
+
+def remove_np_nans(all_vals_dict):
+    assert 'pred' in all_vals_dict.keys() and 'truth' in all_vals_dict.keys(), 'Wrong keys!'
+    include_rows = np.ones((all_vals_dict['pred'].shape[0]), dtype=bool)
+    both_arrays = np.concatenate((all_vals_dict['pred'], all_vals_dict['truth']), axis=1)
+    include_rows *= ~np.isnan(both_arrays).any(axis=1)
+    all_vals_dict['pred'] = all_vals_dict['pred'][include_rows]
+    all_vals_dict['truth'] = all_vals_dict['truth'][include_rows]
+    return all_vals_dict
 
 def make_truth_pred_bws(truth_bw_filename_suffix, pred_bw_filename_suffix,
                         bed_filename_suffix, testset, trained_model, bin_size,
@@ -194,17 +205,25 @@ def merge_bed(in_bed_filename):
     output, error = process.communicate()
     return in_bed_filename_merged # return new filename
 
-def get_list_pr(list1, list2):
+def get_conc_pr(list1, list2):
     '''This function flattens np arrays and computes pearson r'''
     pr = stats.pearsonr(np.concatenate(list1), np.concatenate(list2))[0]
     assert ~np.isnan(pr)
     return pr
 
+def get_per_seq_pr(bw_1, bw_2):
+    res = []
+    assert bw_1.shape == bw_2.shape, 'Unequal length bw lists!'
+    for l in range(len(bw_1)):
+        pr = stats.pearsonr(bw_1[l], bw_2[l])[0]
+        res.append(pr)
+    return res
+
 def scipy_get_pr(bw_paths, bedfile='/home/shush/profile/QuantPred/bin_exp/truth/merged_truth_1_raw.bed'):
     '''This function computes pearson r from two bigwig files'''
     all_vals_dict_nans = {} # dictionary of all values
     for bw_path in bw_paths: # for each bw
-        vals = get_mean_per_range(bw_path, bedfile) # convert bw to list of vals
+        vals = get_vals_per_range(bw_path, bedfile) # convert bw to list of vals
         # convert to flattened np array
         all_vals_dict_nans[bw_path] = np.array([v  for v_sub in vals for v in v_sub])
         # remove nans
@@ -215,6 +234,25 @@ def scipy_get_pr(bw_paths, bedfile='/home/shush/profile/QuantPred/bin_exp/truth/
     pr = stats.pearsonr(all_vals_dict_1d[bw_paths[0]], all_vals_dict_1d[bw_paths[1]])[0]
     assert ~np.isnan(pr), 'Pearson R is nan for these {}'.format(bw_paths)
     return pr
+
+def np_poiss(y_true, y_pred):
+    def filter_fin(ar):
+        return ar[np.isfinite(ar)]
+    pois = y_pred - y_true * np.log(y_pred)
+    return np.mean(filter_fin(pois))
+
+def get_metrics(y_true, y_pred, bw_type, seq_len=2048):
+    assert bw_type == 'raw' or bw_type == 'idr', 'Incorrect bw type!'
+    if bw_type == 'raw':
+        pr = get_conc_pr(y_true, y_pred)
+    else:
+        pr_list = get_per_seq_pr(y_true, y_pred)
+        pr = np.mean(pr_list)
+    assert y_true.shape[1] == seq_len, 'MSE calculation issue!'
+    mse = mean_squared_error(y_true.T, y_pred.T)
+    poiss_nll = np_poiss(y_true, y_pred)
+    return [pr, mse, poiss_nll]
+
 
 def get_replicates(cell_line_name, repl_labels = ['r2', 'r12'],
                     basenji_samplefiles=['/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basenji_sample_r2_file.tsv', '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/ATAC/basenji_sample_r1,2_file.tsv']):
@@ -258,11 +296,9 @@ def get_idr(cell_line_name, idr_filename,
     process = subprocess.Popen(filter_bed, shell=True)
     output, error = process.communicate()
     # merge ranges so that bw writing can happen later
-    merge_bed = 'bedtools merge -i {} > {}; rm {}'.format(window_enf_idr, idr_filename, interm_bed)
+    merge_bed = 'bedtools merge -i {} > {}; rm {}; rm {}'.format(window_enf_idr, idr_filename, interm_bed, nan_window_enf_idr)
     process = subprocess.Popen(merge_bed, shell=True)
     output, error = process.communicate()
-
-
 
 def bw_from_ranges(in_bw_filename, in_bed_filename, out_bw_filename,
                    chrom_size_path, bin_size=1, threshold=-1,
@@ -293,6 +329,69 @@ def bw_from_ranges(in_bw_filename, in_bed_filename, out_bw_filename,
     out_bw.close()
     if len(out_bed_filename) > 0:
         bedfile.close()
+
+def avg_cov(np_array):
+    return np.mean(np_array, axis=1)
+
+def save_jointplot(cov_dict, save_path, cell_line_name):
+    if 'raw' in save_path:
+        title_add = 'raw'
+        c = 'blue'
+        a = 0.1
+    else:
+        title_add = 'IDR'
+        c = 'purple'
+        a = 0.2
+    mean_cov = pd.DataFrame({k:avg_cov(cov_dict[k]) for k in ['truth', 'pred']})
+    mean_cov.columns = ['ground truth', 'prediction']
+    joint_grid = sns.jointplot(data=mean_cov, x='ground truth', y='prediction', color=c,
+                               kind="reg", joint_kws = {'scatter_kws':dict(alpha=a)})
+    x0, x1 = joint_grid.ax_joint.get_xlim()
+    y0, y1 = joint_grid.ax_joint.get_ylim()
+    lims = [max(x0, y0), min(x1, y1)]
+    joint_grid.ax_joint.plot(lims, lims, '--k')
+    joint_grid.fig.subplots_adjust(top=0.9)
+    _=joint_grid.fig.suptitle(cell_line_name+' mean coverage, ' + title_add)
+    plt.savefig(save_path)
+
+def scatter_cell_line_prs(corr_dfs, savedir):
+    melted_corrs = {}
+    for bw_set in ['truth', 'pred']:
+        df = corr_dfs[bw_set]
+        np.tril(np.ones(df.shape)).astype(np.bool)
+        df_lt = df.where(~np.tril(np.ones(df.shape)).astype(np.bool))
+        df_lt = df_lt.stack().reset_index()
+        df_lt.columns = ['cell_line1', 'cell_line2' ,'pearson\'s r']
+        melted_corrs[bw_set] = df_lt
+    avg_df = melted_corrs['truth'].merge(melted_corrs['pred'], on=['cell_line1', 'cell_line2'], suffixes=[' true', ' pred'])
+#     avg_df.to_csv(os.path.join(outdir, 'correlation_scatterplot_{}_{}.csv'.format(set_type, model_id)))
+    ax = sns.scatterplot(data=avg_df, x='pearson\'s r true', y='pearson\'s r pred')
+    x = [i/10 for i in range(2, 11)]
+    plt.plot(x, x, 'r--')
+    ax.set_aspect(1./ax.get_data_ratio())
+    plt.savefig(os.path.join(savedir, 'correlation_scatterplot.svg'))
+
+def get_corr_df(avg_cov_all, cell_line_names):
+    corr_dfs = {}
+    for bw_source in ['truth', 'pred']:
+        corr_df = pd.DataFrame(avg_cov_all[bw_source]).T.corr()
+        corr_df.columns = cell_line_names
+        corr_df['cell_lines'] = cell_line_names
+        corr_df.set_index('cell_lines', inplace=True)
+        corr_dfs[bw_source] = corr_df
+    return corr_dfs
+
+def plot_corr_matrices(corr_dfs, savedir):
+    fig, axs = plt.subplots(1, 2, figsize=[20, 8])
+    min_lim = pd.concat([v for _, v in corr_dfs.items()]).min().min()
+    titles = ['ground truth', 'prediction']
+    truth_heatmap = sns.heatmap(corr_dfs['truth'], annot=True, vmin=min_lim, vmax=1,  ax=axs[0], cmap='flare')
+    axs[0].set_title(titles[0])
+    pred_heatmap = sns.heatmap(corr_dfs['pred'], annot=True, vmin=min_lim, vmax=1, ax=axs[1], cmap='flare')
+    axs[1].set_title(titles[1])
+    plt.tight_layout()
+    plt.savefig(os.path.join(savedir, 'correlation_matrices.svg'))
+
 
 def process_run(run_path,
                       threshold=2,
@@ -387,3 +486,60 @@ def process_run(run_path,
                 out_thresh = change_filename(binned_filename, new_thresholdmethod=thresh_str)
                 if 'truth_1_thresh' not in out_thresh: # this one would already be made above
                     bw_from_ranges(binned_filename, thresh_bedfile, out_thresh, chrom_size_path)
+
+def evaluate_run_performance(run_dir, rm_bws=False, rm_all=False):
+    bin_size = get_config(run_dir)['bin_size']['value']
+    loss_fn = get_config(run_dir)['loss_fn']['value']
+    model_fn = get_config(run_dir)['model_fn']['value']
+    # get the cell line specific directory
+    bigwigs_dir = os.path.join(run_dir, 'bigwigs')
+    folders_of_cell_lines = [os.path.join(bigwigs_dir, f) for f in os.listdir(bigwigs_dir) if os.path.isdir(os.path.join(bigwigs_dir, f))]
+    summary_dir = util.make_dir(os.path.join(run_dir, 'summary'))
+    summary_lines = []
+    summary_line_cols = ['run_dir', 'model_fn', 'loss_fn', 'bin_size', 'cell_line_name',
+                          'raw pearson r', 'raw MSE', 'raw poisson NLL',
+                          'idr pearson r', 'idr MSE', 'idr poisson NLL']
+    avg_cov_all = {'raw':{'truth':[], 'pred':[]}}
+    cell_line_names = [cell_line_dir.split('/')[-1].split('_')[1] for cell_line_dir in folders_of_cell_lines]
+    df_path = os.path.join(summary_dir, 'summary_metrics.csv')
+    for c, cell_line_dir in tqdm(enumerate(folders_of_cell_lines)):
+        cell_line_name = cell_line_names[c]
+        plot_paths = {bw_t: os.path.join(summary_dir, '{}_{}_scatter.svg'.format(bw_t, cell_line_name)) for bw_t in ['raw', 'idr']}
+        print(cell_line_dir)
+        summary_line = [run_dir, model_fn, loss_fn, bin_size, cell_line_name]
+        t_bw, p_bw = [os.path.join(cell_line_dir, '{}_{}_{}_raw.bw'.format(cell_line_name, x, bin_size)) for x in ['truth', 'pred']]
+        raw_bed = os.path.join(cell_line_dir, '{}_truth_1_raw.bed'.format(cell_line_name))
+        idr_bed = os.path.join(cell_line_dir, '{}_truth_1_idr_const.bed'.format(cell_line_name))
+        assert all([os.path.isfile(f) for f in [t_bw, p_bw, raw_bed, idr_bed]]), 'One or more of the files not found in {}'.format(cell_line_dir)
+        np_cov_dict = {}
+        for bw_type, bed_filename in [('raw', raw_bed), ('idr', idr_bed)]:
+            np_cov_dict[bw_type] = {}
+            for fold_type, bw_filename in [('truth', t_bw), ('pred', p_bw)]:
+                np_cov_dict[bw_type][fold_type] = get_vals_per_range(bw_filename, bed_filename)
+        for bw_type in ['raw', 'idr']:
+            np_cov_dict[bw_type] = remove_np_nans(np_cov_dict[bw_type]) # clean up raw
+            # get pearson r values, MSE, poisson
+            summary_line += get_metrics(np_cov_dict[bw_type]['truth'], np_cov_dict[bw_type]['pred'], bw_type)
+            save_jointplot(np_cov_dict[bw_type], plot_paths[bw_type], cell_line_name) # plot raw
+            avg_cov_dict = {} # save avg for correlation matrix
+            avg_cov_dict[bw_type] = {bw_source: avg_cov(np_cov_dict[bw_type][bw_source]) for bw_source in ['truth', 'pred']}
+            if bw_type == 'raw':
+                avg_cov_all[bw_type]['truth'].append(avg_cov_dict[bw_type]['truth'])
+                avg_cov_all[bw_type]['pred'].append(avg_cov_dict[bw_type]['pred'])
+        summary_lines.append(summary_line) # save summary metrics
+    summary_df = pd.DataFrame(summary_lines, columns = summary_line_cols)
+    summary_df.to_csv(df_path, index=None)
+    corr_dfs = get_corr_df(avg_cov_all['raw'], cell_line_names)
+    plot_corr_matrices(corr_dfs, summary_dir)
+    plt.clf()
+    scatter_cell_line_prs(corr_dfs, summary_dir)
+    plt.clf()
+
+    if rm_all:
+        print('Cleaning bigwig folder!')
+        os.rmdir(bigwigs_dir)
+    elif rm_bws:
+        print('Removing only bw files!')
+        all_bw_list = glob.glob('/home/shush/profile/QuantPred/0run/bigwigs/*/*bw')
+        for file in all_bw_list:
+            os.remove(file)
