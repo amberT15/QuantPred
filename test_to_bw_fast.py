@@ -21,6 +21,7 @@ from tqdm import tqdm
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error
+from scipy.spatial import distance
 
 def enforce_constant_size(bed_path, output_path, window, compression=None):
     """generate a bed file where all peaks have same size centered on original peak"""
@@ -251,7 +252,10 @@ def get_metrics(y_true, y_pred, bw_type, seq_len=2048):
     assert y_true.shape[1] == seq_len, 'MSE calculation issue!'
     mse = mean_squared_error(y_true.T, y_pred.T)
     poiss_nll = np_poiss(y_true, y_pred)
-    return [pr, mse, poiss_nll]
+    js_dist = distance.jensenshannon(y_true.T, y_pred.T)
+    print(js_dist.shape)
+    mean_js = np.nanmean(js_dist)
+    return [pr, mse, poiss_nll, mean_js]
 
 
 def get_replicates(cell_line_name, repl_labels = ['r2', 'r12'],
@@ -497,8 +501,8 @@ def evaluate_run_performance(run_dir, rm_bws=False, rm_all=False):
     summary_dir = util.make_dir(os.path.join(run_dir, 'summary'))
     summary_lines = []
     summary_line_cols = ['run_dir', 'model_fn', 'loss_fn', 'bin_size', 'cell_line_name',
-                          'raw pearson r', 'raw MSE', 'raw poisson NLL',
-                          'idr pearson r', 'idr MSE', 'idr poisson NLL']
+                          'raw pearson r', 'raw MSE', 'raw poisson NLL', 'raw JS'
+                          'idr pearson r', 'idr MSE', 'idr poisson NLL', 'idr JS']
     avg_cov_all = {'raw':{'truth':[], 'pred':[]}}
     cell_line_names = [cell_line_dir.split('/')[-1].split('_')[1] for cell_line_dir in folders_of_cell_lines]
     df_path = os.path.join(summary_dir, 'summary_metrics.csv')
