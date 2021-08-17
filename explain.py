@@ -8,6 +8,15 @@ import logomaker
 import subprocess
 import os, shutil, h5py,scipy
 
+#
+# def shift_robustness_test(X,model,task):
+#     #input X with lenght 3K and model that wants to be tested
+#     #output figure of shifted saliency and prediction aligned back
+#     #output score = sum of variation for saliency and prediction
+#     #can only be done on a single task every time
+#
+#     return
+
 def plot_saliency(saliency_map):
 
     fig, axs = plt.subplots(saliency_map.shape[0],1,figsize=(200,5*saliency_map.shape[0]))
@@ -59,8 +68,8 @@ def vcf_test(ref,alt,coords,model,background_size = 100):
     #mutate very edge regions
     background_distribution = []
     for i,ref_seq in enumerate(ref):
-        mut_loci = np.random.randint(100,923,size = background_size)
-        direction = np.random.choice([-1,1])
+        mut_loci = np.random.randint(500,1023,size = background_size)
+        direction = np.random.choice([-1,1],size = background_size)
         mut_loci = len(ref_seq)/2 + mut_loci * direction
         mut_loci = mut_loci.astype('int')
         mut_batch = np.tile(ref_seq,(background_size,1,1))
@@ -77,7 +86,8 @@ def vcf_test(ref,alt,coords,model,background_size = 100):
     df['background'] = background_distribution
     return df
 
-def visualize_vcf(ref,alt,model):
+def visualize_vcf(ref,alt,model,background_size = 100):
+    #ref and alternative prediction for the task with most signal
     ref = tf.expand_dims(ref,axis=0)
     alt = tf.expand_dims(alt,axis=0)
     ref_pred = model.predict(ref)
@@ -88,8 +98,28 @@ def visualize_vcf(ref,alt,model):
     ref_pred = np.squeeze(ref_pred[:,:,max_task])
     alt_pred = np.squeeze(alt_pred[:,:,max_task])
 
-    plt.plot(ref_pred,label = 'reference')
-    plt.plot(alt_pred,label = 'alternative')
+    #generate random background mutation
+    background_distribution = []
+    for i,ref_seq in enumerate(ref):
+        mut_loci = np.random.randint(500,1023,size = background_size)
+        direction = np.random.choice([-1,1],size = background_size)
+        mut_loci = len(ref_seq)/2 + mut_loci * direction
+        mut_loci = mut_loci.astype('int')
+        mut_batch = np.tile(ref_seq,(background_size,1,1))
+        mut_row = mut_batch[range(0,background_size),mut_loci]
+        ori_empty_base = np.where(mut_row!= 1)[1].reshape(mut_row.shape[0],3)
+        mut_base = np.apply_along_axis(np.random.choice, axis=1, arr=ori_empty_base, size=1)
+        mut_batch[range(0,background_size),mut_loci] = [0,0,0,0]
+        mut_batch[range(0,background_size),mut_loci,mut_base] = 1
+
+        mut_pred = model.predict(mut_batch)[:,:,max_task]
+
+    plt.fill_between(range(0,mut_pred.shape[1]),
+                    np.squeeze(mut_pred.max(axis = 0)),
+                    np.squeeze(mut_pred.min(axis = 0)),facecolor='grey')
+
+    plt.plot(ref_pred,label = 'reference', color = 'black')
+    plt.plot(alt_pred,label = 'alternative',color = 'red')
     plt.legend()
     plt.show()
 
@@ -193,13 +223,13 @@ def saliency_evaluate(saliency):
     var_list = []
     var_sum_list = []
     for i in range(average_saliency.shape[0]):
-        variance = np.log(saliency[i]+1) - np.log(average_saliency[i]+1)
+        variance = np.absolute(saliency[i]-average_saliency[i])
         variance = np.sum(variance,axis = 0)
         var_list.append(variance)
         var_sum = np.sum(variance)
         var_sum_list.append(var_sum)
 
-    return average_saliency,var_sum_list,var_list
+    return average_saliency,var_sum_list,np.array(var_list)
 
 def fasta2list(fasta_file):
     fasta_coords = []
