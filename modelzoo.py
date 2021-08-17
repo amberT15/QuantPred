@@ -575,7 +575,7 @@ def ori_bpnet(input_shape, output_shape, wandb_config={}):
                                      kernel_size=config['kern_2'],
                                      padding='same', activation='relu',
                                      dilation_rate=2**i)(x)
-        x = keras.layers.Add([conv_x,x])
+        x = keras.layers.Add()([conv_x,x])
 
     bottleneck = x
 
