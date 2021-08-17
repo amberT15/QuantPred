@@ -91,45 +91,45 @@ def basenjimod(input_shape, output_shape, wandb_config={}):
         return model
 
 
-def basenji(input_shape, output_shape, augment_rc=True, augment_shift=3):
-    """
-    Basenji model turned into a single function.
-    inputs (None, seq_length, 4)
-    """
-    n_exp = output_shape[-1]
-    sequence = tf.keras.Input(shape=input_shape, name='sequence')
-    #StochasticReverseComplement
-    if augment_rc:
-      current, reverse_bool = StochasticReverseComplement()(sequence)
-    #StochasticShift
-    if augment_shift != [0]:
-      current = StochasticShift(augment_shift)(current)
-
-    current = conv_block(current, filters=64, kernel_size=15, activation='gelu', activation_end=None,
-        strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
-        pool_size=8, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
-        kernel_initializer='he_normal', padding='same')
-
-    current, _ = conv_tower(current, filters_init=64, filters_mult=1.125, repeat=1,
-        pool_size=4, kernel_size=5, batch_norm=True, bn_momentum=0.9,
-        activation='gelu')
-
-    current = dilated_residual(current, filters=32, kernel_size=3, rate_mult=2,
-        conv_type='standard', dropout=0.25, repeat=2, round=False, # repeat=4
-        activation='gelu', batch_norm=True, bn_momentum=0.9)
-
-    current = conv_block(current, filters=64, kernel_size=1, activation='gelu',
-        dropout=0.05, batch_norm=True, bn_momentum=0.9)
-
-    current = dense_layer(current, n_exp, activation='softplus',
-        batch_norm=True, bn_momentum=0.9)
-
-    # switch reverse
-    outputs = SwitchReverse()([current, reverse_bool])
-
-    model = tf.keras.Model(inputs=sequence, outputs=outputs)
-    # print(model.summary())
-    return model
+# def basenji(input_shape, output_shape, augment_rc=True, augment_shift=3):
+#     """
+#     Basenji model turned into a single function.
+#     inputs (None, seq_length, 4)
+#     """
+#     n_exp = output_shape[-1]
+#     sequence = tf.keras.Input(shape=input_shape, name='sequence')
+#     #StochasticReverseComplement
+#     if augment_rc:
+#       current, reverse_bool = StochasticReverseComplement()(sequence)
+#     #StochasticShift
+#     if augment_shift != [0]:
+#       current = StochasticShift(augment_shift)(current)
+#
+#     current = conv_block(current, filters=64, kernel_size=15, activation='gelu', activation_end=None,
+#         strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
+#         pool_size=8, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
+#         kernel_initializer='he_normal', padding='same')
+#
+#     current, _ = conv_tower(current, filters_init=64, filters_mult=1.125, repeat=1,
+#         pool_size=4, kernel_size=5, batch_norm=True, bn_momentum=0.9,
+#         activation='gelu')
+#
+#     current = dilated_residual(current, filters=32, kernel_size=3, rate_mult=2,
+#         conv_type='standard', dropout=0.25, repeat=2, round=False, # repeat=4
+#         activation='gelu', batch_norm=True, bn_momentum=0.9)
+#
+#     current = conv_block(current, filters=64, kernel_size=1, activation='gelu',
+#         dropout=0.05, batch_norm=True, bn_momentum=0.9)
+#
+#     current = dense_layer(current, n_exp, activation='softplus',
+#         batch_norm=True, bn_momentum=0.9)
+#
+#     # switch reverse
+#     outputs = SwitchReverse()([current, reverse_bool])
+#
+#     model = tf.keras.Model(inputs=sequence, outputs=outputs)
+#     # print(model.summary())
+#     return model
 
 
 

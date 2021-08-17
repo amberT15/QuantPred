@@ -9,7 +9,7 @@ from modelzoo import GELU
 import metrics
 import loss
 import custom_fit
-import time
+import time, sys
 from scipy import stats
 from loss import *
 import yaml, glob
@@ -543,3 +543,12 @@ def evaluate_run_performance(run_dir, rm_bws=False, rm_all=False):
         all_bw_list = glob.glob('/home/shush/profile/QuantPred/0run/bigwigs/*/*bw')
         for file in all_bw_list:
             os.remove(file)
+
+def evaluate(run_path):
+    process_run(run_path, threshold=0)
+    evaluate_run_performance(run_path)
+
+if __name__ == '__main__':
+    run_dir = sys.argv[1]
+    print('Processing '+run_dir)
+    evaluate(run_dir)

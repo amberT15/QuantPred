@@ -14,7 +14,7 @@ import numpy as np
 import tensorflow as tf
 from natsort import natsorted
 import tensorflow as tf
-import metrics
+# import metrics
 import scipy
 import yaml
  ################################################################
