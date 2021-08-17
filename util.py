@@ -217,6 +217,9 @@ def tfr_to_np(data, choose, array_shape):
     return data_np
 
 def window_shift(X,Y,window_size,shift_num):
+    if len(X.shape) == 2:
+        X = np.expand_dims(X,axis = 0)
+
     chop_size = X.shape[1]
     input_seq_num = X.shape[0]
     output_num = shift_num*input_seq_num

@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from pathlib import Path
-import modelzoo
 import tensorflow as tf
 import yaml
 import h5py
