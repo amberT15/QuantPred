@@ -410,6 +410,9 @@ def random_crop(x,y,window_size):
 
 def center_crop(x,y,window_size):
     x_dim = x.shape
+    if len(x_dim) == 2:
+        x = np.expand_dims(x,axis = 0)
+        x_dim = x.shape
     if x_dim[1] > window_size:
         indice = (np.arange(window_size) +
         np.repeat(int(0.5*(x_dim[1]-window_size)),x_dim[0])[:,np.newaxis])

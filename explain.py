@@ -7,15 +7,71 @@ import pandas as pd
 import logomaker
 import subprocess
 import os, shutil, h5py,scipy
+import util
+import custom_fit
+import seaborn as sns
 
-#
-# def shift_robustness_test(X,model,task):
-#     #input X with lenght 3K and model that wants to be tested
-#     #output figure of shifted saliency and prediction aligned back
-#     #output score = sum of variation for saliency and prediction
-#     #can only be done on a single task every time
-#
-#     return
+def robustness_test(selected_read,model, shift_num = 10, window_size = 2048, visualize = True):
+    var_saliency_list = []
+    var_pred_list = []
+    chop_size = selected_read.shape[1]
+    center_idx = int(0.5*(chop_size-window_size))
+    center_range = np.array(range(center_idx,center_idx+window_size))
+    conserve_size = window_size*2 - chop_size
+    conserve_start = chop_size//2 - conserve_size//2
+    conserve_end = conserve_start + conserve_size-1
+
+    for seq in selected_read:
+        shifted_seq,_,shift_idx = util.window_shift(seq,seq,window_size,shift_num)
+        #get prediction for shifted read
+        shift_pred = model.predict(shifted_seq)
+
+        #get saliency for shifted read
+        center_seq,_ = custom_fit.center_crop(seq,seq,window_size)
+        center_pred = model.predict(center_seq)
+        max_task = np.argmax(np.sum(center_pred,axis=1),axis = 1)
+        shift_saliency = complete_saliency(shifted_seq,model,class_index = max_task[0])
+        shift_saliency = shift_saliency * shifted_seq
+
+
+        if visualize == True:
+        #make 2 subplots per sequence
+            fig, (ax1, ax2) = plt.subplots(1, 2)
+            for shift_n in range(0,shift_num):
+                #visualize prediction
+                sns.lineplot(x = center_range + shift_idx[shift_n],
+                             y = shift_pred[shift_n][:,max_task[0]],ax = ax1)
+                #visualize saliency
+                tmp_saliency = shift_saliency[shift_n]
+                nonzero_idx = np.nonzero(tmp_saliency)
+                sns.lineplot(x = center_range + shift_idx[shift_n],
+                            y =tmp_saliency.numpy()[nonzero_idx],ax=ax2 )
+            plt.tight_layout()
+            plt.show()
+
+        #Select conserve part only
+        crop_start_i = conserve_start - shift_idx - center_idx
+        crop_idx = crop_start_i[:,None] + np.arange(conserve_size)
+        crop_idx = crop_idx.reshape(conserve_size*shift_num)
+        crop_row_idx = np.repeat(range(0,shift_num),conserve_size)
+        crop_f_index = np.vstack((crop_row_idx,crop_idx)).T.reshape(shift_num,conserve_size,2)
+        #get saliency 1k part
+        shift_saliency=tf.gather_nd(shift_saliency,crop_f_index)
+        average_saliency = np.average(np.array(shift_saliency),axis = 0)
+        var_saliency = np.absolute(shift_saliency-average_saliency)
+        var_saliency = np.sum(var_saliency)
+        #get pred 1k part
+        shift_pred=tf.gather_nd(shift_pred[:,max_task[0]],crop_f_index)
+        average_pred = np.average(np.array(shift_pred),axis = 0)
+        var_pred = np.absolute(shift_pred-average_pred)
+        var_pred = np.sum(var_pred)
+
+        #add var result to listß
+        var_saliency_list.append(var_saliency)
+        var_pred_list.append(var_pred)
+
+    return var_saliency_list,var_pred_list
+
 
 def plot_saliency(saliency_map):
 
@@ -35,7 +91,6 @@ def plot_saliency(saliency_map):
         plt.xticks([])
         plt.yticks([])
     return plt
-
 
 def select_top_pred(pred,num_task,top_num):
 
@@ -123,7 +178,6 @@ def visualize_vcf(ref,alt,model,background_size = 100):
     plt.legend()
     plt.show()
 
-
 def vcf_pct(vcf_df):
     pct_list = []
     for (i,alt) in enumerate(vcf_df['alt']):
@@ -132,7 +186,6 @@ def vcf_pct(vcf_df):
         pct_list.append(np.minimum(small_pct,large_pct)/100)
 
     return pct_list
-
 
 def complete_saliency(X,model,class_index,func = tf.math.reduce_mean):
   """fast function to generate saliency maps"""
@@ -146,7 +199,6 @@ def complete_saliency(X,model,class_index,func = tf.math.reduce_mean):
     else:
       raise ValueError('class index must be provided')
   return tape.gradient(outputs, X)
-
 
 def peak_saliency_map(X, model, class_index,window_size,func=tf.math.reduce_mean):
     """fast function to generate saliency maps"""
@@ -176,60 +228,60 @@ def peak_saliency_map(X, model, class_index,window_size,func=tf.math.reduce_mean
 
         return tape.gradient(outputs, X)
 
-def saliency_robustness(X,model,window_size,class_index,shift_num=10):
+# def saliency_robustness(X,model,window_size,class_index,shift_num=10):
+#
+#     #enusre all input dim are compatiable to function
+#     dim = len(X.shape)
+#     if dim < 3:
+#         X = tf.expand_dims(X, axis=0)
+#
+#     #calculate range of center conserved regions and output sizes
+#     chop_size = X.shape[1]
+#     input_seq_num = X.shape[0]
+#     output_num = shift_num*input_seq_num
+#     conserve_size = window_size*2 - chop_size
+#     conserve_start = chop_size//2 - conserve_size//2
+#     conserve_end = conserve_start + conserve_size-1
+#
+#     #grep $shift_num copies of randomly cropped window
+#     ori_X = np.repeat(X,shift_num,axis=0)
+#     shift_idx = (np.arange(window_size) +
+#                 np.random.randint(low = 0,high = chop_size-window_size,
+#                                   size = output_num)[:,np.newaxis])
+#     col_idx = shift_idx.reshape(window_size *output_num)
+#     row_idx = np.repeat(range(0,output_num),window_size)
+#     f_index = np.vstack((row_idx,col_idx)).T.reshape(output_num,window_size,2)
+#     shift_x = tf.gather_nd(ori_X,f_index)
+#
+#     #calculate saliency and orgnize by input sequences
+#     shift_saliency = complete_saliency(shift_x,model,class_index)
+#     shift_saliency = shift_saliency*shift_x
+#
+#     #crop the conserved part
+#     crop_start_i = np.argwhere(shift_idx == conserve_start)[:,1]
+#     crop_idx = crop_start_i[:,None] + np.arange(conserve_size)
+#     crop_idx = crop_idx.reshape(conserve_size *output_num)
+#     crop_row_idx = np.repeat(range(0,output_num),conserve_size)
+#     crop_f_index = np.vstack((crop_row_idx,crop_idx)).T.reshape(output_num,conserve_size,2)
+#     shift_saliency=tf.gather_nd(shift_saliency,crop_f_index)
+#     shift_saliency = np.split(shift_saliency,input_seq_num)
+#
+#     return shift_saliency
 
-    #enusre all input dim are compatiable to function
-    dim = len(X.shape)
-    if dim < 3:
-        X = tf.expand_dims(X, axis=0)
-
-    #calculate range of center conserved regions and output sizes
-    chop_size = X.shape[1]
-    input_seq_num = X.shape[0]
-    output_num = shift_num*input_seq_num
-    conserve_size = window_size*2 - chop_size
-    conserve_start = chop_size//2 - conserve_size//2
-    conserve_end = conserve_start + conserve_size-1
-
-    #grep $shift_num copies of randomly cropped window
-    ori_X = np.repeat(X,shift_num,axis=0)
-    shift_idx = (np.arange(window_size) +
-                np.random.randint(low = 0,high = chop_size-window_size,
-                                  size = output_num)[:,np.newaxis])
-    col_idx = shift_idx.reshape(window_size *output_num)
-    row_idx = np.repeat(range(0,output_num),window_size)
-    f_index = np.vstack((row_idx,col_idx)).T.reshape(output_num,window_size,2)
-    shift_x = tf.gather_nd(ori_X,f_index)
-
-    #calculate saliency and orgnize by input sequences
-    shift_saliency = complete_saliency(shift_x,model,class_index)
-    shift_saliency = shift_saliency*shift_x
-
-    #crop the conserved part
-    crop_start_i = np.argwhere(shift_idx == conserve_start)[:,1]
-    crop_idx = crop_start_i[:,None] + np.arange(conserve_size)
-    crop_idx = crop_idx.reshape(conserve_size *output_num)
-    crop_row_idx = np.repeat(range(0,output_num),conserve_size)
-    crop_f_index = np.vstack((crop_row_idx,crop_idx)).T.reshape(output_num,conserve_size,2)
-    shift_saliency=tf.gather_nd(shift_saliency,crop_f_index)
-    shift_saliency = np.split(shift_saliency,input_seq_num)
-
-    return shift_saliency
-
-def saliency_evaluate(saliency):
-    if len(saliency.shape) == 3:
-        saliency = np.expand_dims(saliency,0)
-    average_saliency = np.average(np.array(saliency),axis = 1)
-    var_list = []
-    var_sum_list = []
-    for i in range(average_saliency.shape[0]):
-        variance = np.absolute(saliency[i]-average_saliency[i])
-        variance = np.sum(variance,axis = 0)
-        var_list.append(variance)
-        var_sum = np.sum(variance)
-        var_sum_list.append(var_sum)
-
-    return average_saliency,var_sum_list,np.array(var_list)
+# def saliency_evaluate(saliency):
+#     if len(saliency.shape) == 3:
+#         saliency = np.expand_dims(saliency,0)
+#     average_saliency = np.average(np.array(saliency),axis = 1)
+#     var_list = []
+#     var_sum_list = []
+#     for i in range(average_saliency.shape[0]):
+#         variance = np.absolute(saliency[i]-average_saliency[i])
+#         variance = np.sum(variance,axis = 0)
+#         var_list.append(variance)
+#         var_sum = np.sum(variance)
+#         var_sum_list.append(var_sum)
+#
+#     return average_saliency,var_sum_list,np.array(var_list)
 
 def fasta2list(fasta_file):
     fasta_coords = []
@@ -246,8 +298,6 @@ def fasta2list(fasta_file):
             seqs.append(s)
 
     return fasta_coords, seqs
-
-
 
 def dna_one_hot(seq):
 

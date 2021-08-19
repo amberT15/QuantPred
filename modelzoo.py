@@ -520,7 +520,7 @@ def bpnet(input_shape, output_shape, wandb_config={}):
     # filtN_1 [64, 128,256]
     # trnaspose kernel_size [7, 17, 25]
     config = {'strand_num': 1, 'filtN_1': 128, 'kern_1': 25,
-              'kern_2': 3, 'kern_3': 25}
+              'kern_2': 3, 'kern_3': 25,'layer_num':10}
     for k in config.keys():
         if k in wandb_config.keys():
             config[k] = wandb_config[k]
@@ -530,7 +530,7 @@ def bpnet(input_shape, output_shape, wandb_config={}):
     input = keras.layers.Input(shape=input_shape)
     x = keras.layers.Conv1D(config['filtN_1'], kernel_size=config['kern_1'],
                             padding='same', activation='relu')(input)
-    for i in range(1,10):
+    for i in range(1,config['layer_num']):
         conv_x = keras.layers.Conv1D(config['filtN_1'],
                                      kernel_size=config['kern_2'],
                                      padding='same', activation='relu',
@@ -561,7 +561,7 @@ def bpnet(input_shape, output_shape, wandb_config={}):
 
 def ori_bpnet(input_shape, output_shape, wandb_config={}):
     config = {'strand_num': 1, 'filtN_1': 64, 'kern_1': 25,
-              'kern_2': 3, 'kern_3': 25}
+              'kern_2': 3, 'kern_3': 25,'layer_num':10}
     for k in config.keys():
         if k in wandb_config.keys():
             config[k] = wandb_config[k]
@@ -570,12 +570,12 @@ def ori_bpnet(input_shape, output_shape, wandb_config={}):
     input = keras.layers.Input(shape=input_shape)
     x = keras.layers.Conv1D(config['filtN_1'], kernel_size=config['kern_1'],
                             padding='same', activation='relu')(input)
-    for i in range(1,10):
+    for i in range(1,config['layer_num']):
         conv_x = keras.layers.Conv1D(config['filtN_1'],
                                      kernel_size=config['kern_2'],
                                      padding='same', activation='relu',
                                      dilation_rate=2**i)(x)
-        x = keras.layers.Add([conv_x,x])
+        x = keras.layers.Add()([conv_x,x])
 
     bottleneck = x
 
