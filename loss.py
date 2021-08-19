@@ -4,7 +4,7 @@ import numpy as np
 from util import bin_resolution
 
 class zero_infl_poiss(tf.keras.losses.Loss):
-    def __init__(self, name="zero_infl_poiss"):
+    def __init__(self, name="zero_infl_poiss", **kwargs):
         super().__init__(name=name)
 
     def call(self, y_true, y_pred):
@@ -44,7 +44,7 @@ class pearsonr_mse(tf.keras.losses.Loss):
 
 
 class fft_mse(tf.keras.losses.Loss):
-    def __init__(self, name="fftmse"):
+    def __init__(self, name="fftmse", **kwargs):
         super().__init__(name=name)
 
     def call(self, y_true, y_pred):
@@ -60,14 +60,14 @@ class fft_mse(tf.keras.losses.Loss):
 
 
 class poisson(tf.keras.losses.Loss):
-    def __init__(self, name="poisson"):
+    def __init__(self, name="poisson", **kwargs):
         super().__init__(name=name)
 
     def call(self, y_true, y_pred):
         return tf.keras.losses.poisson(y_true, y_pred)
 
 class log_poisson(tf.keras.losses.Loss):
-    def __init__(self, name="log_poisson"):
+    def __init__(self, name="log_poisson", **kwargs):
         super().__init__(name=name)
 
     def call(self, y_true, y_pred):
@@ -76,7 +76,7 @@ class log_poisson(tf.keras.losses.Loss):
         return tf.keras.losses.poisson(y_true, y_pred)
 
 class fftabs(tf.keras.losses.Loss):
-    def __init__(self, name="fftabs"):
+    def __init__(self, name="fftabs", **kwargs):
         super().__init__(name=name)
 
     def call(self, y_true, y_pred):
@@ -89,7 +89,7 @@ class fftabs(tf.keras.losses.Loss):
         return tf.math.abs(fft_diff)
 
 class mse(tf.keras.losses.Loss):
-    def __init__(self, name="mse"):
+    def __init__(self, name="mse", **kwargs):
         super().__init__(name=name)
 
     def call(self, y_true, y_pred):
@@ -135,7 +135,7 @@ class multinomialnll_mse(tf.keras.losses.Loss):
 
 
 class log_multinomialnll_mse(tf.keras.losses.Loss):
-    def __init__(self, name="multinomial"):
+    def __init__(self, name="multinomial", **kwargs):
         super().__init__(name=name)
 
     def call(self, y_true, y_pred, true_cov, pred_cov):
@@ -164,7 +164,7 @@ class log_multinomialnll_mse(tf.keras.losses.Loss):
         return total_loss
 
 class basenjipearsonr (tf.keras.losses.Loss):
-    def __init__(self, name="basenjipearsonr"):
+    def __init__(self, name="basenjipearsonr", **kwargs):
         super().__init__(name=name)
 
     def call(self, y_true, y_pred):
@@ -199,7 +199,7 @@ class basenjipearsonr (tf.keras.losses.Loss):
 
 
 class r2 (tf.keras.losses.Loss):
-    def __init__(self, name="r2"):
+    def __init__(self, name="r2", **kwargs):
         super().__init__(name=name)
 
     def call(self, y_true, y_pred):
