@@ -227,12 +227,10 @@ class r2 (tf.keras.losses.Loss):
         return -tf.reduce_mean(r2)
 
 
-
-def logthis(func):
-    def wrapper(y_true,y_pred, metric=False):
-        if metric:
-            y_true = tf.math.log(y_true)
-            y_pred = tf.math.log(y_pred)
+def logclass(func):
+    def wrapper(y_true,y_pred):
+        y_true = tf.math.log(y_true+1)
+        y_pred = tf.math.log(y_pred+1)
         return func(y_true,y_pred)
     return wrapper
 
@@ -243,6 +241,43 @@ class multiscale(tf.keras.losses.Loss):
         super().__init__(name=name)
         self.loss_fn = eval(kwargs.get('loss_fn'))()
         self.bin_sizes, self.alpha_weights = kwargs.get('bins_and_weights')
+
+    def call(self, y_true, y_pred):
+        loss_values = []
+        for i, bin_size in enumerate(self.bin_sizes):
+            y_true_binned = bin_resolution(y_true, bin_size)
+            y_pred_binned = bin_resolution(y_pred, bin_size)
+            bin_loss = self.loss_fn(y_true_binned, y_pred_binned)
+            loss_values.append(self.alpha_weights[i]*bin_loss)
+        return loss_values
+
+class multiscale_const(tf.keras.losses.Loss):
+
+    def __init__(self, name="multiscale", **kwargs):
+        super().__init__(name=name)
+        # self.loss_fn = eval(kwargs.get('loss_fn'))()
+        self.loss_fn = eval('mse')()
+        # self.bin_sizes, self.alpha_weights = kwargs.get('bins_and_weights')
+        self.bin_sizes, self.alpha_weights = [[1], [1]]
+        # self.alpha_weights = kwargs.get('alpha_values')
+
+    def call(self, y_true, y_pred):
+        loss_values = []
+        for i, bin_size in enumerate(self.bin_sizes):
+            y_true_binned = bin_resolution(y_true, bin_size)
+            y_pred_binned = bin_resolution(y_pred, bin_size)
+            bin_loss = self.loss_fn(y_true_binned, y_pred_binned)
+            loss_values.append(self.alpha_weights[i]*bin_loss)
+        return loss_values
+
+class multiscale_logpoisson(tf.keras.losses.Loss):
+
+    def __init__(self, name="multiscale", **kwargs):
+        super().__init__(name=name)
+        # self.loss_fn = eval(kwargs.get('loss_fn'))()
+        self.loss_fn = eval('log_poisson')()
+        # self.bin_sizes, self.alpha_weights = kwargs.get('bins_and_weights')
+        self.bin_sizes, self.alpha_weights = [[1], [1]]
         # self.alpha_weights = kwargs.get('alpha_values')
 
     def call(self, y_true, y_pred):

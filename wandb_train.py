@@ -11,6 +11,7 @@ import numpy as np
 import tensorflow as tf
 from modelzoo import *
 from loss import *
+from loss import logclass
 from tensorflow.keras.callbacks import ModelCheckpoint
 import dataset
 # import trainer_class
@@ -30,7 +31,8 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   'es_criterion':'min', 'lr_decay':0.3, 'lr_patience':10,
   'lr_metric':'loss', 'lr_criterion':'min', 'verbose' : True,
   'log_wandb':True,'rev_comp' : True,'crop' : 'r_crop', 'smooth' : False,
-  'record_test':False, 'alpha':False, 'smooth_window':10, 'loss_params':{},'sigma':20}
+  'record_test':False, 'alpha':False, 'smooth_window':10, 'loss_params':{},
+  'sigma':20,'log_loss':False}
 
   for key in default_config.keys():
       if key in config.keys():
@@ -52,16 +54,18 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   # if default_config['alpha']:
   #     loss = eval(loss_type_str)(alpha=default_config['alpha']) # get loss from loss.py
   # else:
-
   loss = eval(loss_type_str)(**default_config['loss_params'])
+  if default_config['log_loss']:
+      loss = logclass(loss)
+
 
   # if default_config['multiscale']:
   #     loss = multiscale()
 
 
 
-  trainset = util.make_dataset(data_dir, 'train', util.load_stats(data_dir))
-  validset = util.make_dataset(data_dir, 'valid', util.load_stats(data_dir))
+  trainset = util.make_dataset(data_dir, 'train', util.load_stats(data_dir), batch_size=default_config['batch_size'])
+  validset = util.make_dataset(data_dir, 'valid', util.load_stats(data_dir), batch_size=59)
 
   json_path = os.path.join(data_dir, 'statistics.json')
   with open(json_path) as json_file:
