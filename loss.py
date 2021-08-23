@@ -251,14 +251,13 @@ class multiscale(tf.keras.losses.Loss):
             loss_values.append(self.alpha_weights[i]*bin_loss)
         return loss_values
 
-class multiscale_const(tf.keras.losses.Loss):
+class multiscale_mse(tf.keras.losses.Loss):
 
-    def __init__(self, name="multiscale", **kwargs):
+    def __init__(self, name="multiscale_mse", **kwargs):
         super().__init__(name=name)
-        # self.loss_fn = eval(kwargs.get('loss_fn'))()
         self.loss_fn = eval('mse')()
-        # self.bin_sizes, self.alpha_weights = kwargs.get('bins_and_weights')
-        self.bin_sizes, self.alpha_weights = [[1], [1]]
+        self.bin_sizes, self.alpha_weights = kwargs.get('loss_params')
+        # self.bin_sizes, self.alpha_weights = [[1], [1]]
         # self.alpha_weights = kwargs.get('alpha_values')
 
     def call(self, y_true, y_pred):
@@ -270,14 +269,14 @@ class multiscale_const(tf.keras.losses.Loss):
             loss_values.append(self.alpha_weights[i]*bin_loss)
         return loss_values
 
-class multiscale_logpoisson(tf.keras.losses.Loss):
+class multiscale_poisson(tf.keras.losses.Loss):
 
-    def __init__(self, name="multiscale", **kwargs):
+    def __init__(self, name="multiscale_poisson", **kwargs):
         super().__init__(name=name)
         # self.loss_fn = eval(kwargs.get('loss_fn'))()
-        self.loss_fn = eval('log_poisson')()
-        # self.bin_sizes, self.alpha_weights = kwargs.get('bins_and_weights')
-        self.bin_sizes, self.alpha_weights = [[1], [1]]
+        self.loss_fn = eval('poisson')()
+        self.bin_sizes, self.alpha_weights = kwargs.get('loss_params')
+        # self.bin_sizes, self.alpha_weights = [[1], [1]]
         # self.alpha_weights = kwargs.get('alpha_values')
 
     def call(self, y_true, y_pred):

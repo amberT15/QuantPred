@@ -23,7 +23,7 @@ from wandb_callbacks import *
 import custom_fit
 
 def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
-               output_dir, config={}):
+               output_dir, config={},):
 
   default_config = {'num_epochs':30, 'batch_size':64, 'shuffle':True,
   'metrics':['mse','pearsonr', 'poisson'], 'es_start_epoch':50,
@@ -31,13 +31,13 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   'es_criterion':'min', 'lr_decay':0.3, 'lr_patience':10,
   'lr_metric':'loss', 'lr_criterion':'min', 'verbose' : True,
   'log_wandb':True,'rev_comp' : True,'crop' : 'r_crop', 'smooth' : False,
-  'record_test':False, 'alpha':False, 'smooth_window':10, 'loss_params':{},
+  'record_test':False, 'alpha':False, 'smooth_window':10, 'loss_params':[],
   'sigma':20,'log_loss':False}
 
   for key in default_config.keys():
       if key in config.keys():
           default_config[key] = config[key]
-
+  print(data_dir)
   if '2048' in data_dir:
       rev_comp = False
       crop_window = True
@@ -54,7 +54,7 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   # if default_config['alpha']:
   #     loss = eval(loss_type_str)(alpha=default_config['alpha']) # get loss from loss.py
   # else:
-  loss = eval(loss_type_str)(**default_config['loss_params'])
+  loss = eval(loss_type_str)(loss_params=default_config['loss_params'])
   if default_config['log_loss']:
       loss = logclass(loss)
 
@@ -185,7 +185,6 @@ def train_config(config=None):
     config = wandb.config
     print(config.data_dir)
     print(config.l_rate)
-#
 #     if 'crop' in config:
 #         current_crop = config.crop
 #     else:
