@@ -13,11 +13,49 @@ from scipy.fft import fft
 import sklearn.metrics as skm
 from tensorflow.python.keras import backend as K
 import seaborn as sns
+from scipy.spatial import distance
+from scipy import stats
 
 
 
 def np_mse(a, b):
     return ((a - b)**2)
+
+def get_scaled_mse(all_truth, all_pred):
+    N, L, C = all_pred.shape
+    flat_pred = all_pred.reshape(N*L, C)
+    flat_truth = all_truth.reshape(N*L, C)
+    truth_per_cell_line_sum = flat_truth.sum(axis=0)
+    pred_per_cell_line_sum = flat_pred.sum(axis=0)
+
+    scaling_factors =  truth_per_cell_line_sum / pred_per_cell_line_sum
+    scaled_preds = scaling_factors * flat_pred
+
+    per_seq_scaled_mse = np_mse(flat_truth, scaled_preds)
+
+    return per_seq_scaled_mse.reshape(N, L, C).mean(axis=1)
+
+def get_js_dist(x, y):
+    pseudocount = np.finfo(float).eps
+    norm_arrays = []
+    for array in [x, y]:
+        array = np.clip(array,0,array.max())
+        array += pseudocount
+        norm_array = array/np.expand_dims(array.sum(axis=1), 1)
+        norm_arrays.append(norm_array)
+    return distance.jensenshannon(norm_arrays[0], norm_arrays[1], axis=1)
+
+def get_conc_js_dist(x,y):
+    pseudocount = np.finfo(float).eps
+    norm_arrays = []
+    for raw_array in [x, y]:
+        raw_array = raw_array.flatten()
+        array = np.clip(raw_array,0,raw_array.max())
+        array += pseudocount
+        norm_array = array/array.sum()
+        norm_arrays.append(norm_array)
+    print(norm_arrays[0].shape)
+    return distance.jensenshannon(norm_arrays[0], norm_arrays[1])
 
 def scipy_pr(y_true, y_pred):
 
