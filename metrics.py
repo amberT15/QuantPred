@@ -16,6 +16,15 @@ import seaborn as sns
 from scipy.spatial import distance
 from scipy import stats
 
+def np_pr(all_truth, all_pred):
+    pr_all = []
+    N,L,C = all_truth.shape
+    flat_truth = all_truth.reshape(N*L, C)
+    flat_pred = all_pred.reshape(N*L, C)
+    for c in range(C):
+        pr = stats.pearsonr(flat_truth[:,c], flat_pred[:,c])[0]
+        pr_all.append(pr)
+    return pr_all
 
 
 def np_mse(a, b):
@@ -67,6 +76,9 @@ def scipy_sc(a, b):
     return sc[0]
 
 def np_poiss(y_true, y_pred):
+    pseudocount = np.finfo(float).eps
+    y_pred += pseudocount
+    y_true += pseudocount
     return y_pred - y_true * np.log(y_pred)
 
 
@@ -204,7 +216,7 @@ def metric_r2(y, pred):
 
 
 
-def pearsonr_per_seq(y, pred):
+def pearsonr_per_seq(y, pred, summarize=False):
     y_true = tf.cast(y, 'float32')
     y_pred = tf.cast(pred, 'float32')
 
@@ -233,9 +245,12 @@ def pearsonr_per_seq(y, pred):
     pred_var = pred_sumsq - tf.multiply(count, pred_mean2)
     tp_var = tf.multiply(tf.math.sqrt(true_var), tf.math.sqrt(pred_var))
     correlation = tf.divide(covariance, tp_var)
-    nonan_corr = np.nanmean(correlation.numpy(), axis=0)
-    # nonan_corr = tf.boolean_mask(correlation, tf.math.is_finite(correlation))
-    return nonan_corr
+    if summarize:
+        return correlation
+    else:
+        nonan_corr = np.nanmean(correlation.numpy(), axis=0)
+        # nonan_corr = tf.boolean_mask(correlation, tf.math.is_finite(correlation))
+        return nonan_corr
 
 
 # def calculate_pearsonr(target,pred):
