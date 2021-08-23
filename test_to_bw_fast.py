@@ -22,6 +22,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error
 from scipy.spatial import distance
+import wandb
+
 
 def enforce_constant_size(bed_path, output_path, window, compression=None):
     """generate a bed file where all peaks have same size centered on original peak"""
@@ -89,16 +91,17 @@ def get_config(run_path):
         config = yaml.safe_load(f)
     return config
 
-def read_model(run_path):
+def read_model(run_path, compile_model=True):
     '''This function loads a per-trained model'''
     config = get_config(run_path) # load wandb config
     loss_fn_str = config['loss_fn']['value'] # get loss
     bin_size = config['bin_size']['value'] # get bin size
-    loss_fn = eval(loss_fn_str)() # turn loss into function
     model_path = os.path.join(run_path, 'files', 'best_model.h5') # pretrained model
     # load model
     trained_model = tf.keras.models.load_model(model_path, custom_objects={"GELU": GELU})
-    trained_model.compile(optimizer="Adam", loss=loss_fn)
+    if compile_model:
+        loss_fn = eval(loss_fn_str)() # turn loss into function
+        trained_model.compile(optimizer="Adam", loss=loss_fn)
     return trained_model, bin_size # model and bin size
 
 def read_chrom_size(chrom_size_path):
@@ -547,6 +550,9 @@ def evaluate_run_performance(run_dir, rm_bws=False, rm_all=False):
         all_bw_list = glob.glob('/home/shush/profile/QuantPred/0run/bigwigs/*/*bw')
         for file in all_bw_list:
             os.remove(file)
+
+
+
 
 def evaluate(run_path):
     process_run(run_path, threshold=0)

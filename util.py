@@ -86,44 +86,6 @@ def generate_parser(seq_length, target_length, num_targets, coords):
 
   return parse_proto
 
-def generate_parser_with_binning(seq_length, target_length, num_targets, coords, bin_size=1):
-  def parse_proto(example_protos):
-    """Parse TFRecord protobuf."""
-    # TFRecord constants
-    TFR_COORD = 'coordinate'
-    TFR_INPUT = 'sequence'
-    TFR_OUTPUT = 'target'
-
-    # define features
-    features = {
-      TFR_COORD: tf.io.FixedLenFeature([], tf.string),
-      TFR_INPUT: tf.io.FixedLenFeature([], tf.string),
-      TFR_OUTPUT: tf.io.FixedLenFeature([], tf.string)
-    }
-
-    # parse example into features
-    parsed_features = tf.io.parse_single_example(example_protos, features=features)
-
-    # decode coords
-    coordinate = parsed_features[TFR_COORD]
-
-    # decode sequence
-    # sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.uint8)
-    sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.float16)
-    sequence = tf.reshape(sequence, [seq_length, 4])
-    sequence = tf.cast(sequence, tf.float32)
-
-    # decode targets
-    targets = tf.io.decode_raw(parsed_features[TFR_OUTPUT], tf.float16)
-    targets = tf.reshape(targets, [target_length, num_targets])
-    targets = tf.cast(targets, tf.float32)
-    targets = bin_resolution(targets, bin_size)
-    if coords:
-        return coordinate, sequence, targets
-    else:
-        return sequence, targets
-
-  return parse_proto
 
 
 def make_dataset(data_dir, split_label, data_stats, batch_size=64, seed=None, shuffle=True, coords=False):
@@ -188,7 +150,7 @@ def make_dataset_binned(data_dir, split_label, data_stats, batch_size=64, seed=N
             dataset = dataset.shuffle(32, seed=seed)
         else:
             dataset = dataset.shuffle(32)
-    # dataset = dataset.batch(64)
+    dataset = dataset.batch(64)
     # batch
     dataset = dataset.batch(batch_size)
 
