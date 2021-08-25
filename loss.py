@@ -132,6 +132,21 @@ class multinomialnll_mse(tf.keras.losses.Loss):
 
         return total_loss
 
+class multinomialnll_mse_reg(tf.keras.losses.Loss):
+    def __init__(self, name="multinomialnll_mse_reg", **kwargs):
+        super().__init__(name=name)
+        self.alpha=kwargs.get('loss_params')
+        # self.alpha=0.001
+    def call(self, y_true, y_pred):
+        mult_loss = multinomialnll()(y_true, y_pred)
+
+        #MSE part of loss function
+        mse_loss = tf.keras.losses.MSE(y_true, y_pred)
+
+        #sum with weight
+        total_loss = self.alpha*mult_loss + mse_loss
+
+        return total_loss
 
 
 class log_multinomialnll_mse(tf.keras.losses.Loss):
@@ -234,40 +249,6 @@ def logclass(func):
         return func(y_true,y_pred)
     return wrapper
 
-
-class multiscale(tf.keras.losses.Loss):
-
-    def __init__(self, name="multiscale", **kwargs):
-        super().__init__(name=name)
-        self.loss_fn = eval(kwargs.get('loss_fn'))()
-        self.bin_sizes, self.alpha_weights = kwargs.get('bins_and_weights')
-
-    def call(self, y_true, y_pred):
-        loss_values = []
-        for i, bin_size in enumerate(self.bin_sizes):
-            y_true_binned = bin_resolution(y_true, bin_size)
-            y_pred_binned = bin_resolution(y_pred, bin_size)
-            bin_loss = self.loss_fn(y_true_binned, y_pred_binned)
-            loss_values.append(self.alpha_weights[i]*bin_loss)
-        return loss_values
-
-class multiscale_mse(tf.keras.losses.Loss):
-
-    def __init__(self, name="multiscale_mse", **kwargs):
-        super().__init__(name=name)
-        self.loss_fn = eval('mse')()
-        self.bin_sizes, self.alpha_weights = kwargs.get('loss_params')
-        # self.bin_sizes, self.alpha_weights = [[1], [1]]
-        # self.alpha_weights = kwargs.get('alpha_values')
-
-    def call(self, y_true, y_pred):
-        loss_values = []
-        for i, bin_size in enumerate(self.bin_sizes):
-            y_true_binned = bin_resolution(y_true, bin_size)
-            y_pred_binned = bin_resolution(y_pred, bin_size)
-            bin_loss = self.loss_fn(y_true_binned, y_pred_binned)
-            loss_values.append(self.alpha_weights[i]*bin_loss)
-        return loss_values
 
 class multiscale_poisson(tf.keras.losses.Loss):
 
