@@ -57,17 +57,17 @@ model_path_list = ['/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/wandb_
        '/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/wandb_elzar/run-20210807_162504-ds0go4h0',
        '/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/wandb_elzar/run-20210807_170154-qlqlpzy4']
 
-saliency_file = open('./datasets/robustness_saliency_eval.csv','w', newline = '\n')
+saliency_file = open('./datasets/batch_saliency_eval.csv','w', newline = '\n')
 saliencywriter = csv.writer(saliency_file, delimiter=',',
                         quotechar='|', quoting=csv.QUOTE_MINIMAL)
 
-pred_file = open('./datasets/robustness_pred_eval.csv','w', newline = '\n')
+pred_file = open('./datasets/batch_pred_eval.csv','w', newline = '\n')
 predwriter = csv.writer(pred_file, delimiter=',',
                         quotechar='|', quoting=csv.QUOTE_MINIMAL)
 
 for model_path in model_path_list:
     model = modelzoo.load_model(model_path,compile=True)
-    var_saliency,var_pred = explain.robustness_test(x,y,
+    var_saliency,var_pred = explain.batch_robustness_test(x,y,
                                                   model,visualize = False,shift_num =10)
 
     saliencywriter.writerow(var_saliency)
