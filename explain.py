@@ -11,7 +11,8 @@ import util
 import custom_fit
 import seaborn as sns
 
-def robustness_test(selected_read,model, shift_num = 10, window_size = 2048, visualize = True):
+def robustness_test(selected_read,selected_target,model, shift_num = 10, window_size = 2048,
+                    visualize = True,ground_truth = True, smooth_saliency = True):
     var_saliency_list = []
     var_pred_list = []
     chop_size = selected_read.shape[1]
@@ -21,7 +22,7 @@ def robustness_test(selected_read,model, shift_num = 10, window_size = 2048, vis
     conserve_start = chop_size//2 - conserve_size//2
     conserve_end = conserve_start + conserve_size-1
 
-    for seq in selected_read:
+    for (seq,target) in zip(selected_read,selected_target):
         shifted_seq,_,shift_idx = util.window_shift(seq,seq,window_size,shift_num)
         #get prediction for shifted read
         shift_pred = model.predict(shifted_seq)
@@ -33,22 +34,6 @@ def robustness_test(selected_read,model, shift_num = 10, window_size = 2048, vis
         shift_saliency = complete_saliency(shifted_seq,model,class_index = max_task[0])
         shift_saliency = shift_saliency * shifted_seq
 
-
-        if visualize == True:
-        #make 2 subplots per sequence
-            fig, (ax1, ax2) = plt.subplots(1, 2)
-            for shift_n in range(0,shift_num):
-                #visualize prediction
-                sns.lineplot(x = center_range + shift_idx[shift_n],
-                             y = shift_pred[shift_n][:,max_task[0]],ax = ax1)
-                #visualize saliency
-                tmp_saliency = shift_saliency[shift_n]
-                nonzero_idx = np.nonzero(tmp_saliency)
-                sns.lineplot(x = center_range + shift_idx[shift_n],
-                            y =tmp_saliency.numpy()[nonzero_idx],ax=ax2 )
-            plt.tight_layout()
-            plt.show()
-
         #Select conserve part only
         crop_start_i = conserve_start - shift_idx - center_idx
         crop_idx = crop_start_i[:,None] + np.arange(conserve_size)
@@ -56,19 +41,58 @@ def robustness_test(selected_read,model, shift_num = 10, window_size = 2048, vis
         crop_row_idx = np.repeat(range(0,shift_num),conserve_size)
         crop_f_index = np.vstack((crop_row_idx,crop_idx)).T.reshape(shift_num,conserve_size,2)
         #get saliency 1k part
-        shift_saliency=tf.gather_nd(shift_saliency,crop_f_index)
-        average_saliency = np.average(np.array(shift_saliency),axis = 0)
-        var_saliency = np.absolute(shift_saliency-average_saliency)
-        var_saliency = np.sum(var_saliency)
+        shift_saliency_1k=tf.gather_nd(shift_saliency,crop_f_index)
+        average_saliency = np.average(np.array(shift_saliency_1k),axis = 0)
+        var_saliency = np.var(np.sum(shift_saliency_1k,axis = 2),axis = 0)
+        var_saliency_sum = np.sum(var_saliency)
         #get pred 1k part
-        shift_pred=tf.gather_nd(shift_pred[:,max_task[0]],crop_f_index)
-        average_pred = np.average(np.array(shift_pred),axis = 0)
-        var_pred = np.absolute(shift_pred-average_pred)
-        var_pred = np.sum(var_pred)
+        shift_pred_1k=tf.gather_nd(shift_pred[:,:,max_task[0]],crop_f_index)
+        var_pred = np.var(shift_pred_1k,axis = 0)
+        var_pred_sum = np.sum(var_pred)
 
         #add var result to listß
-        var_saliency_list.append(var_saliency)
-        var_pred_list.append(var_pred)
+        var_saliency_list.append(var_saliency_sum)
+        var_pred_list.append(var_pred_sum)
+
+        if visualize == True:
+        #make 2 subplots per sequence
+            fig, (ax1, ax2,ax3) = plt.subplots(3,1,figsize = (15,6))
+            if ground_truth == True:
+                #plot ground truth pred
+                sns.lineplot(x = range(0,chop_size),
+                         y = np.squeeze(target[:,max_task]),ax = ax1,color = 'lightblue')
+
+
+
+            for shift_n in range(0,shift_num):
+                #visualize prediction
+                sns.lineplot(x = center_range + shift_idx[shift_n],
+                             y = shift_pred[shift_n,:,max_task[0]],ax = ax1,
+                             alpha = 0.35)
+                #visualize saliency
+                tmp_saliency = shift_saliency[shift_n]
+                sns.lineplot(x = center_range + shift_idx[shift_n],
+                            y =np.sum(tmp_saliency.numpy(),axis = 1),ax=ax2,
+                            alpha = 0.35)
+
+            if smooth_saliency==True:
+                #plot average saliency
+                sns.lineplot(x = range(conserve_start,conserve_end+1),
+                         y = np.sum(average_saliency,axis = 1),
+                         ax = ax2, color = 'lightblue' )
+
+            line_saliency = np.sum(average_saliency,axis = 1)
+
+            sns.lineplot(x = range(0,conserve_size),
+                         y = line_saliency,
+                         ax = ax3)
+            ax3.fill_between(range(0,conserve_size),
+                            line_saliency-var_saliency,
+                            line_saliency+var_saliency, alpha=.8,
+                            color = 'black')
+
+            plt.tight_layout()
+            plt.show()
 
     return var_saliency_list,var_pred_list
 
@@ -191,6 +215,8 @@ def complete_saliency(X,model,class_index,func = tf.math.reduce_mean):
   """fast function to generate saliency maps"""
   if not tf.is_tensor(X):
     X = tf.Variable(X)
+
+  X = tf.cast(X, dtype='float32')
 
   with tf.GradientTape() as tape:
     tape.watch(X)
