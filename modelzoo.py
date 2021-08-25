@@ -4,6 +4,7 @@ import tensorflow.keras as keras
 import numpy as np
 import os,yaml
 from loss import *
+import metrics
 
 
 def basenjimod(input_shape, output_shape, wandb_config={}):
@@ -774,8 +775,10 @@ def load_model(run_dir,compile):
     best_model = os.path.join(run_dir,'files','best_model.h5')
     custom_layers = {'GELU':GELU}
     model = tf.keras.models.load_model(best_model,custom_objects = custom_layers,compile=False)
+    metric = metrics.PearsonR(15)
     if compile ==True:
         config = yaml.load(config_file)
         loss_fn = config['loss_fn']['value']
-        model.compile(tf.keras.optimizers.Adam(lr=0.001), loss=eval(loss_fn)())
+        model.compile(tf.keras.optimizers.Adam(lr=0.001), loss=eval(loss_fn)(),
+                      metrics = [metric,'mse'])
     return model
