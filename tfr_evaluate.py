@@ -55,13 +55,19 @@ def evaluate_idr(run_path, log_all):
 
 def summarize_project(project_name, factors, output_path, testset, targets,
                       wandb_dir='/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/*/*',
-                      log_all=False, idr=False):
+                      log_all=False, idr=False, run_list=[]):
     run_summaries = []
-    wandb.login()
-    api = wandb.Api()
-    runs = api.runs(project_name)
+    if len(run_list)==0:
+        wandb.login()
+        api = wandb.Api()
+        runs = api.runs(project_name)
+    else:
+        runs = run_list
     for run in runs:
-        run_dir = glob.glob(wandb_dir+run.id)[0]
+        if len(run_list)==0:
+            run_dir = glob.glob(wandb_dir+run.id)[0]
+        else:
+            run_dir = run
         line = [run_dir]
         config = get_config(run_dir)
         config[factors[0]]['value']
@@ -99,15 +105,57 @@ if __name__ == '__main__':
     data_dir = '/home/shush/profile/QuantPred/datasets/chr8/complete/random_chop/i_2048_w_1/'
     sts = util.load_stats(data_dir)
     res_dir = 'summary_metrics_tables'
-    csv_file_suffix = 'LOG_LOSS_BASERES.csv'
-    factors = ['log_loss', 'loss_fn', 'model_fn']
-    idr_result_filepath = os.path.join(res_dir, 'IDR_'+csv_file_suffix)
+    exp_name = 'BPNET_AUGMENTATION'
+    bpnet_runs = [
+    '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210824_044431-448pikam',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210824_044201-k6tl56p0',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210824_033104-58mz2s78',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210824_031215-qcpilvr0',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210824_024633-64c5a0ba',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210824_024631-78wlku5c',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210824_024516-rq7qau8b',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210824_024431-73os9chn',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210824_024254-j7h15csm',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210824_024054-364dibdw',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210824_015607-r42gedu4',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_230933-5cxo0vve',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_222404-5px03at6',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_222238-pdzaqdpx',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_221552-y4aehhgo',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_221005-jx2asv1c',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113336-6jqab2b5',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113337-0oiiwgur',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113336-0c8yu0xn',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113334-xkmjrf9k',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113335-mh3kyjdn',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113335-l8obhp67',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113332-i9itfjr5',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113323-7sbzgq06',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113230-p9yv3sjb',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113230-ksao2t0q',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113229-cvwwhn2l',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113228-bbde8ryd',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113228-0esuv11b',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113228-pyk4sc73',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113227-mdzlpaqy',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113226-v7s8qakb',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113225-u97f2bt5',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113224-pd85fbam',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113224-mj7maqix',
+ '/mnt/906427d6-fddf-41bf-9ec6-c3d0c37e766f/amber/elzar_wandb/run-20210823_113223-9k90siyf'
+    ]
+    factors = ['data_dir', 'crop', 'rev_comp', 'smooth']
+    csv_file_suffix = exp_name + '.csv'
+
+    idr_result_path = os.path.join(res_dir, 'IDR_'+csv_file_suffix)
     result_path = os.path.join(res_dir, 'WHOLE_'+csv_file_suffix)
 
     log_all = False
     testset = util.make_dataset(data_dir, 'test', sts, batch_size=512, shuffle=False)
     targets = pd.read_csv(data_dir+'targets.txt', sep='\t')['identifier'].values
-    summarize_project('toneyan/LOG_LOSS_BASERES', factors,
-                      result_path, testset, targets, log_all=log_all)
-    summarize_project('toneyan/LOG_LOSS_BASERES', factors,
-                      idr_result_path, None, None, log_all=log_all, idr=True)
+    summarize_project('toneyan/'+exp_name, factors,
+                      result_path, testset, targets, log_all=log_all,
+                      run_list=bpnet_runs)
+    summarize_project('toneyan/'+exp_name, factors,
+                      idr_result_path, None, None, log_all=log_all, idr=True,
+                      run_list=bpnet_runs)

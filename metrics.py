@@ -246,11 +246,11 @@ def pearsonr_per_seq(y, pred, summarize=False):
     tp_var = tf.multiply(tf.math.sqrt(true_var), tf.math.sqrt(pred_var))
     correlation = tf.divide(covariance, tp_var)
     if summarize:
-        return correlation
-    else:
         nonan_corr = np.nanmean(correlation.numpy(), axis=0)
         # nonan_corr = tf.boolean_mask(correlation, tf.math.is_finite(correlation))
         return nonan_corr
+    else:
+        return correlation
 
 
 # def calculate_pearsonr(target,pred):
