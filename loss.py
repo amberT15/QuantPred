@@ -29,8 +29,10 @@ class zero_infl_poiss(tf.keras.losses.Loss):
 class pearsonr_mse(tf.keras.losses.Loss):
     def __init__(self, name="pearsonr_mse", **kwargs):
         super().__init__(name=name)
-        assert kwargs.get('alpha'), 'loss_params does not have argument alpha required for this loss!'
-        self.alpha=kwargs.get('alpha')
+        self.alpha = kwargs.get('loss_params')
+        if not self.alpha:
+            print('ALPHA SET TO DEFAULT VALUE!')
+            self.alpha = 0.1
     def call(self, y_true, y_pred):
         #multinomial part of loss function
         pr_loss = basenjipearsonr()
@@ -38,7 +40,7 @@ class pearsonr_mse(tf.keras.losses.Loss):
         mse_raw = mse_loss(y_true, y_pred)
 
         #sum with weight
-        total_loss = pr_loss(y_true, y_pred) + self.alpha*mse_raw
+        total_loss = pr_loss(y_true, y_pred) + 0.1*mse_raw
 
         return total_loss
 
