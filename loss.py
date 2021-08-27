@@ -32,18 +32,32 @@ class pearsonr_mse(tf.keras.losses.Loss):
         self.alpha = kwargs.get('loss_params')
         if not self.alpha:
             print('ALPHA SET TO DEFAULT VALUE!')
-            self.alpha = 0.1
+            self.alpha = 0.1 ###TODO: SET TO 0.001
     def call(self, y_true, y_pred):
         #multinomial part of loss function
         pr_loss = basenjipearsonr()
         mse_loss = mse()
         mse_raw = mse_loss(y_true, y_pred)
-
         #sum with weight
-        total_loss = pr_loss(y_true, y_pred) + 0.1*mse_raw
-
+        total_loss = pr_loss(y_true, y_pred) + self.alpha*mse_raw
         return total_loss
 
+class pearsonr_poisson(tf.keras.losses.Loss):
+    def __init__(self, name="pearsonr_poisson", **kwargs):
+        super().__init__(name=name)
+        self.alpha = kwargs.get('loss_params')
+        if not self.alpha:
+            print('ALPHA SET TO DEFAULT VALUE!')
+            self.alpha = 0.1 ###TODO: SET TO 0.001
+    def call(self, y_true, y_pred):
+        #multinomial part of loss function
+        pr_loss = basenjipearsonr()
+        #poisson part
+        poiss_loss = poisson()
+        poiss_raw = poiss_loss(y_true, y_pred)
+        #sum with weight
+        total_loss = pr_loss(y_true, y_pred) + self.alpha*poiss_raw
+        return total_loss
 
 class fft_mse(tf.keras.losses.Loss):
     def __init__(self, name="fftmse", **kwargs):
@@ -137,7 +151,10 @@ class multinomialnll_mse(tf.keras.losses.Loss):
 class multinomialnll_mse_reg(tf.keras.losses.Loss):
     def __init__(self, name="multinomialnll_mse_reg", **kwargs):
         super().__init__(name=name)
-        self.alpha=kwargs.get('loss_params')
+        self.alpha = kwargs.get('loss_params')
+        if not self.alpha:
+            print('ALPHA SET TO DEFAULT VALUE!')
+            self.alpha = 0.0000001
         # self.alpha=0.001
     def call(self, y_true, y_pred):
         mult_loss = multinomialnll()(y_true, y_pred)
@@ -246,8 +263,9 @@ class r2 (tf.keras.losses.Loss):
 
 def logclass(func):
     def wrapper(y_true,y_pred):
-        y_true = tf.math.log(y_true+1)
-        y_pred = tf.math.log(y_pred+1)
+        pseudocount = np.finfo(float).eps
+        y_true = tf.math.log(y_true+pseudocount)
+        # y_pred = tf.math.log(y_pred+1)
         return func(y_true,y_pred)
     return wrapper
 
