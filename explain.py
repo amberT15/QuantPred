@@ -115,7 +115,7 @@ def batch_robustness_test(selected_read,selected_target,model, batch_size = 50, 
                 plt.tight_layout()
                 plt.show()
 
-    return var_saliency_list,var_pred_list
+    return np.array(var_saliency_list).flatten(),np.array(var_pred_list).flatten()
 
 def robustness_test(selected_read,selected_target,model, shift_num = 10, window_size = 2048,
                     visualize = True,ground_truth = True, smooth_saliency = True):
