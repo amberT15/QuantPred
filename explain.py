@@ -61,13 +61,13 @@ def batch_robustness_test(selected_read,selected_target,model, batch_size = 50, 
         sep_saliency =np.array(np.array_split(shift_saliency_1k,batch_n))
         average_saliency = np.average(np.array(sep_saliency),axis = 1)
 
-        var_saliency = np.var(np.sum(sep_saliency,axis = -1),axis = 1)
+        var_saliency = np.std(np.sum(sep_saliency,axis = -1),axis = 1)
         var_saliency_sum = np.sum(var_saliency,axis = 1)
 
         #get pred 1k part
         shift_pred_1k=tf.gather_nd(shift_pred[range(shift_pred.shape[0]),:,max_task],crop_f_index)
         sep_pred = np.array(np.array_split(shift_pred_1k,batch_n))
-        var_pred = np.var(sep_pred,axis = 1)
+        var_pred = np.std(sep_pred,axis = 1)
         var_pred_sum = np.sum(var_pred,axis = 1)
 
         #add var result to list
