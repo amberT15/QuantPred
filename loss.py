@@ -52,11 +52,12 @@ class pearsonr_poisson(tf.keras.losses.Loss):
     def call(self, y_true, y_pred):
         #multinomial part of loss function
         pr_loss = basenjipearsonr()
+        pr = pr_loss(y_true, y_pred)
         #poisson part
         poiss_loss = poisson()
-        poiss_raw = poiss_loss(y_true, y_pred)
+        poiss = poiss_loss(y_true, y_pred)
         #sum with weight
-        total_loss = pr_loss(y_true, y_pred) + self.alpha*poiss_raw
+        total_loss = (2*pr*poiss)/(pr+poiss)
         return total_loss
 
 class fft_mse(tf.keras.losses.Loss):
@@ -263,8 +264,7 @@ class r2 (tf.keras.losses.Loss):
 
 def logclass(func):
     def wrapper(y_true,y_pred):
-        pseudocount = np.finfo(float).eps
-        y_true = tf.math.log(y_true+pseudocount)
+        y_true = tf.math.log(y_true+1)
         # y_pred = tf.math.log(y_pred+1)
         return func(y_true,y_pred)
     return wrapper
