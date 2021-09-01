@@ -11,8 +11,8 @@ import util
 import custom_fit
 import seaborn as sns
 
-def task_robustness(selected_read,selected_target,model, task_idx, batch_size = 50, shift_num = 10, window_size = 2048,
-                    visualize = True,ground_truth = True, smooth_saliency = True):
+def task_robustness(selected_read,model, task_idx, batch_size = 50, shift_num = 10, window_size = 2048,
+                    visualize = True, smooth_saliency = True):
     var_saliency_list = []
     var_pred_list = []
     chop_size = selected_read.shape[1]
@@ -26,12 +26,12 @@ def task_robustness(selected_read,selected_target,model, task_idx, batch_size = 
     while i < len(selected_read):
         if i+ batch_size < len(selected_read):
             seq = selected_read[i:i+batch_size]
-            target = selected_target[i:i+batch_size][:,:,task_idx]
+            #target = selected_target[i:i+batch_size][:,:,task_idx]
             batch_n = batch_size
             i = i+batch_size
         else:
             seq = selected_read[i:len(selected_read)]
-            target = selected_target[i:len(selected_read)][:,:,task_idx]
+            #target = selected_target[i:len(selected_read)][:,:,task_idx]
             batch_n = len(selected_read) - i
             i = len(selected_read)
 
@@ -39,6 +39,8 @@ def task_robustness(selected_read,selected_target,model, task_idx, batch_size = 
         shifted_seq,_,shift_idx = util.window_shift(seq,seq,window_size,shift_num)
         #get prediction for shifted read
         shift_pred = model.predict(shifted_seq)[:,:,task_idx]
+        bin_size = window_size / shift_pred.shape[1]
+        shift_pred = np.repeat(shift_pred,bin_size,axis = 1)
 
         #get saliency for shifted read
         shift_saliency = complete_saliency(shifted_seq,model,class_index = task_idx)
@@ -61,7 +63,7 @@ def task_robustness(selected_read,selected_target,model, task_idx, batch_size = 
         var_saliency_sum = np.sum(var_saliency,axis = 1)
 
         #get pred 1k part
-        shift_pred_1k=tf.gather_nd(shift_pred[:,:,task_idx],crop_f_index)
+        shift_pred_1k=tf.gather_nd(shift_pred,crop_f_index)
         sep_pred = np.array(np.array_split(shift_pred_1k,batch_n))
         var_pred = np.std(sep_pred,axis = 1)
         var_pred_sum = np.sum(var_pred,axis = 1)
@@ -75,16 +77,16 @@ def task_robustness(selected_read,selected_target,model, task_idx, batch_size = 
             for a in range(0,batch_n):
 
                 fig, (ax1, ax2,ax3) = plt.subplots(3,1,figsize = (15,6))
-                if ground_truth == True:
-                    #plot ground truth pred
-                    sns.lineplot(x = range(0,chop_size),
-                                y = np.squeeze(target[a,:,task_idx),ax = ax1,color = 'lightblue')
+                # if ground_truth == True:
+                #     #plot ground truth pred
+                #     sns.lineplot(x = range(0,chop_size),
+                #                 y = np.squeeze(target[a]),ax = ax1,color = 'lightblue')
 
 
                 for shift_n in range(0,shift_num):
                     #visualize prediction
                     sns.lineplot(x = center_range + shift_idx[shift_n],
-                                 y = shift_pred[a*shift_num + shift_n,:,task_idx],ax = ax1,
+                                 y = shift_pred[a*shift_num + shift_n,:],ax = ax1,
                                  alpha = 0.35)
                     #visualize saliency
                     tmp_saliency = shift_saliency[a*shift_num + shift_n]
@@ -111,10 +113,9 @@ def task_robustness(selected_read,selected_target,model, task_idx, batch_size = 
                 plt.tight_layout()
                 plt.show()
 
-    return np.array(var_saliency_list).flatten(),np.array(var_pred_list).flatten()
+    return np.hstack(var_saliency_list),np.hstack(var_pred_list)
 
-def batch_robustness_test(selected_read,selected_target,model, batch_size = 50, shift_num = 10, window_size = 2048,
-                    visualize = True,ground_truth = True, smooth_saliency = True):
+def batch_robustness_test(selected_read,selected_target,model, batch_size = 50, shift_num = 10, window_size = 2048):
     var_saliency_list = []
     var_pred_list = []
     chop_size = selected_read.shape[1]
@@ -141,6 +142,8 @@ def batch_robustness_test(selected_read,selected_target,model, batch_size = 50, 
         shifted_seq,_,shift_idx = util.window_shift(seq,seq,window_size,shift_num)
         #get prediction for shifted read
         shift_pred = model.predict(shifted_seq)
+        bin_size = windowsize / shift_pred.shape[1]
+        shift_pred = np.repeat(shift_pred,bin_size,axis = 1)
 
         #get saliency for shifted read
         center_seq,_ = custom_fit.center_crop(seq,seq,window_size)
