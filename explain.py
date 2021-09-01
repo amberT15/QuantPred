@@ -115,7 +115,7 @@ def task_robustness(selected_read,model, task_idx, batch_size = 50, shift_num = 
 
     return np.hstack(var_saliency_list),np.hstack(var_pred_list)
 
-def batch_robustness_test(selected_read,selected_target,model, batch_size = 50, shift_num = 10, window_size = 2048):
+def batch_robustness_test(selected_read,selected_target,model,visualize = True,ground_truth = True, batch_size = 50, shift_num = 10, window_size = 2048):
     var_saliency_list = []
     var_pred_list = []
     chop_size = selected_read.shape[1]
