@@ -28,14 +28,14 @@ id = model_path.split('-')[-1]
 
 saliency_file = h5py.File('./datasets/VCF/saliency_eval_'+id+'.h5','w')
 
-pred_file = h5pt.File('./datasets/VCF/pred_eval_'+id+'.h5','w')
+pred_file = h5py.File('./datasets/VCF/pred_eval_'+id+'.h5','w')
 
 model = modelzoo.load_model(model_path,compile=True)
 var_saliency,var_pred = explain.batch_robustness_test(x,y,
                                                   model,visualize = False,shift_num =10)
 
-saliency_file.create_dataset('variance',var_saliency)
-pred_file.create_dataset('variance',var_pred)
+saliency_file.create_dataset('variance',data = var_saliency)
+pred_file.create_dataset('variance',data = var_pred)
 saliency_file.close()
 pred_file.close()
 
