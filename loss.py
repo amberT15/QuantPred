@@ -32,7 +32,7 @@ class pearsonr_mse(tf.keras.losses.Loss):
         self.alpha = kwargs.get('loss_params')
         if not self.alpha:
             print('ALPHA SET TO DEFAULT VALUE!')
-            self.alpha = 0.1 ###TODO: SET TO 0.001
+            self.alpha = 0.001 #best
     def call(self, y_true, y_pred):
         #multinomial part of loss function
         pr_loss = basenjipearsonr()
