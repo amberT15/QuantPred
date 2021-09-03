@@ -167,6 +167,8 @@ def make_truth_pred_bws(truth_bw_filename_suffix, pred_bw_filename_suffix,
     truth_bws = {}
     cell_line_N = len(cell_line_names)
     for cell_line, cell_line_name in enumerate(cell_line_names):
+    # for cell_line, cell_line_name in enumerate(['A549']):
+        # cell_line = 8
         output_dir = util.make_dir(os.path.join(run_dir, str(cell_line) + '_' + cell_line_name))
         pred_bw_filename = os.path.join(output_dir, cell_line_name + pred_bw_filename_suffix)
         pred_bws[cell_line] = open_bw(pred_bw_filename, chrom_size_path)
@@ -181,6 +183,7 @@ def make_truth_pred_bws(truth_bw_filename_suffix, pred_bw_filename_suffix,
         for i, pred in enumerate(P): # per batch element
             chrom, start, end = C[i].split('_') # get chr, start, end
             start = int(start) # to feed into bw making function
+            # for cell_line in [8]: # per cell line
             for cell_line in range(cell_line_N): # per cell line
                 # write to ground truth file
                 truth_bws[cell_line].addEntries(chrom, start,
@@ -193,7 +196,9 @@ def make_truth_pred_bws(truth_bw_filename_suffix, pred_bw_filename_suffix,
                 # write ti bedfile (same for each cell line but needed for later)
                 bedfiles[cell_line].write('{}\t{}\t{}\n'.format(chrom, start, end))
     # close everything
+    # for cell_line in [8]:
     for cell_line in range(cell_line_N):
+
         truth_bws[cell_line].close()
         pred_bws[cell_line].close()
         bedfiles[cell_line].close()
@@ -430,6 +435,7 @@ def process_run(run_path,
     make_truth_pred_bws(truth_bw_filename_suffix, pred_bw_filename_suffix, bed_filename_suffix,
                           testset, trained_model, bin_size, targets,
                           chrom_size_path, run_subdir)
+
     t1 = time.time()
     print('Time = {}mins'.format((t1-t0)//60))
     for subdir in tqdm(os.listdir(run_subdir)): # per cell line directory
@@ -510,6 +516,7 @@ def evaluate_run_performance(run_dir, rm_bws=False, rm_all=False):
     cell_line_names = [cell_line_dir.split('/')[-1].split('_')[1] for cell_line_dir in folders_of_cell_lines]
     df_path = os.path.join(summary_dir, 'summary_metrics.csv')
     for c, cell_line_dir in tqdm(enumerate(folders_of_cell_lines)):
+
         cell_line_name = cell_line_names[c]
         plot_paths = {bw_t: os.path.join(summary_dir, '{}_{}_scatter.svg'.format(bw_t, cell_line_name)) for bw_t in ['raw', 'idr']}
         print(cell_line_dir)
@@ -556,7 +563,7 @@ def evaluate_run_performance(run_dir, rm_bws=False, rm_all=False):
 
 def evaluate(run_path):
     process_run(run_path, threshold=0)
-    evaluate_run_performance(run_path)
+    # evaluate_run_performance(run_path)
 
 if __name__ == '__main__':
     run_dir = sys.argv[1]

@@ -76,9 +76,9 @@ def scipy_sc(a, b):
     return sc[0]
 
 def np_poiss(y_true, y_pred):
-    pseudocount = np.finfo(float).eps
-    y_pred += pseudocount
-    y_true += pseudocount
+#     pseudocount = np.finfo(float).eps
+    y_pred += 1
+    y_true += 1
     return y_pred - y_true * np.log(y_pred)
 
 
