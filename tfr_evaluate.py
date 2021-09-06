@@ -25,12 +25,14 @@ def evaluate_per_cell_line(run_path, testset, targets, log_all, log_truth, choos
     # get all true and pred values
     metrics_columns = ['mse', 'scaled mse', 'JS', 'poisson NLL', 'pearson r', 'targets']
     all_truth, all_pred = get_true_pred(run_path, testset, log_all, log_truth)
+
     if choose_cell>-1:
         # assert all_truth.shape[-1] == 1, 'Wrong ground truth!'
-        all_truth = all_truth[:,:,choose_cell:(choose_cell+1)]
-        print(targets[choose_cell])
-        all_pred = all_pred[:,:,choose_cell:(choose_cell+1)]
-
+        # all_truth = np.expand_dims(all_truth[:,:,choose_cell])
+        # print(targets[choose_cell])
+        all_pred = np.expand_dims(all_pred[:,:,choose_cell], axis=-1)
+    print(all_truth.shape)
+    print(all_pred.shape)
     # compute per sequence mse and JS for cell line 2
     mse = np_mse(all_truth, all_pred).mean(axis=1).mean(axis=0)
     js = get_js_dist(all_truth, all_pred).mean(axis=0)
@@ -76,21 +78,24 @@ def summarize_project(project_name, factors, output_path, testset, targets,
         for factor in factors:
             if factor in config.keys():
                 line.append(config[factor]['value'])
-                log_all = False
-                log_truth = True
-                # log_all=True
+            #     log_all = False
+            #     log_truth = True
+            #     # log_all=True
+            # else:
+            #     line.append('None')
+            #     log_truth = False
+            #     log_all = True
+            #     print('Not logged RUN!')
+        if ('basenjimod' in line) or ('basenjiw1' in line):
+            log_all = False
+            log_truth = False
+            print(line)
+            if idr:
+                one_model_df = evaluate_idr(run_dir, log_all, log_truth)
             else:
-                line.append('None')
-                log_truth = False
-                log_all = True
-                print('Not logged RUN!')
-        print(line)
-        if idr:
-            one_model_df = evaluate_idr(run_dir, log_all, log_truth)
-        else:
-            one_model_df =  evaluate_per_cell_line(run_dir, testset, targets, log_all, log_truth)
-        one_model_df[['run_path']+factors] = line
-        run_summaries.append(one_model_df)
+                one_model_df =  evaluate_per_cell_line(run_dir, testset, targets, log_all, log_truth)
+            one_model_df[['run_path']+factors] = line
+            run_summaries.append(one_model_df)
     summary_df = pd.concat(run_summaries)
     summary_df.to_csv(output_path, index=False)
     return summary_df
@@ -120,11 +125,11 @@ if __name__ == '__main__':
     sts = util.load_stats(data_dir)
     res_dir = 'summary_metrics_tables'
     exp_name = 'LOSS_FUNCTION'
-    factors = ['model_fn', 'loss_fn', 'bin_size', 'log_loss']
+    factors = ['model_fn', 'bin_size', 'data_dir']
     csv_file_suffix = exp_name + '.csv'
 
-    idr_result_path = os.path.join(res_dir, 'IDR_LOGGED_'+csv_file_suffix)
-    result_path = os.path.join(res_dir, 'WHOLE_LOGGED_'+csv_file_suffix)
+    idr_result_path = os.path.join(res_dir, 'IDR_'+csv_file_suffix)
+    result_path = os.path.join(res_dir, 'WHOLE_'+csv_file_suffix)
 
     log_all = False
     testset = util.make_dataset(data_dir, 'test', sts, batch_size=512, shuffle=False)
