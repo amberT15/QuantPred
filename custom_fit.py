@@ -50,8 +50,9 @@ class RobustTrainer():
             x,y = random_crop(x, y,self.window_size)
             if self.bin_size > 1:
                 y = bin_resolution(y,self.bin_size)
-        elif self.crop == None and self.bin_size > 1:
+        elif self.crop == False and self.bin_size > 1:
             y = bin_resolution(y,self.bin_size)
+
         #reverse complement
         if self.rev_comp:
             x,y = ReverseComplement(x,y)
