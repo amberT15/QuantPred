@@ -51,6 +51,7 @@ class RobustTrainer():
             if self.bin_size > 1:
                 y = bin_resolution(y,self.bin_size)
         elif self.crop == False and self.bin_size > 1:
+            print('what_is_this')
             y = bin_resolution(y,self.bin_size)
 
         #reverse complement
@@ -88,7 +89,7 @@ class RobustTrainer():
         if self.crop == 'r_crop':
             x,y = center_crop(x,y,int(self.window_size))
             y = bin_resolution(y,self.bin_size)
-        elif self.crop == None:
+        elif self.crop == False:
             y = bin_resolution(y,self.bin_size)
 
         if self.smooth == 'average':
