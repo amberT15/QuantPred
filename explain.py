@@ -142,7 +142,7 @@ def batch_robustness_test(selected_read,selected_target,model,visualize = True,g
         shifted_seq,_,shift_idx = util.window_shift(seq,seq,window_size,shift_num)
         #get prediction for shifted read
         shift_pred = model.predict(shifted_seq)
-        bin_size = windowsize / shift_pred.shape[1]
+        bin_size = window_size / shift_pred.shape[1]
         shift_pred = np.repeat(shift_pred,bin_size,axis = 1)
 
         #get saliency for shifted read
