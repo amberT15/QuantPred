@@ -22,7 +22,7 @@ def basenjimod(input_shape, output_shape, wandb_config={}):
     Basenji model turned into a single function.
     inputs (None, seq_length, 4)
     """
-    config = {'filtN_1': 128, 'filtN_2': 128, 'filtN_4': 128, 'filtN_5': 512,
+    config = {'filtN_1': 128, 'filtN_2': 256, 'filtN_4': 256, 'filtN_5': 512,
                 'filt_mlt':1.125, 'add_dropout': False}
     print('Using set of filter sizes for hyperparameter search')
     filt_drp_dict = {64: 0.1, 128: 0.2, 256: 0.3, 512: 0.4, 1024: 0.5}
