@@ -16,7 +16,7 @@ from tqdm import tqdm
 from scipy.spatial import distance
 from scipy import stats
 import pickle
-from metrics import np_poiss, np_mse, get_scaled_mse, get_js_dist, np_pr
+from metrics import get_poiss_nll, np_mse, get_scaled_mse, get_js_dist, np_pr_per_seq
 
 
 def evaluate_per_cell_line(run_path, testset, targets, log_all, log_truth, choose_cell=-1):
@@ -26,18 +26,19 @@ def evaluate_per_cell_line(run_path, testset, targets, log_all, log_truth, choos
     metrics_columns = ['mse', 'scaled mse', 'JS', 'poisson NLL', 'pearson r', 'targets']
     all_truth, all_pred = get_true_pred(run_path, testset, log_all, log_truth)
 
+
     if choose_cell>-1:
         # assert all_truth.shape[-1] == 1, 'Wrong ground truth!'
         # all_truth = np.expand_dims(all_truth[:,:,choose_cell])
-        # print(targets[choose_cell])
+        print(targets)
         all_pred = np.expand_dims(all_pred[:,:,choose_cell], axis=-1)
     print(all_truth.shape)
     print(all_pred.shape)
     # compute per sequence mse and JS for cell line 2
-    mse = np_mse(all_truth, all_pred).mean(axis=1).mean(axis=0)
+    mse = get_mse(all_truth, all_pred).mean(axis=1).mean(axis=0)
     js = get_js_dist(all_truth, all_pred).mean(axis=0)
     scaled_mse = get_scaled_mse(all_truth, all_pred).mean(axis=0)
-    poiss = np_poiss(all_truth, all_pred).mean(axis=1).mean(axis=0)
+    poiss = get_poiss_nll(all_truth, all_pred).mean(axis=1).mean(axis=0)
     pr = np_pr(all_truth, all_pred)
 
     performance = np.array([mse, scaled_mse, js, poiss, pr, targets])
@@ -45,8 +46,21 @@ def evaluate_per_cell_line(run_path, testset, targets, log_all, log_truth, choos
     one_model_df.columns = metrics_columns
     return one_model_df
 
-def evaluate_idr(run_path, log_all, log_truth):
-    cl_datasets = glob.glob('/home/shush/profile/QuantPred/datasets/cell_line_specific_test_sets/cell_line_*/complete/peak_centered/i_2048_w_1/')
+def split_into_2k_chunks(x, input_size=2048):
+    N = tf.shape(x)[0]
+    L = tf.shape(x)[1]
+    C = tf.shape(x)[2]
+    x_4D = tf.reshape(x, (N, L//input_size, input_size, C))
+    x_split_to_2k = tf.reshape(x_4D, (N*L//input_size, input_size, C))
+    return x_split_to_2k
+
+def combine_into_6k_chunks(x, chunk_number=3):
+    N, L, C = x.shape
+    x_6k = np.reshape(x, (N//chunk_number, chunk_number*L, C))
+    return x_6k
+
+def evaluate_idr(run_path, log_all, log_truth, cell_line_6k_dataset_paths='/home/shush/profile/QuantPred/datasets/15_IDR_test_sets_6K/cell_line_*/i_6144_w_1/'):
+    cl_datasets = glob.glob(cell_line_6k_dataset_paths)
     one_run_all = []
     for data_dir in cl_datasets:
         sts = util.load_stats(data_dir)
@@ -69,6 +83,8 @@ def summarize_project(project_name, factors, output_path, testset, targets,
         runs = run_list
     for run in runs:
         if len(run_list)==0:
+            print('RUNID')
+            print(run.id)
             run_dir = glob.glob(wandb_dir+run.id)[0]
         else:
             run_dir = run
@@ -86,7 +102,7 @@ def summarize_project(project_name, factors, output_path, testset, targets,
             #     log_truth = False
             #     log_all = True
             #     print('Not logged RUN!')
-        if ('basenjimod' in line) or ('basenjiw1' in line):
+        if 'c_crop' not in line:
             log_all = False
             log_truth = False
             print(line)
@@ -124,8 +140,8 @@ if __name__ == '__main__':
     data_dir = '/home/shush/profile/QuantPred/datasets/chr8/complete/random_chop/i_2048_w_1/'
     sts = util.load_stats(data_dir)
     res_dir = 'summary_metrics_tables'
-    exp_name = 'LOSS_FUNCTION'
-    factors = ['model_fn', 'bin_size', 'data_dir']
+    exp_name = 'AUGMENTATION_BIN_SIZE'
+    factors = ['model_fn', 'bin_size', 'data_dir', 'crop', 'rev_comp']
     csv_file_suffix = exp_name + '.csv'
 
     idr_result_path = os.path.join(res_dir, 'IDR_'+csv_file_suffix)
@@ -134,7 +150,7 @@ if __name__ == '__main__':
     log_all = False
     testset = util.make_dataset(data_dir, 'test', sts, batch_size=512, shuffle=False)
     targets = pd.read_csv(data_dir+'targets.txt', sep='\t')['identifier'].values
-    summarize_project('toneyan/'+exp_name, factors,
-                      result_path, testset, targets)
+    # summarize_project('toneyan/'+exp_name, factors,
+    #                   result_path, testset, targets)
     summarize_project('toneyan/'+exp_name, factors,
                       idr_result_path, None, None, idr=True)
