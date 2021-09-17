@@ -24,7 +24,7 @@ def get_pearsonr_concatenated(all_truth, all_pred):
     for c in range(C):
         pr = stats.pearsonr(flat_truth[:,c], flat_pred[:,c])[0]
         pr_all.append(pr)
-    return pr_all
+    return np.array(pr_all)
 
 def get_pearsonr_per_seq(all_truth, all_pred):
     avg_per_cell_line = []
@@ -46,13 +46,10 @@ def get_scaled_mse(all_truth, all_pred):
     flat_truth = all_truth.reshape(N*L, C)
     truth_per_cell_line_sum = flat_truth.sum(axis=0)
     pred_per_cell_line_sum = flat_pred.sum(axis=0)
-
     scaling_factors =  truth_per_cell_line_sum / pred_per_cell_line_sum
     scaled_preds = scaling_factors * flat_pred
-
-    per_seq_scaled_mse = np_mse(flat_truth, scaled_preds)
-
-    return per_seq_scaled_mse.reshape(N, L, C).mean(axis=1)
+    per_seq_scaled_mse = get_mse(flat_truth, scaled_preds)
+    return per_seq_scaled_mse.reshape(N, L, C)
 
 def get_js_per_seq(x, y):
     pseudocount = np.finfo(float).eps
@@ -64,17 +61,20 @@ def get_js_per_seq(x, y):
         norm_arrays.append(norm_array)
     return distance.jensenshannon(norm_arrays[0], norm_arrays[1], axis=1)
 
-def get_js_concatenated(x,y):
+def get_js_concatenated(x, y):
     pseudocount = np.finfo(float).eps
-    norm_arrays = []
-    for raw_array in [x, y]:
-        raw_array = raw_array.flatten()
-        array = np.clip(raw_array,0,raw_array.max())
-        array += pseudocount
-        norm_array = array/array.sum()
-        norm_arrays.append(norm_array)
-    print(norm_arrays[0].shape)
-    return distance.jensenshannon(norm_arrays[0], norm_arrays[1])
+    js_conc_per_cell_line = []
+    C = x.shape[-1]
+    for c in range(C):
+        norm_arrays = []
+        for raw_array in [x[:,:,c], y[:,:,c]]:
+            raw_array = raw_array.flatten()
+            array = np.clip(raw_array,0,raw_array.max())
+            array += pseudocount
+            norm_array = array/array.sum()
+            norm_arrays.append(norm_array)
+        js_conc_per_cell_line.append(distance.jensenshannon(norm_arrays[0], norm_arrays[1]))
+    return np.array(js_conc_per_cell_line)
 
 def get_scipy_pr(y_true, y_pred):
 
