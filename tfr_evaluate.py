@@ -1,50 +1,29 @@
 #!/usr/bin/env python
 import tensorflow as tf
-import util
-from test_to_bw_fast import read_model
-import metrics
 import wandb
-from test_to_bw_fast import get_config
 import glob, os
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from test_to_bw_fast import open_bw
 import numpy as np
-from sklearn.metrics import mean_squared_error, mean_squared_log_error
 from tqdm import tqdm
 from scipy.spatial import distance
 from scipy import stats
-import pickle
-from metrics import get_poiss_nll, np_mse, get_scaled_mse, get_js_dist, np_pr_per_seq
+from test_to_bw_fast import get_config, read_model
+import util
+import metrics
 
-
-def evaluate_per_cell_line(run_path, testset, targets, log_all, log_truth, choose_cell=-1):
-# for each experiment
-# for i, run_path in enumerate(summary_df['run_path'].values):
-    # get all true and pred values
-    metrics_columns = ['mse', 'scaled mse', 'JS', 'poisson NLL', 'pearson r', 'targets']
-    all_truth, all_pred = get_true_pred(run_path, testset, log_all, log_truth)
-
-
-    if choose_cell>-1:
-        # assert all_truth.shape[-1] == 1, 'Wrong ground truth!'
-        # all_truth = np.expand_dims(all_truth[:,:,choose_cell])
-        print(targets)
-        all_pred = np.expand_dims(all_pred[:,:,choose_cell], axis=-1)
-    print(all_truth.shape)
-    print(all_pred.shape)
-    # compute per sequence mse and JS for cell line 2
-    mse = get_mse(all_truth, all_pred).mean(axis=1).mean(axis=0)
-    js = get_js_dist(all_truth, all_pred).mean(axis=0)
-    scaled_mse = get_scaled_mse(all_truth, all_pred).mean(axis=0)
-    poiss = get_poiss_nll(all_truth, all_pred).mean(axis=1).mean(axis=0)
-    pr = np_pr(all_truth, all_pred)
-
-    performance = np.array([mse, scaled_mse, js, poiss, pr, targets])
-    one_model_df = pd.DataFrame(performance.T)
-    one_model_df.columns = metrics_columns
-    return one_model_df
+def get_true_pred(run_path, testset):
+    model, bin_size = read_model(run_path, compile_model=False)
+    all_truth = []
+    all_pred = []
+    for i, (x, y) in tqdm(enumerate(testset)):
+        p = model.predict(x)
+        binned_y = util.bin_resolution(y, bin_size)
+        y = binned_y.numpy()
+        all_truth.append(y)
+        all_pred.append(p)
+    return np.concatenate(all_truth), np.concatenate(all_pred)
 
 def split_into_2k_chunks(x, input_size=2048):
     N = tf.shape(x)[0]
@@ -59,7 +38,47 @@ def combine_into_6k_chunks(x, chunk_number=3):
     x_6k = np.reshape(x, (N//chunk_number, chunk_number*L, C))
     return x_6k
 
-def evaluate_idr(run_path, log_all, log_truth, cell_line_6k_dataset_paths='/home/shush/profile/QuantPred/datasets/15_IDR_test_sets_6K/cell_line_*/i_6144_w_1/'):
+def choose_pr_func(testset_type):
+    if testset_type == 'whole':
+        get_pr = metrics.get_pearsonr_concatenated
+    elif testset_type == 'idr':
+        get_pr = metrics.get_pearsonr_per_seq
+    return get_pr
+
+def get_performance(all_truth, all_pred, testset_type):
+    assert all_truth.shape[-1] == all_pred.shape[-1], 'Incorrect number of cell lines for true and pred'
+    mse = metrics.get_mse(all_truth, all_pred).mean(axis=1).mean(axis=0)
+    js_per_seq = metrics.get_js_per_seq(all_truth, all_pred).mean(axis=0)
+    js_conc = metrics.get_js_concatenated(all_truth, all_pred)
+    poiss = metrics.get_poiss_nll(all_truth, all_pred).mean(axis=1).mean(axis=0)
+    pr = choose_pr_func(testset_type)(all_truth, all_pred)
+    performance = {'mse': mse, 'js_per_seq': js_per_seq, 'js_conc': js_conc,
+                    'poiss': poiss, 'pr': pr}
+    return pd.DataFrame(performance)
+
+
+def evaluate_run_whole(run_path, testset):
+    # make predictions
+    # scale predictions
+    # for both raw and scaled predictions and truth:
+    # get performance df
+    # add if raw or scaled
+    # add run info
+    # return complete run df
+    pass
+
+def evaluate_run_idr(run_path, testsets_15, scaling_factors):
+    # for each testset
+    # make predictions and slice the cell line
+    # make scaled predictions
+    # get idr performance raw, scaled
+    # add column for if raw or scaled
+    # add run info
+    # return complete run df
+    pass
+
+def evaluate_idr(run_path,
+                 cell_line_6k_dataset_paths='/home/shush/profile/QuantPred/datasets/15_IDR_test_sets_6K/cell_line_*/i_6144_w_1/'):
     cl_datasets = glob.glob(cell_line_6k_dataset_paths)
     one_run_all = []
     for data_dir in cl_datasets:
@@ -67,7 +86,7 @@ def evaluate_idr(run_path, log_all, log_truth, cell_line_6k_dataset_paths='/home
         testset = util.make_dataset(data_dir, 'test', sts, batch_size=512, shuffle=False)
         targets = pd.read_csv(data_dir+'targets.txt', sep='\t')['identifier'].values
         i = int(data_dir.split('cell_line_')[-1].split('/complete')[0])
-        performance = evaluate_per_cell_line(run_path, testset, targets, log_all, log_truth, choose_cell=i)
+        performance = evaluate_per_cell_line(run_path, testset, targets, choose_cell=i)
         one_run_all.append(performance)
     return pd.concat(one_run_all)
 
@@ -83,8 +102,6 @@ def summarize_project(project_name, factors, output_path, testset, targets,
         runs = run_list
     for run in runs:
         if len(run_list)==0:
-            print('RUNID')
-            print(run.id)
             run_dir = glob.glob(wandb_dir+run.id)[0]
         else:
             run_dir = run
@@ -94,46 +111,18 @@ def summarize_project(project_name, factors, output_path, testset, targets,
         for factor in factors:
             if factor in config.keys():
                 line.append(config[factor]['value'])
-            #     log_all = False
-            #     log_truth = True
-            #     # log_all=True
-            # else:
-            #     line.append('None')
-            #     log_truth = False
-            #     log_all = True
-            #     print('Not logged RUN!')
-        if 'c_crop' not in line:
-            log_all = False
-            log_truth = False
-            print(line)
-            if idr:
-                one_model_df = evaluate_idr(run_dir, log_all, log_truth)
-            else:
-                one_model_df =  evaluate_per_cell_line(run_dir, testset, targets, log_all, log_truth)
-            one_model_df[['run_path']+factors] = line
-            run_summaries.append(one_model_df)
+        print(line)
+        if idr:
+            one_model_df = evaluate_idr(run_dir)
+        else:
+            one_model_df =  evaluate_per_cell_line(run_dir, testset, targets)
+        one_model_df[['run_path']+factors] = line
+        run_summaries.append(one_model_df)
     summary_df = pd.concat(run_summaries)
     summary_df.to_csv(output_path, index=False)
     return summary_df
 
-def get_true_pred(run_path, testset, log_all=False, log_truth=False):
-    model, bin_size = read_model(run_path, compile_model=False)
-    all_truth = []
-    all_pred = []
-    for i, (x, y) in tqdm(enumerate(testset)):
-        p = model.predict(x)
-        binned_y = util.bin_resolution(y, bin_size)
-        y = binned_y.numpy()
-        all_truth.append(y)
-        all_pred.append(p)
-    if log_all:
-        print('LOGGING TRUE AND PRED!!!')
-        return np.log(np.concatenate(all_truth)+1), np.log(np.concatenate(all_pred)+1)
-    elif log_truth:
-        print('LOGGING ONLY TRUE!!!')
-        return np.log(np.concatenate(all_truth)+1), np.concatenate(all_pred)
-    else:
-        return np.concatenate(all_truth), np.concatenate(all_pred)
+
 
 
 if __name__ == '__main__':
@@ -147,7 +136,6 @@ if __name__ == '__main__':
     idr_result_path = os.path.join(res_dir, 'IDR_'+csv_file_suffix)
     result_path = os.path.join(res_dir, 'WHOLE_'+csv_file_suffix)
 
-    log_all = False
     testset = util.make_dataset(data_dir, 'test', sts, batch_size=512, shuffle=False)
     targets = pd.read_csv(data_dir+'targets.txt', sep='\t')['identifier'].values
     # summarize_project('toneyan/'+exp_name, factors,
