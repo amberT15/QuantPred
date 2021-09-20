@@ -115,7 +115,8 @@ def task_robustness(selected_read,model, task_idx, batch_size = 50, shift_num = 
 
     return np.hstack(var_saliency_list),np.hstack(var_pred_list)
 
-def batch_robustness_test(selected_read,selected_target,model,visualize = True,ground_truth = True, batch_size = 50, shift_num = 10, window_size = 2048):
+def batch_robustness_test(selected_read,selected_target,model,visualize = True,ground_truth = True, batch_size = 50,
+                            smooth_saliency = True, shift_num = 10, window_size = 2048):
     var_saliency_list = []
     var_pred_list = []
     chop_size = selected_read.shape[1]
@@ -142,7 +143,7 @@ def batch_robustness_test(selected_read,selected_target,model,visualize = True,g
         shifted_seq,_,shift_idx = util.window_shift(seq,seq,window_size,shift_num)
         #get prediction for shifted read
         shift_pred = model.predict(shifted_seq)
-        bin_size = windowsize / shift_pred.shape[1]
+        bin_size = window_size / shift_pred.shape[1]
         shift_pred = np.repeat(shift_pred,bin_size,axis = 1)
 
         #get saliency for shifted read
@@ -183,18 +184,25 @@ def batch_robustness_test(selected_read,selected_target,model,visualize = True,g
         #make 2 subplots per sequence
             for a in range(0,batch_n):
 
-                fig, (ax1, ax2,ax3) = plt.subplots(3,1,figsize = (15,6))
+                fig, (ax1, ax2,ax3) = plt.subplots(3,1,figsize = (15,15))
                 if ground_truth == True:
                     #plot ground truth pred
-                    sns.lineplot(x = range(0,chop_size),
-                                y = np.squeeze(target[a,:,short_max_task[a]]),ax = ax1,color = 'lightblue')
+                    sns.lineplot(x = range(500,1024),
+                                y = np.squeeze(target[a,:,short_max_task[a]])[1524:2048],ax = ax1,color = 'black')
+                    #sns.lineplot(x = range(0,1024),y = np.squeeze(target[a,:,short_max_task[a]]),ax = ax1,color = 'black')
+                    ax1.set(xlabel='Position', ylabel='Coverage')
 
 
                 for shift_n in range(0,shift_num):
                     #visualize prediction
-                    sns.lineplot(x = center_range + shift_idx[shift_n],
-                                 y = shift_pred[a*shift_num + shift_n,:,short_max_task[a]],ax = ax1,
-                                 alpha = 0.35)
+                    # sns.lineplot(x = center_range + shift_idx[a*shift_num+shift_n],
+                    #              y = shift_pred[a*shift_num + shift_n,:,short_max_task[a]],ax = ax1,
+                    #              alpha = 0.35)
+                    shift_i = shift_idx[a*shift_num+shift_n]
+                    sns.lineplot(x = range(500,1024),
+                                y = shift_pred[a*shift_num + shift_n,:,short_max_task[a]][512-shift_i+500:1536-shift_i],
+                                ax = ax1,alpha = 0.35)
+
                     #visualize saliency
                     tmp_saliency = shift_saliency[a*shift_num + shift_n]
                     sns.lineplot(x = center_range + shift_idx[shift_n],
@@ -376,7 +384,51 @@ def vcf_test(ref,alt,coords,model,background_size = 100):
     df['background'] = background_distribution
     return df
 
-def visualize_vcf(ref,alt,model,background_size = 100):
+def vcf_maxdiff(ref,alt,model,background_size = 100):
+    ref_pred = model.predict(ref)
+    alt_pred = model.predict(alt)
+
+    diff_pred = ref_pred - alt_pred
+    idx = diff_pred.reshape(diff_pred.shape[0],-1).argmax(-1)
+    out = np.unravel_index(idx,diff_pred.shape[-2:])
+    max_diff = diff_pred[range(0,len(diff_pred)),out[0],out[1]]
+    return(max_diff)
+    print(max_diff.shape)
+    #max_diff = np.argmax(diff_pred,axis = (1,2))
+    #print(max_diff.shape)
+    # ref_max_cov = ref_pred_cov[max_task]
+    # alt_max_cov = alt_pred_cov[max_task]
+
+    #return diff_pred[max_task]
+    # d = {'chromosome': coords[:,0], 'start': coords[:,1],'end':coords[:,2]}
+    # df = pd.DataFrame(data=d)
+    #
+    # df['ref'] = ref_max_cov
+    # df['alt'] = alt_max_cov
+    #
+    # #mutate very edge regions
+    # background_distribution = []
+    # for i,ref_seq in enumerate(ref):
+    #     mut_loci = np.random.randint(500,1023,size = background_size)
+    #     direction = np.random.choice([-1,1],size = background_size)
+    #     mut_loci = len(ref_seq)/2 + mut_loci * direction
+    #     mut_loci = mut_loci.astype('int')
+    #     mut_batch = np.tile(ref_seq,(background_size,1,1))
+    #     mut_row = mut_batch[range(0,background_size),mut_loci]
+    #     ori_empty_base = np.where(mut_row!= 1)[1].reshape(mut_row.shape[0],3)
+    #     mut_base = np.apply_along_axis(np.random.choice, axis=1, arr=ori_empty_base, size=1)
+    #     mut_batch[range(0,background_size),mut_loci] = [0,0,0,0]
+    #     mut_batch[range(0,background_size),mut_loci,mut_base] = 1
+    #
+    #     mut_pred = model.predict(mut_batch)
+    #     mut_pred_cov = np.sum(mut_pred,axis =1)[:,max_task[i]]
+    #     background_distribution.append(mut_pred_cov)
+    #
+    # df['background'] = background_distribution
+    # return df
+
+
+def visualize_vcf(ref,alt,model,background_size = 100,title = None):
     #ref and alternative prediction for the task with most signal
     ref = tf.expand_dims(ref,axis=0)
     alt = tf.expand_dims(alt,axis=0)
@@ -404,14 +456,19 @@ def visualize_vcf(ref,alt,model,background_size = 100):
 
         mut_pred = model.predict(mut_batch)[:,:,max_task]
 
-    plt.fill_between(range(0,mut_pred.shape[1]),
+    fig = plt.fill_between(range(0,mut_pred.shape[1]),
                     np.squeeze(mut_pred.max(axis = 0)),
                     np.squeeze(mut_pred.min(axis = 0)),facecolor='grey')
 
     plt.plot(ref_pred,label = 'reference', color = 'black')
     plt.plot(alt_pred,label = 'alternative',color = 'red')
+    plt.xlabel('Position')
+    plt.ylabel('Coverage')
     plt.legend()
-    plt.show()
+    if title:
+        plt.title(title)
+
+
 
 def vcf_pct(vcf_df):
     pct_list = []
