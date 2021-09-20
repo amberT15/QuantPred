@@ -16,7 +16,7 @@ import seaborn as sns
 from scipy.spatial import distance
 from scipy import stats
 
-def np_pr(all_truth, all_pred):
+def get_pearsonr_concatenated(all_truth, all_pred):
     pr_all = []
     N,L,C = all_truth.shape
     flat_truth = all_truth.reshape(N*L, C)
@@ -24,10 +24,20 @@ def np_pr(all_truth, all_pred):
     for c in range(C):
         pr = stats.pearsonr(flat_truth[:,c], flat_pred[:,c])[0]
         pr_all.append(pr)
-    return pr_all
+    return np.array(pr_all)
 
+def get_pearsonr_per_seq(all_truth, all_pred):
+    avg_per_cell_line = []
+    N,L,C = all_truth.shape
+    for c in range(C):
+        pr_values = []
+        for n in range(N):
+            pr = stats.pearsonr(all_truth[n,:,c], all_pred[n,:,c])[0]
+            pr_values.append(pr)
+        avg_per_cell_line.append(np.nanmean(pr_values))
+    return avg_per_cell_line
 
-def np_mse(a, b):
+def get_mse(a, b):
     return ((a - b)**2)
 
 def get_scaled_mse(all_truth, all_pred):
@@ -36,15 +46,12 @@ def get_scaled_mse(all_truth, all_pred):
     flat_truth = all_truth.reshape(N*L, C)
     truth_per_cell_line_sum = flat_truth.sum(axis=0)
     pred_per_cell_line_sum = flat_pred.sum(axis=0)
-
     scaling_factors =  truth_per_cell_line_sum / pred_per_cell_line_sum
     scaled_preds = scaling_factors * flat_pred
+    per_seq_scaled_mse = get_mse(flat_truth, scaled_preds)
+    return per_seq_scaled_mse.reshape(N, L, C)
 
-    per_seq_scaled_mse = np_mse(flat_truth, scaled_preds)
-
-    return per_seq_scaled_mse.reshape(N, L, C).mean(axis=1)
-
-def get_js_dist(x, y):
+def get_js_per_seq(x, y):
     pseudocount = np.finfo(float).eps
     norm_arrays = []
     for array in [x, y]:
@@ -54,28 +61,31 @@ def get_js_dist(x, y):
         norm_arrays.append(norm_array)
     return distance.jensenshannon(norm_arrays[0], norm_arrays[1], axis=1)
 
-def get_conc_js_dist(x,y):
+def get_js_concatenated(x, y):
     pseudocount = np.finfo(float).eps
-    norm_arrays = []
-    for raw_array in [x, y]:
-        raw_array = raw_array.flatten()
-        array = np.clip(raw_array,0,raw_array.max())
-        array += pseudocount
-        norm_array = array/array.sum()
-        norm_arrays.append(norm_array)
-    print(norm_arrays[0].shape)
-    return distance.jensenshannon(norm_arrays[0], norm_arrays[1])
+    js_conc_per_cell_line = []
+    C = x.shape[-1]
+    for c in range(C):
+        norm_arrays = []
+        for raw_array in [x[:,:,c], y[:,:,c]]:
+            raw_array = raw_array.flatten()
+            array = np.clip(raw_array,0,raw_array.max())
+            array += pseudocount
+            norm_array = array/array.sum()
+            norm_arrays.append(norm_array)
+        js_conc_per_cell_line.append(distance.jensenshannon(norm_arrays[0], norm_arrays[1]))
+    return np.array(js_conc_per_cell_line)
 
-def scipy_pr(y_true, y_pred):
+def get_scipy_pr(y_true, y_pred):
 
     pr = scipy.stats.pearsonr(y_true, y_pred)[0]
     return pr
 
-def scipy_sc(a, b):
+def get_scipy_sc(a, b):
     sc = scipy.stats.spearmanr(a, b)
     return sc[0]
 
-def np_poiss(y_true, y_pred):
+def get_poiss_nll(y_true, y_pred):
 #     pseudocount = np.finfo(float).eps
     y_pred += 1
     y_true += 1

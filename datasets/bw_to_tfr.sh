@@ -20,9 +20,6 @@ function parse_yaml {
 
 eval $(parse_yaml config.yaml)
 
-# TODO:add option for creating samplefiles
-# bin/create_samplefile.py "$data" $summary_file_path $label_for_samplefiles $filetype $samplefile_dir
-
 o_prefix=$output_dir/$output_prefix
 mkdir -p $output_dir
 
@@ -45,17 +42,21 @@ else
                       $samplefile_basset
     # sort bedfile and genomesize file
     bedfile="$o_prefix.bed"
+    bedtools intersect -a $bedfile -b $genomefile_unmap -v > clean_peaks.bed
+    clean_bedfile=clean_peaks.bed
     sorted_bedfile="sorted_bedfile.bed"
     sorted_genome="sorted_genome.bed"
     echo Sorting bedfile and genome file
-    sort -k1,1 -k2,2n $bedfile > $sorted_bedfile # sort best bed
+    sort -k1,1 -k2,2n $clean_bedfile > $sorted_bedfile # sort best bed
     sort -k1,1 -k2,2n $genomefile_size > $sorted_genome # sort genome
 
     # get the complement of the sorted bed and the genome to get which parts to avoid
     echo Generating bed file complementary to peak regions
     bedtools complement -i $sorted_bedfile -g $sorted_genome > nonpeaks.bed
     # complete the avoid regions by adding unmappable
-    cat nonpeaks.bed $genomefile_unmap > avoid_regions.bed
+    ###REVERSE
+    # cat nonpeaks.bed $genomefile_unmap > avoid_regions.bed
+    cat nonpeaks.bed > avoid_regions.bed
     sort -k1,1 -k2,2n avoid_regions.bed > sorted_avoid_regions.bed
     echo Merging nonpeak and blacklisted regions
     bedtools merge -i sorted_avoid_regions.bed > merged_avoid_regions.bed
@@ -78,14 +79,6 @@ fi
 
 # preprocess data using GRCh38, and using the bed file to select regions
 echo Running basenji data processing
-# ./basenji_data.py $genomefile_fa \
-#                     $samplefile_basenji \
-#                     -g $avoid_regions \
-#                     -l $input_size -o $output_dir/$output_prefix \
-#                     -t chr20,chr21 -v chr8,chr9 \
-#                     -w $input_pool --local -d $input_downsample --norm $input_norm \
-#                     --step $input_step --padding $input_padding -p 20 --threshold $threshold \
-#                     --test_threshold $test_threshold
 ./basenji_data.py $genomefile_fa \
                     $samplefile_basenji \
                     -g $avoid_regions \
@@ -96,10 +89,10 @@ echo Running basenji data processing
                     --test_threshold $test_threshold \
                     --only_chroms $chroms_only
 
-# scp merged_avoid_regions.bed "$output_dir/$output_prefix/"
-# rm merged_avoid_regions.bed
-# mv $bedfile "$output_dir/$output_prefix/"
-# mv "${o_prefix}_act.txt" "$output_dir/$output_prefix/"
+mv merged_avoid_regions.bed "$output_dir/$output_prefix/"
+mv $bedfile "$output_dir/$output_prefix/"
+mv $clean_bedfile "$output_dir/$output_prefix/"
+mv "${o_prefix}_act.txt" "$output_dir/$output_prefix/"
 mv config.yaml "$output_dir/$output_prefix/"
 mkdir -p $output_dir/zip_datasets
 zip -q -r $output_dir/zip_datasets/${output_prefix}.zip $output_dir/$output_prefix -x *seqs_cov*
