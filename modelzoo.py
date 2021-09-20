@@ -142,7 +142,7 @@ def basenji_w1_b64(input_shape, output_shape, wandb_config={}):
 
 
     config = {'filtN_1': 128, 'filtN_2': 256, 'filtN_3': 256, 'filtN_4': 256,
-              'filtN_5': 512, 'add_dropout': True, 'mult_rate1': 1.125,
+              'filtN_5': 256, 'add_dropout': False, 'mult_rate1': 1.125,
               'mult_rate2': 1.125}
 
     def mult_filt(n, factor=config['mult_rate2']):
@@ -213,7 +213,7 @@ def basenji_w1_b128(input_shape, output_shape, wandb_config={}):
 
 
     config = {'filtN_1': 128, 'filtN_2': 256, 'filtN_3': 256, 'filtN_4': 256,
-              'filtN_5': 512, 'add_dropout': True, 'mult_rate1': 1.125,
+              'filtN_5': 256, 'add_dropout': False, 'mult_rate1': 1.125,
               'mult_rate2': 1.125}
 
     def mult_filt(n, factor=config['mult_rate2']):
@@ -280,7 +280,74 @@ def basenji_w1_b128(input_shape, output_shape, wandb_config={}):
     else:
         return model
 
+def basenji_w1_b256(input_shape, output_shape, wandb_config={}):
+    """
+    Basenji model turned into a single function.
+    inputs (None, seq_length, 4)
+    """
 
+
+    config = {'filtN_1': 128, 'filtN_2': 256, 'filtN_3': 256, 'filtN_4': 256,
+              'filtN_5': 256, 'add_dropout': False, 'mult_rate1': 1.125,
+              'mult_rate2': 1.125}
+
+    def mult_filt(n, factor=config['mult_rate2']):
+        return int(np.round(n*factor))
+
+    filt_drp_dict = {64: 0.1, 128: 0.2, 256: 0.3, 512: 0.4, 1024: 0.5}
+
+
+    for k in config.keys():
+        if k in wandb_config.keys():
+            config[k] = wandb_config[k]
+
+    filtN_list = [config[f] for f in ['filtN_1', 'filtN_2', 'filtN_3', 'filtN_4', 'filtN_5']]
+    filt_drp_dict = {64: 0.1, 128: 0.2, 256: 0.3, 512: 0.4, 1024: 0.5}
+    if config['add_dropout']:
+        drp1, drp2, drp3, drp4, drp5  = [filt_drp_dict[f] for f in filtN_list]
+    else:
+        drp1 = drp2 = drp3 = drp4 = drp5 = 0
+    n_exp = output_shape[-1]
+    sequence = tf.keras.Input(shape=input_shape, name='sequence')
+    current = tf.expand_dims(sequence, -2)
+
+    current = conv_block(current, filters=config['filtN_1'], kernel_size=15, activation='gelu', activation_end=None,
+        strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
+        pool_size=8, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
+        kernel_initializer='he_normal', padding='same', w1=True)
+
+    current, _ = conv_tower(current, filters_init=config['filtN_2'], filters_mult=1.125, repeat=1,
+        pool_size=1, kernel_size=5, batch_norm=True, bn_momentum=0.9,
+        activation='gelu', w1=True)
+
+    current = dilated_residual(current, filters=config['filtN_3'], kernel_size=3, rate_mult=config['mult_rate1'],
+        conv_type='standard', dropout=0.25, repeat=2, round=False, # repeat=4
+        activation='gelu', batch_norm=True, bn_momentum=0.9, w1=True)
+
+    current = conv_block(current, filters=config['filtN_4'], kernel_size=1, activation='gelu',
+        dropout=0.05, batch_norm=True, bn_momentum=0.9, w1=True)
+    n_filters = mult_filt(config['filtN_4'])
+    current = tf.keras.layers.Conv2DTranspose(
+            filters=n_filters, kernel_size=(5,1), strides=(2,1), padding='same')(current)
+
+    current = tf.keras.layers.Conv2DTranspose(
+            filters=n_filters, kernel_size=(5,1), strides=(2,1), padding='same')(current)
+
+    current = tf.keras.layers.Conv2DTranspose(
+          filters=mult_filt(n_filters), kernel_size=(5,1), strides=(2,1), padding='same')(current)
+    current = tf.keras.layers.Conv2D(mult_filt(n_filters), 1)(current)
+    current = dense_layer(current, n_exp, activation='softplus',
+        batch_norm=True, bn_momentum=0.9)
+    outputs = tf.squeeze(
+      current, axis=2)
+    # upsample
+
+    model = tf.keras.Model(inputs=sequence, outputs=outputs)
+    # print(model.summary())
+    if not all(i <= j for i, j in zip(filtN_list, filtN_list[1:])):
+        return False
+    else:
+        return model
 ############################################################
 # layers and helper functions
 ############################################################
