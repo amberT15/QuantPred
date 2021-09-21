@@ -105,10 +105,11 @@ def extract_datasets(path_pattern='/mnt/1a18a49e-9a31-4dbf-accd-3fb8abbfab2d/shu
         target = pd.read_csv(path+'targets.txt', sep='\t')['identifier'].values[0]
         i = [f for f in path.split('/') if 'cell_line' in f][0].split('_')[-1]
         testset_2K = testset_6K.map(lambda x,y: (split_into_2k_chunks(x), split_into_2k_chunks(y)))
-        target_dataset[(i, target)] = testset_2K
+        target_dataset[(int(i), target)] = testset_2K
     return target_dataset
 
 def evaluate_run_idr(run_path, target_dataset, scaling_factors):
+    complete_performance = []
     for (i, target), one_testset in target_dataset.items():
         # make predictions and slice the cell line
         truth, all_pred = get_true_pred(run_path, one_testset)
@@ -119,16 +120,25 @@ def evaluate_run_idr(run_path, target_dataset, scaling_factors):
         scaled_pred = raw_pred_6k * scaling_factors[i]
         # get idr performance raw, scaled
         assert truth_6k.shape == raw_pred_6k.shape, 'shape mismatch!'
-        complete_performance = get_performance_raw_scaled(truth_6k, [target], {'raw': raw_pred_6k,
+        complete_performance.append(get_performance_raw_scaled(truth_6k, [target], {'raw': raw_pred_6k,
                                                           'scaled': scaled_pred},
-                                                          'idr')
+                                                          'idr'))
 
-    return complete_performance
+    return pd.concat(complete_performance)
 
 def get_run_metadata(run_dir):
     config = get_config(run_dir)
     relevant_config = {k:[config[k]['value']] for k in config.keys() if k not in ['wandb_version', '_wandb']}
     return pd.DataFrame(relevant_config)
+
+def collect_datasets(data_dir='/home/shush/profile/QuantPred/datasets/chr8/complete/random_chop/i_2048_w_1/'):
+    # get testset
+    sts = util.load_stats(data_dir)
+    testset = util.make_dataset(data_dir, 'test', sts, batch_size=512, shuffle=False)
+    targets = pd.read_csv(data_dir+'targets.txt', sep='\t')['identifier'].values
+    # get cell line specific IDR testsets in 6K
+    target_dataset_idr = extract_datasets()
+    return (testset, targets, target_dataset_idr)
 
 def evaluate_run_whole_idr(run_dir, testset, targets, target_dataset_idr):
     # get performance for the whole chromosome
@@ -140,61 +150,36 @@ def evaluate_run_whole_idr(run_dir, testset, targets, target_dataset_idr):
     # add metadata to performance dataframes
     combined_performance = pd.concat([complete_performance_whole, complete_performance_idr]).reset_index()
     n_rows = combined_performance.shape[0]
-    metadata_broadcasted = pd.DataFrame(np.repeat(metadata.values, n_rows, axis=0))
+    metadata_broadcasted = pd.DataFrame(np.repeat(metadata.values, n_rows, axis=0), columns=metadata.columns)
     combined_performance_w_metadata = pd.concat([combined_performance, metadata_broadcasted], axis=1)
     return combined_performance_w_metadata
 
+def process_run_list(run_dirs, output_summary_filepath):
+    # get datasets
+    testset, targets, target_dataset_idr = collect_datasets()
+    # process runs
+    all_run_summaries = []
+    for run_dir in run_dirs:
+        run_summary = evaluate_run_whole_idr(run_dir, testset, targets, target_dataset_idr)
+        all_run_summaries.append(run_summary)
+    pd.concat(all_run_summaries).to_csv(output_summary_filepath, index=False)
 
-
-def summarize_project(project_name, factors, output_path, testset, targets,
-                      wandb_dir='/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/*/*',
-                      idr=False, run_list=[]):
-    run_summaries = []
-    if len(run_list)==0:
-        wandb.login()
-        api = wandb.Api()
-        runs = api.runs(project_name)
-    else:
-        runs = run_list
-    for run in runs:
-        if len(run_list)==0:
-            run_dir = glob.glob(wandb_dir+run.id)[0]
-        else:
-            run_dir = run
-        line = [run_dir]
-        config = get_config(run_dir)
-        config[factors[0]]['value']
-        for factor in factors:
-            if factor in config.keys():
-                line.append(config[factor]['value'])
-        print(line)
-        if idr:
-            one_model_df = evaluate_idr(run_dir)
-        else:
-            one_model_df =  evaluate_per_cell_line(run_dir, testset, targets)
-        one_model_df[['run_path']+factors] = line
-        run_summaries.append(one_model_df)
-    summary_df = pd.concat(run_summaries)
-    summary_df.to_csv(output_path, index=False)
-    return summary_df
-
-
-
+def collect_run_dirs(project_name, wandb_dir='/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/*/*'):
+    wandb.login()
+    api = wandb.Api()
+    runs = api.runs(project_name)
+    run_dirs = [glob.glob(wandb_dir+run.id)[0] for run in runs]
+    return run_dirs
 
 if __name__ == '__main__':
-    data_dir = '/home/shush/profile/QuantPred/datasets/chr8/complete/random_chop/i_2048_w_1/'
-    sts = util.load_stats(data_dir)
-    res_dir = 'summary_metrics_tables'
-    exp_name = 'AUGMENTATION_BIN_SIZE'
-    factors = ['model_fn', 'bin_size', 'data_dir', 'crop', 'rev_comp']
-    csv_file_suffix = exp_name + '.csv'
+    run_dirs = []
+    res_dir = 'summary_metrics_tables' # output dir
+    # wandb_project_name = 'AUGMENTATION_BIN_SIZE' # project name in wandb
+    wandb_project_name = 'TEST'
+    csv_filename = wandb_project_name + '.csv'
 
-    idr_result_path = os.path.join(res_dir, 'IDR_'+csv_file_suffix)
-    result_path = os.path.join(res_dir, 'WHOLE_'+csv_file_suffix)
-
-    testset = util.make_dataset(data_dir, 'test', sts, batch_size=512, shuffle=False)
-    targets = pd.read_csv(data_dir+'targets.txt', sep='\t')['identifier'].values
-    # summarize_project('toneyan/'+exp_name, factors,
-    #                   result_path, testset, targets)
-    summarize_project('toneyan/'+exp_name, factors,
-                      idr_result_path, None, None, idr=True)
+    result_path = os.path.join(res_dir, csv_filename)
+    testset, targets, target_dataset_idr = collect_datasets()
+    if len(run_dirs) == 0:
+        run_dirs = collect_run_dirs(wandb_project_name)
+    process_run_list(run_dirs, result_path)
