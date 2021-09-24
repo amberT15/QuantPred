@@ -25,13 +25,10 @@ def get_true_pred(run_path, testset):
         all_pred.append(p)
     return np.concatenate(all_truth), np.concatenate(all_pred)
 
-def eval_at_resolution():
-    # N, L, C  = truth_6k.shape
-    # eval_bin = 2048
-    # binned_truth = truth_6k.reshape(N, 2048*3//eval_bin, eval_bin//bin_size_orig, C).mean(axis=2)
-    # N, L, C  = pred_6k.shape
-    # binned_pred = pred_6k.reshape(N, 2048*3//eval_bin, eval_bin//bin_size_orig, C).mean(axis=2)
-    pass
+def change_resolution(truth, bin_size_orig, eval_bin):
+    N, L, C  = truth.shape
+    binned_truth = truth.reshape(N, L*bin_size_orig//eval_bin, eval_bin//bin_size_orig, C).mean(axis=2)
+    return (binned_truth)
 
 def split_into_2k_chunks(x, input_size=2048):
     N = tf.shape(x)[0]
@@ -59,7 +56,10 @@ def get_performance(all_truth, all_pred, targets, testset_type):
     js_per_seq = metrics.get_js_per_seq(all_truth, all_pred).mean(axis=0)
     js_conc = metrics.get_js_concatenated(all_truth, all_pred)
     poiss = metrics.get_poiss_nll(all_truth, all_pred).mean(axis=1).mean(axis=0)
-    pr = choose_pr_func(testset_type)(all_truth, all_pred)
+    try:
+        pr = choose_pr_func(testset_type)(all_truth, all_pred)
+    except ValueError:
+        pr = [np.nan for i in range(len(poiss))]
     performance = {'mse': mse, 'js_per_seq': js_per_seq, 'js_conc': js_conc,
                     'poiss': poiss, 'pr': pr, 'targets':targets}
     return pd.DataFrame(performance)
@@ -89,10 +89,13 @@ def evaluate_run_whole(run_path, testset, targets):
     truth, raw_pred = get_true_pred(run_path, testset)
     # get scales predictions
     scaling_factors = get_scaling_factors(truth, raw_pred)
-    scaled_pred = raw_pred * scaling_factors
-    complete_performance = get_performance_raw_scaled(truth, targets, {'raw': raw_pred,
-                                                      'scaled': scaled_pred},
-                                                      'whole')
+    if (np.isfinite(scaling_factors)).sum() == len(scaling_factors): # if all factors are ok
+        scaled_pred = raw_pred * scaling_factors
+        sets_to_process = {'raw': raw_pred, 'scaled': scaled_pred}
+    else:
+        sets_to_process = {'raw': raw_pred}
+    complete_performance = get_performance_raw_scaled(truth, targets,
+                                                      sets_to_process, 'whole')
     return (complete_performance, scaling_factors)
 
 def extract_datasets(path_pattern='/mnt/1a18a49e-9a31-4dbf-accd-3fb8abbfab2d/shush/15_IDR_test_sets_6K/cell_line_*/i_6144_w_1/'):
@@ -152,17 +155,25 @@ def evaluate_run_whole_idr(run_dir, testset, targets, target_dataset_idr):
     n_rows = combined_performance.shape[0]
     metadata_broadcasted = pd.DataFrame(np.repeat(metadata.values, n_rows, axis=0), columns=metadata.columns)
     combined_performance_w_metadata = pd.concat([combined_performance, metadata_broadcasted], axis=1)
-    return combined_performance_w_metadata
+    # save scaling factors
+    scaling_factors_per_cell = pd.DataFrame(zip(targets, scaling_factors,
+                                            [run_dir for i in range(len(scaling_factors))]))
+    return (combined_performance_w_metadata, scaling_factors_per_cell)
 
 def process_run_list(run_dirs, output_summary_filepath):
     # get datasets
     testset, targets, target_dataset_idr = collect_datasets()
     # process runs
     all_run_summaries = []
+    all_scale_summaries = []
     for run_dir in run_dirs:
-        run_summary = evaluate_run_whole_idr(run_dir, testset, targets, target_dataset_idr)
+        print(run_dir)
+        run_summary, scale_summary = evaluate_run_whole_idr(run_dir, testset, targets, target_dataset_idr)
         all_run_summaries.append(run_summary)
+        all_scale_summaries.append(scale_summary)
     pd.concat(all_run_summaries).to_csv(output_summary_filepath, index=False)
+    pd.concat(all_scale_summaries).to_csv(output_summary_filepath.replace('.csv', 'SCALES.csv'), index=False)
+
 
 def collect_run_dirs(project_name, wandb_dir='/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/*/*'):
     wandb.login()
@@ -171,15 +182,27 @@ def collect_run_dirs(project_name, wandb_dir='/mnt/31dac31c-c4e2-4704-97bd-0788a
     run_dirs = [glob.glob(wandb_dir+run.id)[0] for run in runs]
     return run_dirs
 
-if __name__ == '__main__':
-    run_dirs = []
-    res_dir = 'summary_metrics_tables' # output dir
-    # wandb_project_name = 'AUGMENTATION_BIN_SIZE' # project name in wandb
-    wandb_project_name = 'TEST'
-    csv_filename = wandb_project_name + '.csv'
+def collect_sweep_dirs(sweep_id, wandb_dir='/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/*/*'):
+    api = wandb.Api()
+    sweep = api.sweep(sweep_id)
+    sweep_runs = sweep.runs
+    run_dirs = [glob.glob(wandb_dir+run.id)[0] for run in sweep_runs]
+    return run_dirs
 
-    result_path = os.path.join(res_dir, csv_filename)
+
+if __name__ == '__main__':
+    run_dirs = ['/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/wandb_elzar/run-20210923_162932-56p3xy2p',
+                '/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/wandb_elzar/run-20210923_163101-7qjhy0ff',
+                '/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/wandb_elzar/run-20210923_162940-pxy34wg8',
+                '/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/wandb_elzar/run-20210923_162941-e3f2p92u',
+                '/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/wandb_elzar/run-20210923_162937-r3jvc9kj']
+    output_dir = 'summary_metrics_tables' # output dir
+    util.make_dir(output_dir)
+    wandb_project_name = 'BASENJI_BIN_LOSS_256' # project name in wandb
+    csv_filename = wandb_project_name + '.csv'
+    result_path = os.path.join(output_dir, csv_filename)
     testset, targets, target_dataset_idr = collect_datasets()
     if len(run_dirs) == 0:
         run_dirs = collect_run_dirs(wandb_project_name)
+        print(run_dirs)
     process_run_list(run_dirs, result_path)
