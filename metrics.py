@@ -26,7 +26,7 @@ def get_pearsonr_concatenated(all_truth, all_pred):
         pr_all.append(pr)
     return np.array(pr_all)
 
-def get_pearsonr_per_seq(all_truth, all_pred):
+def get_pearsonr_per_seq(all_truth, all_pred, take_avg=True):
     avg_per_cell_line = []
     N,L,C = all_truth.shape
     for c in range(C):
@@ -34,7 +34,10 @@ def get_pearsonr_per_seq(all_truth, all_pred):
         for n in range(N):
             pr = stats.pearsonr(all_truth[n,:,c], all_pred[n,:,c])[0]
             pr_values.append(pr)
-        avg_per_cell_line.append(np.nanmean(pr_values))
+        if take_avg:
+            avg_per_cell_line.append(np.nanmean(pr_values))
+        else:
+            avg_per_cell_line.append(pr_values)
     return avg_per_cell_line
 
 def get_mse(a, b):
