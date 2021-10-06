@@ -661,7 +661,7 @@ def bpnet(input_shape, output_shape, wandb_config={}):
     # filtN_1 [64, 128,256]
     # trnaspose kernel_size [7, 17, 25]
     config = {'strand_num': 1, 'filtN_1': 256, 'kern_1': 25,
-              'kern_2': 3, 'kern_3': 25,'layer_num':10}
+              'kern_2': 3, 'kern_3': 7,'layer_num':10}
     for k in config.keys():
         if k in wandb_config.keys():
             config[k] = wandb_config[k]
