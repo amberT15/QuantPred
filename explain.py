@@ -167,13 +167,13 @@ def batch_robustness_test(selected_read,selected_target,model,visualize = True,g
         sep_saliency =np.array(np.array_split(shift_saliency_1k,batch_n))
         average_saliency = np.average(np.array(sep_saliency),axis = 1)
 
-        var_saliency = np.std(np.sum(sep_saliency,axis = -1),axis = 1)
+        var_saliency = np.var(np.sum(sep_saliency,axis = -1),axis = 1)
         var_saliency_sum = np.sum(var_saliency,axis = 1)
 
         #get pred 1k part
         shift_pred_1k=tf.gather_nd(shift_pred[range(shift_pred.shape[0]),:,max_task],crop_f_index)
         sep_pred = np.array(np.array_split(shift_pred_1k,batch_n))
-        var_pred = np.std(sep_pred,axis = 1)
+        var_pred = np.var(sep_pred,axis = 1)
         var_pred_sum = np.sum(var_pred,axis = 1)
 
         #add var result to list
@@ -384,50 +384,6 @@ def vcf_test(ref,alt,coords,model,background_size = 100):
     df['background'] = background_distribution
     return df
 
-def vcf_maxdiff(ref,alt,model,background_size = 100):
-    ref_pred = model.predict(ref)
-    alt_pred = model.predict(alt)
-
-    diff_pred = ref_pred - alt_pred
-    idx = diff_pred.reshape(diff_pred.shape[0],-1).argmax(-1)
-    out = np.unravel_index(idx,diff_pred.shape[-2:])
-    max_diff = diff_pred[range(0,len(diff_pred)),out[0],out[1]]
-    return(max_diff)
-    print(max_diff.shape)
-    #max_diff = np.argmax(diff_pred,axis = (1,2))
-    #print(max_diff.shape)
-    # ref_max_cov = ref_pred_cov[max_task]
-    # alt_max_cov = alt_pred_cov[max_task]
-
-    #return diff_pred[max_task]
-    # d = {'chromosome': coords[:,0], 'start': coords[:,1],'end':coords[:,2]}
-    # df = pd.DataFrame(data=d)
-    #
-    # df['ref'] = ref_max_cov
-    # df['alt'] = alt_max_cov
-    #
-    # #mutate very edge regions
-    # background_distribution = []
-    # for i,ref_seq in enumerate(ref):
-    #     mut_loci = np.random.randint(500,1023,size = background_size)
-    #     direction = np.random.choice([-1,1],size = background_size)
-    #     mut_loci = len(ref_seq)/2 + mut_loci * direction
-    #     mut_loci = mut_loci.astype('int')
-    #     mut_batch = np.tile(ref_seq,(background_size,1,1))
-    #     mut_row = mut_batch[range(0,background_size),mut_loci]
-    #     ori_empty_base = np.where(mut_row!= 1)[1].reshape(mut_row.shape[0],3)
-    #     mut_base = np.apply_along_axis(np.random.choice, axis=1, arr=ori_empty_base, size=1)
-    #     mut_batch[range(0,background_size),mut_loci] = [0,0,0,0]
-    #     mut_batch[range(0,background_size),mut_loci,mut_base] = 1
-    #
-    #     mut_pred = model.predict(mut_batch)
-    #     mut_pred_cov = np.sum(mut_pred,axis =1)[:,max_task[i]]
-    #     background_distribution.append(mut_pred_cov)
-    #
-    # df['background'] = background_distribution
-    # return df
-
-
 def visualize_vcf(ref,alt,model,background_size = 100,title = None):
     #ref and alternative prediction for the task with most signal
     ref = tf.expand_dims(ref,axis=0)
@@ -476,8 +432,22 @@ def vcf_pct(vcf_df):
         small_pct = len(np.where(np.array(vcf_df['background'][i]) < alt)[0])
         large_pct = len(np.where(np.array(vcf_df['background'][i]) > alt)[0])
         pct_list.append(np.minimum(small_pct,large_pct)/100)
+    vcf_df['pct'] = pct_list
+    return vcf_df
 
-    return pct_list
+def merge_background_vcf(vcf_df):
+    centered_background = vcf_df['background'] - vcf_df['ref']
+    centered_background = np.concatenate(centered_background)
+    centered_alt = np.array(vcf_df['alt'] - vcf_df['ref'])
+
+    pct_merged = []
+    for alt_i in centered_alt:
+        small_pct = len(np.where(centered_background < alt_i)[0])
+        large_pct = len(np.where(centered_background > alt_i)[0])
+        pct_merged.append(np.minimum(small_pct,large_pct)/len(centered_background))
+
+    vcf_df['pct_merged'] = pct_merged
+    return vcf_df
 
 def complete_saliency(X,model,class_index,func = tf.math.reduce_mean):
   """fast function to generate saliency maps"""
