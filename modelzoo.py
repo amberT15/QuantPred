@@ -656,7 +656,7 @@ class GELU(tf.keras.layers.Layer):
         # return tf.keras.activations.sigmoid(1.702 * x) * x
         return tf.keras.activations.sigmoid(tf.constant(1.702) * x) * x
 
-def bpnet(input_shape, output_shape, wandb_config={}):
+def bpnet(input_shape, output_shape, wandb_config={},softplus = False):
 
     # filtN_1 [64, 128,256]
     # trnaspose kernel_size [7, 17, 25]
@@ -695,7 +695,8 @@ def bpnet(input_shape, output_shape, wandb_config={}):
     outputs = tf.keras.layers.concatenate(outputs)
 
     #TEMP for poisson
-    outputs = tf.keras.layers.Activation('softplus')(outputs)
+    if softplus == True:
+        outputs = tf.keras.layers.Activation('softplus')(outputs)
     #outputs = keras.layers.Reshape((output_shape))(outputs)
     model = keras.models.Model([input],outputs)
     return model

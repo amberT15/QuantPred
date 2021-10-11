@@ -71,6 +71,8 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   with open(json_path) as json_file:
     params = json.load(json_file)
 
+  if loss_type_str == 'poisson' and model_name_str == 'bpnet':
+    model = model((window_size, 4),(output_len, params['num_targets']), wandb_config=config, softplus == True)
   model = model((window_size, 4),(output_len, params['num_targets']), wandb_config=config)
 
   if not model:
