@@ -31,8 +31,7 @@ saliency_file = h5py.File('./datasets/VCF/saliency_eval_'+id+'.h5','w')
 pred_file = h5py.File('./datasets/VCF/pred_eval_'+id+'.h5','w')
 
 model = modelzoo.load_model(model_path,compile=True)
-var_saliency,var_pred = explain.batch_robustness_test(x,y,
-                                                  model,visualize = False,shift_num =10)
+var_saliency,var_pred = explain.batch_robustness_test(x,y,model,batch_size = 30,visualize = False,shift_num =10)
 
 saliency_file.create_dataset('variance',data = var_saliency)
 pred_file.create_dataset('variance',data = var_pred)

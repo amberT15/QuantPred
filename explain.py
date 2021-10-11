@@ -187,21 +187,21 @@ def batch_robustness_test(selected_read,selected_target,model,visualize = True,g
                 fig, (ax1, ax2,ax3) = plt.subplots(3,1,figsize = (15,15))
                 if ground_truth == True:
                     #plot ground truth pred
-                    sns.lineplot(x = range(500,1024),
-                                y = np.squeeze(target[a,:,short_max_task[a]])[1524:2048],ax = ax1,color = 'black')
-                    #sns.lineplot(x = range(0,1024),y = np.squeeze(target[a,:,short_max_task[a]]),ax = ax1,color = 'black')
+                    # sns.lineplot(x = range(500,1024),
+                    #             y = np.squeeze(target[a,:,short_max_task[a]])[1524:2048],ax = ax1,color = 'black')
+                    sns.lineplot(x = range(0,1024),y = np.squeeze(target[a,:,short_max_task[a]]),ax = ax1,color = 'black')
                     ax1.set(xlabel='Position', ylabel='Coverage')
 
 
                 for shift_n in range(0,shift_num):
                     #visualize prediction
-                    # sns.lineplot(x = center_range + shift_idx[a*shift_num+shift_n],
-                    #              y = shift_pred[a*shift_num + shift_n,:,short_max_task[a]],ax = ax1,
-                    #              alpha = 0.35)
-                    shift_i = shift_idx[a*shift_num+shift_n]
-                    sns.lineplot(x = range(500,1024),
-                                y = shift_pred[a*shift_num + shift_n,:,short_max_task[a]][512-shift_i+500:1536-shift_i],
-                                ax = ax1,alpha = 0.35)
+                    sns.lineplot(x = center_range + shift_idx[a*shift_num+shift_n],
+                                 y = shift_pred[a*shift_num + shift_n,:,short_max_task[a]],ax = ax1,
+                                 alpha = 0.35)
+                    # shift_i = shift_idx[a*shift_num+shift_n]
+                    # sns.lineplot(x = range(500,1024),
+                    #             y = shift_pred[a*shift_num + shift_n,:,short_max_task[a]][512-shift_i+500:1536-shift_i],
+                    #             ax = ax1,alpha = 0.35)
 
                     #visualize saliency
                     tmp_saliency = shift_saliency[a*shift_num + shift_n]
