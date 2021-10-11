@@ -42,9 +42,21 @@ def profile_to_binary(run_dir,binary_data_dir):
     pred_profile = model.predict(test_x)
     pred_cov = np.sum(pred_profile,axis=1)
 
-    peak_idx = np.nonzero(test_y)
-    flat_idx = np.where(test_y == 0)
+    exp_num = pred_cov.shape[-1]
 
-    peak_cov = pred_cov[peak_idx]
-    flat_cov = pred_cov[flat_idx]
-    return peak_cov,flat_cov
+    p_profile = []
+    f_profile = []
+    for exp in range(0,exp_num):
+        exp_pred_cov = pred_cov[:,exp]
+        exp_target_label = test_y[:,exp]
+
+        peak_idx = np.nonzero(exp_target_label)
+        flat_idx = np.where(exp_target_label == 0)
+
+        peak_cov = exp_pred_cov[peak_idx]
+        flat_cov = exp_pred_cov[flat_idx]
+
+        p_profile.append(np.array(peak_cov))
+        f_profile.append(np.array(flat_cov))
+
+    return p_profile,f_profile
