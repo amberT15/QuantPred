@@ -160,20 +160,37 @@ def evaluate_run_whole_idr(run_dir, testset, targets, target_dataset_idr):
                                             [run_dir for i in range(len(scaling_factors))]))
     return (combined_performance_w_metadata, scaling_factors_per_cell)
 
+def check_best_model_exists(run_dirs, error_output_filepath):
+    bad_runs = []
+    for run_dir in run_dirs:
+        model_path = os.path.join(run_dir, 'files', 'best_model.h5')
+        if not os.path.isfile(model_path):
+            bad_runs.append(run_dir)
+            print('No saved model found, skipping run at '+ run_dir)
+    if len(bad_runs)>0:
+        util.writ_list_to_file(bad_runs, error_output_filepath)
+    return bad_runs
+
+
 def process_run_list(run_dirs, output_summary_filepath):
     # get datasets
     testset, targets, target_dataset_idr = collect_datasets()
+    #check runs
+    bad_runs = check_best_model_exists(run_dirs, output_summary_filepath.replace('.csv', '_ERROR.txt'))
     # process runs
     all_run_summaries = []
     all_scale_summaries = []
     for run_dir in run_dirs:
-        print(run_dir)
-        run_summary, scale_summary = evaluate_run_whole_idr(run_dir, testset, targets, target_dataset_idr)
-        all_run_summaries.append(run_summary)
-        all_scale_summaries.append(scale_summary)
-    pd.concat(all_run_summaries).to_csv(output_summary_filepath, index=False)
-    pd.concat(all_scale_summaries).to_csv(output_summary_filepath.replace('.csv', 'SCALES.csv'), index=False)
-
+        if run_dir not in bad_runs:
+            print(run_dir)
+            run_summary, scale_summary = evaluate_run_whole_idr(run_dir, testset, targets, target_dataset_idr)
+            all_run_summaries.append(run_summary)
+            all_scale_summaries.append(scale_summary)
+    if len(all_run_summaries)>0:
+        pd.concat(all_run_summaries).to_csv(output_summary_filepath, index=False)
+        pd.concat(all_scale_summaries).to_csv(output_summary_filepath.replace('.csv', '_SCALES.csv'), index=False)
+    else:
+        print('No runs with saved models found!')
 
 def collect_run_dirs(project_name, wandb_dir='/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/*/*'):
     wandb.login()
@@ -191,18 +208,26 @@ def collect_sweep_dirs(sweep_id, wandb_dir='/mnt/31dac31c-c4e2-4704-97bd-0788af3
 
 
 if __name__ == '__main__':
-    run_dirs = ['/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/wandb_elzar/run-20210923_162932-56p3xy2p',
-                '/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/wandb_elzar/run-20210923_163101-7qjhy0ff',
-                '/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/wandb_elzar/run-20210923_162940-pxy34wg8',
-                '/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/wandb_elzar/run-20210923_162941-e3f2p92u',
-                '/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/wandb_elzar/run-20210923_162937-r3jvc9kj']
+    run_dirs = []
+    dir_of_all_runs = '/home/amber/QuantPred/paper_wandb/augmentation_48'
     output_dir = 'summary_metrics_tables' # output dir
     util.make_dir(output_dir)
-    wandb_project_name = 'BASENJI_BIN_LOSS_256' # project name in wandb
-    csv_filename = wandb_project_name + '.csv'
-    result_path = os.path.join(output_dir, csv_filename)
+    # project name in wandb or name to use for saving if list of runs provided
+    project_name = 'XXX'
+
     testset, targets, target_dataset_idr = collect_datasets()
-    if len(run_dirs) == 0:
-        run_dirs = collect_run_dirs(wandb_project_name)
+    # if pre-assembled directory of runs given then take all
+    if os.path.isdir(dir_of_all_runs):
+        run_dirs = [os.path.join(dir_of_all_runs, d) for d in os.listdir(dir_of_all_runs)
+                    if os.path.isfile(os.path.join(dir_of_all_runs, d, 'files/best_model.h5'))]
+        project_name = os.path.basename(dir_of_all_runs)
+        print('SELECTED ALL RUNS IN DIRECTORY: ' + dir_of_all_runs)
+
+    # else check if list of runs also is absent then collect runs
+    elif len(run_dirs) == 0:
+        run_dirs = collect_run_dirs(project_name)
         print(run_dirs)
+    csv_filename = project_name + '.csv'
+    result_path = os.path.join(output_dir, csv_filename)
+    print(result_path)
     process_run_list(run_dirs, result_path)
