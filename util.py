@@ -30,6 +30,11 @@ def make_dir(dir_path):
         os.mkdir(dir_path)
     return dir_path
 
+def writ_list_to_file(string_list, file):
+    with open(file, 'w') as filehandle:
+        for line in string_list:
+            filehandle.write(line)
+
 def replace_all(text):
     dic = {'X': '23', 'Y': '24'}
     for i, j in dic.items():
