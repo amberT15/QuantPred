@@ -1,0 +1,102 @@
+2021-09-19 12:54:25,111 INFO    Thread-343:3577117 [wandb_setup.py:_flush():69] setting env: {'root_dir': '/grid/koo/home/toneyan/profile/QuantPred', 'entity': 'toneyan', 'project': 'FINETUNE_BASENJIW1b64_POISSON_AUGM_E40', 'run_id': 'doeero7k', 'sweep_param_path': '/grid/koo/home/toneyan/profile/QuantPred/wandb/sweep-6c2mqhnm/config-doeero7k.yaml', 'sweep_id': '6c2mqhnm'}
+2021-09-19 12:54:25,111 INFO    Thread-343:3577117 [wandb_setup.py:_flush():69] setting login settings: {}
+2021-09-19 12:54:25,111 INFO    Thread-343:3577117 [wandb_init.py:_log_setup():337] Logging user logs to /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_125425-doeero7k/logs/debug.log
+2021-09-19 12:54:25,111 INFO    Thread-343:3577117 [wandb_init.py:_log_setup():338] Logging internal logs to /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_125425-doeero7k/logs/debug-internal.log
+2021-09-19 12:54:25,112 INFO    Thread-343:3577117 [wandb_init.py:init():370] calling init triggers
+2021-09-19 12:54:25,112 INFO    Thread-343:3577117 [wandb_init.py:init():377] wandb.init called with sweep_config: {'add_dropout': True, 'bin_size': 1, 'data_dir': 'datasets/complete/random_chop/i_3072_w_1/', 'filtN_1': 128, 'filtN_2': 256, 'filtN_3': 256, 'filtN_4': 128, 'filtN_5': 1024, 'l_rate': 0.001, 'loss_fn': 'poisson', 'model_fn': 'basenji_w1_b64', 'num_epochs': 40, 'window_size': 2048}
+config: {}
+2021-09-19 12:54:25,112 INFO    Thread-343:3577117 [wandb_init.py:init():419] starting backend
+2021-09-19 12:54:25,112 INFO    Thread-343:3577117 [backend.py:_multiprocessing_setup():72] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2021-09-19 12:54:25,115 INFO    Thread-343:3577117 [backend.py:ensure_launched():135] starting backend process...
+2021-09-19 12:54:25,135 INFO    Thread-343:3577117 [backend.py:ensure_launched():140] started backend process with pid: 2046057
+2021-09-19 12:54:25,136 INFO    Thread-343:3577117 [wandb_init.py:init():424] backend started and connected
+2021-09-19 12:54:25,138 INFO    Thread-343:3577117 [wandb_run.py:_config_callback():872] config_cb None None {'add_dropout': True, 'bin_size': 1, 'data_dir': 'datasets/complete/random_chop/i_3072_w_1/', 'filtN_1': 128, 'filtN_2': 256, 'filtN_3': 256, 'filtN_4': 128, 'filtN_5': 1024, 'l_rate': 0.001, 'loss_fn': 'poisson', 'model_fn': 'basenji_w1_b64', 'num_epochs': 40, 'window_size': 2048}
+2021-09-19 12:54:25,139 INFO    Thread-343:3577117 [wandb_init.py:init():472] updated telemetry
+2021-09-19 12:54:25,139 INFO    Thread-343:3577117 [wandb_init.py:init():491] communicating current version
+2021-09-19 12:54:25,701 INFO    Thread-343:3577117 [wandb_init.py:init():496] got version response upgrade_message: "wandb version 0.12.2 is available!  To upgrade, please run:\n $ pip install wandb --upgrade"
+
+2021-09-19 12:54:25,702 INFO    Thread-343:3577117 [wandb_init.py:init():504] communicating run to backend with 30 second timeout
+2021-09-19 12:54:33,685 INFO    Thread-343:3577117 [wandb_init.py:init():529] starting run threads in backend
+2021-09-19 12:54:34,793 INFO    Thread-343:3577117 [wandb_run.py:_console_start():1623] atexit reg
+2021-09-19 12:54:34,794 INFO    Thread-343:3577117 [wandb_run.py:_redirect():1497] redirect: SettingsConsole.REDIRECT
+2021-09-19 12:54:34,794 INFO    Thread-343:3577117 [wandb_run.py:_redirect():1502] Redirecting console.
+2021-09-19 12:54:34,795 ERROR   Thread-343:3577117 [wandb_run.py:_redirect():1561] Failed to redirect.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/wandb_run.py", line 1554, in _redirect
+    out_redir.install()
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/lib/redirect.py", line 709, in install
+    _WSCH.add_fd(self._pipe_read_fd)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/lib/redirect.py", line 659, in add_fd
+    self._register()
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/lib/redirect.py", line 644, in _register
+    old_handler = signal.signal(signal.SIGWINCH, lambda *_: None)
+  File "/usr/lib/python3.6/signal.py", line 47, in signal
+    handler = _signal.signal(_enum_to_int(signalnum), _enum_to_int(handler))
+ValueError: signal only works in main thread
+2021-09-19 12:54:34,795 INFO    Thread-343:3577117 [wandb_init.py:init():554] run started, returning control to user process
+2021-09-19 12:54:35,786 ERROR   Thread-2  :3577117 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 12:54:35,786 ERROR   Thread-2  :3577117 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 12:54:36,910 ERROR   Thread-2  :3577117 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 12:54:36,910 ERROR   Thread-2  :3577117 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 12:54:39,152 ERROR   Thread-2  :3577117 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 12:54:39,152 ERROR   Thread-2  :3577117 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 12:54:39,152 ERROR   Thread-2  :3577117 [retry.py:__call__():126] Retry attempt failed:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/lib/retry.py", line 102, in __call__
+    result = self._call_fn(*args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/internal/internal_api.py", line 133, in execute
+    six.reraise(*sys.exc_info())
+  File "/usr/local/lib/python3.6/dist-packages/six.py", line 719, in reraise
+    raise value
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/internal/internal_api.py", line 127, in execute
+    return self.client.execute(*args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/client.py", line 52, in execute
+    result = self._get_result(document, *args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/client.py", line 60, in _get_result
+    return self.transport.execute(document, *args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/transport/requests.py", line 39, in execute
+    request.raise_for_status()
+  File "/usr/local/lib/python3.6/dist-packages/requests/models.py", line 943, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://api.wandb.ai/graphql
+2021-09-19 12:54:43,277 ERROR   Thread-2  :3577117 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 12:54:43,278 ERROR   Thread-2  :3577117 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 12:54:55,061 ERROR   Thread-2  :3577117 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 12:54:55,062 ERROR   Thread-2  :3577117 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 12:54:56,157 ERROR   Thread-2  :3577117 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 12:54:56,158 ERROR   Thread-2  :3577117 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 12:54:58,499 ERROR   Thread-2  :3577117 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 12:54:58,499 ERROR   Thread-2  :3577117 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 12:54:58,499 ERROR   Thread-2  :3577117 [retry.py:__call__():126] Retry attempt failed:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/lib/retry.py", line 102, in __call__
+    result = self._call_fn(*args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/internal/internal_api.py", line 133, in execute
+    six.reraise(*sys.exc_info())
+  File "/usr/local/lib/python3.6/dist-packages/six.py", line 719, in reraise
+    raise value
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/internal/internal_api.py", line 127, in execute
+    return self.client.execute(*args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/client.py", line 52, in execute
+    result = self._get_result(document, *args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/client.py", line 60, in _get_result
+    return self.transport.execute(document, *args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/transport/requests.py", line 39, in execute
+    request.raise_for_status()
+  File "/usr/local/lib/python3.6/dist-packages/requests/models.py", line 943, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://api.wandb.ai/graphql
+2021-09-19 12:55:05,550 ERROR   Thread-2  :3577117 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 12:55:05,550 ERROR   Thread-2  :3577117 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 12:55:06,662 ERROR   Thread-2  :3577117 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 12:55:06,662 ERROR   Thread-2  :3577117 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 12:55:07,600 INFO    Thread-343:3577117 [wandb_run.py:finish():1293] finishing run toneyan/FINETUNE_BASENJIW1b64_POISSON_AUGM_E40/doeero7k
