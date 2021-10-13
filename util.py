@@ -18,6 +18,7 @@ from collections import OrderedDict
 # import metrics
 import scipy
 import yaml
+from tqdm import tqdm
  ################################################################
  # functions for loading tfr files into tfr dataset
  ################################################################
@@ -360,3 +361,12 @@ class SeabornFig2Grid():
 
     def _resize(self, evt=None):
         self.sg.fig.set_size_inches(self.fig.get_size_inches())
+
+
+def convert_tfr_to_np(testset):
+    all_x = []
+    all_y = []
+    for i, (x, y) in tqdm(enumerate(testset)):
+        all_x.append(x)
+        all_y.append(y)
+    return np.concatenate(all_x), np.concatenate(all_y)
