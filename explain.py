@@ -296,7 +296,7 @@ def vcf_robust(ref,alt,model,shift_num=10,window_size=2048):
 
         #get average pred
         avg_ref = np.mean(ref_pred_1k,axis=0)
-        avt_alt = np.mean(alt_pred_1k,axis=0)
+        avg_alt = np.mean(alt_pred_1k,axis=0)
 
         #get difference between average coverage value
         vcf_diff = np.sum(avg_alt) - np.sum(avg_ref)
