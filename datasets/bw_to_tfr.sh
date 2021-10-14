@@ -87,7 +87,8 @@ echo Running basenji data processing
                     -w $input_pool --local -d $input_downsample --norm $input_norm \
                     --step $input_step --padding $input_padding -p 20 --threshold $threshold \
                     --test_threshold $test_threshold \
-                    --only_chroms $chroms_only
+                    --only_chroms $chroms_only \
+                    --stride_test $stride_test
 
 mv merged_avoid_regions.bed "$output_dir/$output_prefix/"
 mv $bedfile "$output_dir/$output_prefix/"

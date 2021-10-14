@@ -28,23 +28,21 @@ metadata = get_run_metadata(model_path)
 # h5f.create_dataset('Y', data=Y_test)
 # h5f.close()
 
-h5f = h5py.File('/home/shush/profile/QuantPred/datasets/step1K_chr8_thresh2/testset.h5', 'r')
+h5f = h5py.File('./datasets/step1K_chr8_thresh2/step1K_chr8_thresh2.h5', 'r')
 X = h5f['X'][:]
 Y = h5f['Y'][:]
 start_time = time.time()
-variance_saliency, variance_pred = explain.batch_robustness_test(X, Y, model,
+variance_saliency, variance_pred = explain.batch_robustness_test(X[:107,:,:], Y[:107,:,:], model,
                                                                 batch_size=10,
                                                                 visualize=False,
-                                                                shift_num=50)
+                                                                shift_num=10)
 print(np.mean(variance_pred))
 print("--- %s seconds ---" % (time.time() - start_time))
 
 tf.keras.backend.clear_session()
 
 metadata['average predictions variance'] = np.mean(variance_pred)
-metadata['std predictions variance'] = np.std(variance_pred)
 metadata['average saliency variance'] = np.mean(variance_saliency)
-metadata['std saliency variance'] = np.std(variance_saliency)
 
 print(metadata)
-metadata.to_csv(os.path.join(output_directory, id+'.csv'))
+metadata.to_csv(os.path.join(output_directory, id.strip('/')+'.csv'))

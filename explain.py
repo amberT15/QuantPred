@@ -227,7 +227,7 @@ def batch_robustness_test(selected_read,selected_target,model,visualize = True,g
                 plt.tight_layout()
                 plt.show()
 
-    return np.array(var_saliency_list).flatten(),np.array(var_pred_list).flatten()
+    return np.concatenate(var_saliency_list), np.concatenate(var_pred_list)
 
 def plot_saliency(saliency_map):
 
