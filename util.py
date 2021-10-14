@@ -264,7 +264,7 @@ def tfr_to_np(data, choose, array_shape):
         j+=n_seqs
     return data_np
 
-def window_shift(X,Y,window_size,shift_num):
+def window_shift(X,Y,window_size,shift_num,both_seq = False):
     if len(X.shape) == 2:
         X = np.expand_dims(X,axis = 0)
 
@@ -282,6 +282,8 @@ def window_shift(X,Y,window_size,shift_num):
     shift_x = tf.gather_nd(ori_X,f_index)
 
     #shift Y accordingly
+    if both_seq == True and len(Y.shape)==2:
+        Y = np.expand_dims(Y,axis = 0)
     ori_Y = np.repeat(Y,shift_num,axis=0)
     shift_y = tf.gather_nd(ori_Y,f_index)
 

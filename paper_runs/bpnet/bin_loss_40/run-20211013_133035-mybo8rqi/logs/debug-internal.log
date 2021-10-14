@@ -1,0 +1,56 @@
+2021-10-13 13:30:36,888 INFO    MainThread:1616388 [internal.py:wandb_internal():91] W&B internal server running at pid: 1616388, started at: 2021-10-13 13:30:36.885072
+2021-10-13 13:30:36,891 DEBUG   HandlerThread:1616388 [handler.py:handle_request():124] handle_request: check_version
+2021-10-13 13:30:36,892 INFO    WriterThread:1616388 [datastore.py:open_for_write():80] open: /grid/koo/home/ztang/QuantPred/wandb/run-20211013_133035-mybo8rqi/run-mybo8rqi.wandb
+2021-10-13 13:30:36,894 DEBUG   SenderThread:1616388 [sender.py:send():179] send: header
+2021-10-13 13:30:36,894 DEBUG   SenderThread:1616388 [sender.py:send_request():193] send_request: check_version
+2021-10-13 13:30:36,940 DEBUG   SenderThread:1616388 [sender.py:send():179] send: run
+2021-10-13 13:30:37,013 ERROR   SenderThread:1616388 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-10-13 13:30:37,014 ERROR   SenderThread:1616388 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-10-13 13:30:38,329 ERROR   SenderThread:1616388 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-10-13 13:30:38,329 ERROR   SenderThread:1616388 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-10-13 13:30:40,650 ERROR   SenderThread:1616388 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-10-13 13:30:40,651 ERROR   SenderThread:1616388 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-10-13 13:30:40,651 ERROR   SenderThread:1616388 [retry.py:__call__():126] Retry attempt failed:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/lib/retry.py", line 102, in __call__
+    result = self._call_fn(*args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/internal/internal_api.py", line 133, in execute
+    six.reraise(*sys.exc_info())
+  File "/usr/local/lib/python3.6/dist-packages/six.py", line 719, in reraise
+    raise value
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/internal/internal_api.py", line 127, in execute
+    return self.client.execute(*args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/client.py", line 52, in execute
+    result = self._get_result(document, *args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/client.py", line 60, in _get_result
+    return self.transport.execute(document, *args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/transport/requests.py", line 39, in execute
+    request.raise_for_status()
+  File "/usr/local/lib/python3.6/dist-packages/requests/models.py", line 943, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://api.wandb.ai/graphql
+2021-10-13 13:30:44,769 ERROR   SenderThread:1616388 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-10-13 13:30:44,770 ERROR   SenderThread:1616388 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-10-13 13:30:53,229 ERROR   SenderThread:1616388 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-10-13 13:30:53,230 ERROR   SenderThread:1616388 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-10-13 13:31:06,941 DEBUG   HandlerThread:1616388 [handler.py:handle_request():124] handle_request: shutdown
+2021-10-13 13:31:06,941 INFO    HandlerThread:1616388 [handler.py:finish():638] shutting down handler
+2021-10-13 13:31:06,946 INFO    WriterThread:1616388 [datastore.py:close():288] close: /grid/koo/home/ztang/QuantPred/wandb/run-20211013_133035-mybo8rqi/run-mybo8rqi.wandb
+2021-10-13 13:31:12,727 ERROR   SenderThread:1616388 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-10-13 13:31:12,728 ERROR   SenderThread:1616388 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-10-13 13:31:45,290 INFO    SenderThread:1616388 [dir_watcher.py:__init__():168] watching files in: /grid/koo/home/ztang/QuantPred/wandb/run-20211013_133035-mybo8rqi/files
+2021-10-13 13:31:45,290 INFO    SenderThread:1616388 [sender.py:_start_run_threads():719] run started: mybo8rqi with start time 1634146235
+2021-10-13 13:31:45,291 INFO    SenderThread:1616388 [sender.py:finish():945] shutting down sender
+2021-10-13 13:31:45,291 INFO    SenderThread:1616388 [dir_watcher.py:finish():282] shutting down directory watcher
+2021-10-13 13:31:46,290 INFO    SenderThread:1616388 [dir_watcher.py:finish():312] scan: /grid/koo/home/ztang/QuantPred/wandb/run-20211013_133035-mybo8rqi/files
+2021-10-13 13:31:46,291 INFO    SenderThread:1616388 [dir_watcher.py:finish():318] scan save: /grid/koo/home/ztang/QuantPred/wandb/run-20211013_133035-mybo8rqi/files/config.yaml config.yaml
+2021-10-13 13:31:46,291 INFO    SenderThread:1616388 [file_pusher.py:finish():177] shutting down file pusher
+2021-10-13 13:31:46,291 INFO    SenderThread:1616388 [file_pusher.py:join():182] waiting for file pusher
+2021-10-13 13:31:46,708 INFO    Thread-10 :1616388 [upload_job.py:push():137] Uploaded file /grid/koo/home/ztang/QuantPred/wandb/run-20211013_133035-mybo8rqi/files/config.yaml
+2021-10-13 13:31:47,404 INFO    MainThread:1616388 [internal.py:handle_exit():78] Internal process exited
