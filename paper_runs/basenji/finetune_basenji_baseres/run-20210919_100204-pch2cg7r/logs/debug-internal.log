@@ -1,0 +1,236 @@
+2021-09-19 10:02:04,736 INFO    MainThread:2082163 [internal.py:wandb_internal():91] W&B internal server running at pid: 2082163, started at: 2021-09-19 10:02:04.735337
+2021-09-19 10:02:04,738 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: check_version
+2021-09-19 10:02:04,738 INFO    WriterThread:2082163 [datastore.py:open_for_write():80] open: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/run-pch2cg7r.wandb
+2021-09-19 10:02:04,740 DEBUG   SenderThread:2082163 [sender.py:send():179] send: header
+2021-09-19 10:02:04,740 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: check_version
+2021-09-19 10:02:04,783 DEBUG   SenderThread:2082163 [sender.py:send():179] send: run
+2021-09-19 10:02:04,885 INFO    SenderThread:2082163 [dir_watcher.py:__init__():168] watching files in: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files
+2021-09-19 10:02:04,885 INFO    SenderThread:2082163 [sender.py:_start_run_threads():719] run started: pch2cg7r with start time 1632060124
+2021-09-19 10:02:04,886 DEBUG   SenderThread:2082163 [sender.py:send():179] send: summary
+2021-09-19 10:02:04,886 INFO    SenderThread:2082163 [sender.py:_save_file():841] saving file wandb-summary.json with policy end
+2021-09-19 10:02:04,887 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: run_start
+2021-09-19 10:02:05,887 INFO    Thread-8  :2082163 [dir_watcher.py:_on_file_created():216] file/dir created: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files/wandb-summary.json
+2021-09-19 10:02:06,131 DEBUG   HandlerThread:2082163 [meta.py:__init__():39] meta init
+2021-09-19 10:02:06,131 DEBUG   HandlerThread:2082163 [meta.py:__init__():53] meta init done
+2021-09-19 10:02:06,131 DEBUG   HandlerThread:2082163 [meta.py:probe():210] probe
+2021-09-19 10:02:06,137 DEBUG   HandlerThread:2082163 [meta.py:_save_pip():57] save pip
+2021-09-19 10:02:06,138 DEBUG   HandlerThread:2082163 [meta.py:_save_pip():71] save pip done
+2021-09-19 10:02:06,138 DEBUG   HandlerThread:2082163 [meta.py:probe():252] probe done
+2021-09-19 10:02:06,141 DEBUG   SenderThread:2082163 [sender.py:send():179] send: files
+2021-09-19 10:02:06,141 INFO    SenderThread:2082163 [sender.py:_save_file():841] saving file wandb-metadata.json with policy now
+2021-09-19 10:02:06,163 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: stop_status
+2021-09-19 10:02:06,163 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: stop_status
+2021-09-19 10:02:06,201 ERROR   Thread-11 :2082163 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 10:02:06,201 ERROR   Thread-11 :2082163 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 10:02:06,221 ERROR   SenderThread:2082163 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 10:02:06,221 ERROR   SenderThread:2082163 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 10:02:06,888 INFO    Thread-8  :2082163 [dir_watcher.py:_on_file_created():216] file/dir created: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files/output.log
+2021-09-19 10:02:06,889 INFO    Thread-8  :2082163 [dir_watcher.py:_on_file_created():216] file/dir created: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files/requirements.txt
+2021-09-19 10:02:06,889 INFO    Thread-8  :2082163 [dir_watcher.py:_on_file_created():216] file/dir created: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files/wandb-metadata.json
+2021-09-19 10:02:07,263 ERROR   Thread-11 :2082163 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 10:02:07,263 ERROR   Thread-11 :2082163 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 10:02:07,351 ERROR   SenderThread:2082163 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 10:02:07,351 ERROR   SenderThread:2082163 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 10:02:07,351 ERROR   SenderThread:2082163 [retry.py:__call__():126] Retry attempt failed:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/lib/retry.py", line 102, in __call__
+    result = self._call_fn(*args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/internal/internal_api.py", line 133, in execute
+    six.reraise(*sys.exc_info())
+  File "/usr/local/lib/python3.6/dist-packages/six.py", line 719, in reraise
+    raise value
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/internal/internal_api.py", line 127, in execute
+    return self.client.execute(*args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/client.py", line 52, in execute
+    result = self._get_result(document, *args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/client.py", line 60, in _get_result
+    return self.transport.execute(document, *args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/transport/requests.py", line 39, in execute
+    request.raise_for_status()
+  File "/usr/local/lib/python3.6/dist-packages/requests/models.py", line 943, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://api.wandb.ai/graphql
+2021-09-19 10:02:09,335 ERROR   Thread-11 :2082163 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 10:02:09,335 ERROR   Thread-11 :2082163 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 10:02:09,415 ERROR   SenderThread:2082163 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 10:02:09,416 ERROR   SenderThread:2082163 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 10:02:13,551 ERROR   SenderThread:2082163 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 10:02:13,552 ERROR   SenderThread:2082163 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 10:02:14,157 ERROR   Thread-11 :2082163 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 10:02:14,157 ERROR   Thread-11 :2082163 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 10:02:23,123 INFO    Thread-11 :2082163 [upload_job.py:push():137] Uploaded file /tmp/3288845.1.gpu_ded.q/tmp2maw7ul3wandb/3nyl13sr-wandb-metadata.json
+2021-09-19 10:02:34,560 DEBUG   SenderThread:2082163 [sender.py:send():179] send: stats
+2021-09-19 10:02:37,020 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: stop_status
+2021-09-19 10:02:37,020 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: stop_status
+2021-09-19 10:02:37,074 ERROR   SenderThread:2082163 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 10:02:37,074 ERROR   SenderThread:2082163 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 10:02:38,163 ERROR   SenderThread:2082163 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 10:02:38,164 ERROR   SenderThread:2082163 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 10:02:40,246 ERROR   SenderThread:2082163 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 10:02:40,246 ERROR   SenderThread:2082163 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 10:02:40,246 ERROR   SenderThread:2082163 [retry.py:__call__():126] Retry attempt failed:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/lib/retry.py", line 102, in __call__
+    result = self._call_fn(*args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/internal/internal_api.py", line 133, in execute
+    six.reraise(*sys.exc_info())
+  File "/usr/local/lib/python3.6/dist-packages/six.py", line 719, in reraise
+    raise value
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/internal/internal_api.py", line 127, in execute
+    return self.client.execute(*args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/client.py", line 52, in execute
+    result = self._get_result(document, *args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/client.py", line 60, in _get_result
+    return self.transport.execute(document, *args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/transport/requests.py", line 39, in execute
+    request.raise_for_status()
+  File "/usr/local/lib/python3.6/dist-packages/requests/models.py", line 943, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://api.wandb.ai/graphql
+2021-09-19 10:02:44,584 ERROR   SenderThread:2082163 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 10:02:44,585 ERROR   SenderThread:2082163 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 10:02:45,091 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:02:50,192 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:02:54,038 ERROR   SenderThread:2082163 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 10:02:54,039 ERROR   SenderThread:2082163 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 10:02:55,292 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:00,392 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:05,493 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:10,594 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:12,473 ERROR   SenderThread:2082163 [internal_api.py:execute():130] 429 response executing GraphQL.
+2021-09-19 10:03:12,473 ERROR   SenderThread:2082163 [internal_api.py:execute():131] {"error":"rate limit exceeded"}
+
+2021-09-19 10:03:15,694 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:20,795 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:25,896 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:30,996 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:36,097 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:41,198 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:46,298 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:47,631 DEBUG   SenderThread:2082163 [sender.py:send():179] send: telemetry
+2021-09-19 10:03:47,631 DEBUG   SenderThread:2082163 [sender.py:send():179] send: exit
+2021-09-19 10:03:47,632 INFO    SenderThread:2082163 [sender.py:send_exit():287] handling exit code: 1
+2021-09-19 10:03:47,632 INFO    SenderThread:2082163 [sender.py:send_exit():295] send defer
+2021-09-19 10:03:47,632 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,632 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,633 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: defer
+2021-09-19 10:03:47,633 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,633 INFO    HandlerThread:2082163 [handler.py:handle_request_defer():141] handle defer: 0
+2021-09-19 10:03:47,633 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,634 DEBUG   SenderThread:2082163 [sender.py:send():179] send: stats
+2021-09-19 10:03:47,634 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,634 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,636 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,636 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,637 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,637 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,637 DEBUG   SenderThread:2082163 [sender.py:send():179] send: stats
+2021-09-19 10:03:47,638 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,638 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,638 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,638 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: defer
+2021-09-19 10:03:47,638 INFO    SenderThread:2082163 [sender.py:send_request_defer():304] handle sender defer: 0
+2021-09-19 10:03:47,638 INFO    SenderThread:2082163 [sender.py:transition_state():308] send defer: 1
+2021-09-19 10:03:47,639 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: defer
+2021-09-19 10:03:47,639 INFO    HandlerThread:2082163 [handler.py:handle_request_defer():141] handle defer: 1
+2021-09-19 10:03:47,698 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: defer
+2021-09-19 10:03:47,699 INFO    SenderThread:2082163 [sender.py:send_request_defer():304] handle sender defer: 1
+2021-09-19 10:03:47,699 INFO    SenderThread:2082163 [sender.py:transition_state():308] send defer: 2
+2021-09-19 10:03:47,699 DEBUG   SenderThread:2082163 [sender.py:send():179] send: stats
+2021-09-19 10:03:47,700 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: defer
+2021-09-19 10:03:47,700 INFO    HandlerThread:2082163 [handler.py:handle_request_defer():141] handle defer: 2
+2021-09-19 10:03:47,700 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: defer
+2021-09-19 10:03:47,700 INFO    SenderThread:2082163 [sender.py:send_request_defer():304] handle sender defer: 2
+2021-09-19 10:03:47,700 INFO    SenderThread:2082163 [sender.py:transition_state():308] send defer: 3
+2021-09-19 10:03:47,701 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: defer
+2021-09-19 10:03:47,701 INFO    HandlerThread:2082163 [handler.py:handle_request_defer():141] handle defer: 3
+2021-09-19 10:03:47,701 DEBUG   SenderThread:2082163 [sender.py:send():179] send: summary
+2021-09-19 10:03:47,701 INFO    SenderThread:2082163 [sender.py:_save_file():841] saving file wandb-summary.json with policy end
+2021-09-19 10:03:47,702 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: defer
+2021-09-19 10:03:47,702 INFO    SenderThread:2082163 [sender.py:send_request_defer():304] handle sender defer: 3
+2021-09-19 10:03:47,702 INFO    SenderThread:2082163 [sender.py:transition_state():308] send defer: 4
+2021-09-19 10:03:47,702 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: defer
+2021-09-19 10:03:47,702 INFO    HandlerThread:2082163 [handler.py:handle_request_defer():141] handle defer: 4
+2021-09-19 10:03:47,702 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: defer
+2021-09-19 10:03:47,702 INFO    SenderThread:2082163 [sender.py:send_request_defer():304] handle sender defer: 4
+2021-09-19 10:03:47,740 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:47,789 INFO    SenderThread:2082163 [sender.py:transition_state():308] send defer: 5
+2021-09-19 10:03:47,789 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,790 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: defer
+2021-09-19 10:03:47,790 INFO    HandlerThread:2082163 [handler.py:handle_request_defer():141] handle defer: 5
+2021-09-19 10:03:47,790 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: defer
+2021-09-19 10:03:47,790 INFO    SenderThread:2082163 [sender.py:send_request_defer():304] handle sender defer: 5
+2021-09-19 10:03:47,790 INFO    SenderThread:2082163 [dir_watcher.py:finish():282] shutting down directory watcher
+2021-09-19 10:03:47,891 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:47,905 INFO    SenderThread:2082163 [dir_watcher.py:_on_file_modified():229] file/dir modified: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files/wandb-summary.json
+2021-09-19 10:03:47,905 INFO    SenderThread:2082163 [dir_watcher.py:_on_file_modified():229] file/dir modified: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files/config.yaml
+2021-09-19 10:03:47,905 INFO    SenderThread:2082163 [dir_watcher.py:finish():312] scan: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files
+2021-09-19 10:03:47,905 INFO    SenderThread:2082163 [dir_watcher.py:finish():318] scan save: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files/wandb-metadata.json wandb-metadata.json
+2021-09-19 10:03:47,905 INFO    SenderThread:2082163 [dir_watcher.py:finish():318] scan save: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files/config.yaml config.yaml
+2021-09-19 10:03:47,906 INFO    SenderThread:2082163 [dir_watcher.py:finish():318] scan save: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files/requirements.txt requirements.txt
+2021-09-19 10:03:47,906 INFO    SenderThread:2082163 [dir_watcher.py:finish():318] scan save: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files/wandb-summary.json wandb-summary.json
+2021-09-19 10:03:47,910 INFO    SenderThread:2082163 [dir_watcher.py:finish():318] scan save: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files/output.log output.log
+2021-09-19 10:03:47,913 INFO    SenderThread:2082163 [sender.py:transition_state():308] send defer: 6
+2021-09-19 10:03:47,916 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:47,917 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: defer
+2021-09-19 10:03:47,917 INFO    HandlerThread:2082163 [handler.py:handle_request_defer():141] handle defer: 6
+2021-09-19 10:03:47,918 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: defer
+2021-09-19 10:03:47,918 INFO    SenderThread:2082163 [sender.py:send_request_defer():304] handle sender defer: 6
+2021-09-19 10:03:47,918 INFO    SenderThread:2082163 [file_pusher.py:finish():177] shutting down file pusher
+2021-09-19 10:03:48,019 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:48,019 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:48,121 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:48,122 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:48,212 INFO    Thread-14 :2082163 [upload_job.py:push():137] Uploaded file /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files/wandb-summary.json
+2021-09-19 10:03:48,224 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:48,224 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:48,229 INFO    Thread-13 :2082163 [upload_job.py:push():137] Uploaded file /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files/requirements.txt
+2021-09-19 10:03:48,280 INFO    Thread-12 :2082163 [upload_job.py:push():137] Uploaded file /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/files/config.yaml
+2021-09-19 10:03:48,326 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:48,326 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:48,428 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:48,429 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:48,481 INFO    Thread-7  :2082163 [sender.py:transition_state():308] send defer: 7
+2021-09-19 10:03:48,481 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: defer
+2021-09-19 10:03:48,482 INFO    HandlerThread:2082163 [handler.py:handle_request_defer():141] handle defer: 7
+2021-09-19 10:03:48,482 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: defer
+2021-09-19 10:03:48,482 INFO    SenderThread:2082163 [sender.py:send_request_defer():304] handle sender defer: 7
+2021-09-19 10:03:48,531 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:48,613 INFO    SenderThread:2082163 [sender.py:transition_state():308] send defer: 8
+2021-09-19 10:03:48,614 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:48,614 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: defer
+2021-09-19 10:03:48,614 INFO    HandlerThread:2082163 [handler.py:handle_request_defer():141] handle defer: 8
+2021-09-19 10:03:48,615 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: defer
+2021-09-19 10:03:48,615 INFO    SenderThread:2082163 [sender.py:send_request_defer():304] handle sender defer: 8
+2021-09-19 10:03:48,615 INFO    SenderThread:2082163 [sender.py:transition_state():308] send defer: 9
+2021-09-19 10:03:48,615 DEBUG   SenderThread:2082163 [sender.py:send():179] send: final
+2021-09-19 10:03:48,616 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: defer
+2021-09-19 10:03:48,616 DEBUG   SenderThread:2082163 [sender.py:send():179] send: footer
+2021-09-19 10:03:48,616 INFO    HandlerThread:2082163 [handler.py:handle_request_defer():141] handle defer: 9
+2021-09-19 10:03:48,616 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: defer
+2021-09-19 10:03:48,616 INFO    SenderThread:2082163 [sender.py:send_request_defer():304] handle sender defer: 9
+2021-09-19 10:03:48,716 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: poll_exit
+2021-09-19 10:03:48,716 DEBUG   SenderThread:2082163 [sender.py:send_request():193] send_request: poll_exit
+2021-09-19 10:03:48,716 INFO    SenderThread:2082163 [file_pusher.py:join():182] waiting for file pusher
+2021-09-19 10:03:48,718 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: get_summary
+2021-09-19 10:03:48,719 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: sampled_history
+2021-09-19 10:03:48,719 DEBUG   HandlerThread:2082163 [handler.py:handle_request():124] handle_request: shutdown
+2021-09-19 10:03:48,719 INFO    HandlerThread:2082163 [handler.py:finish():638] shutting down handler
+2021-09-19 10:03:49,616 INFO    WriterThread:2082163 [datastore.py:close():288] close: /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210919_100204-pch2cg7r/run-pch2cg7r.wandb
+2021-09-19 10:03:49,717 INFO    SenderThread:2082163 [sender.py:finish():945] shutting down sender
+2021-09-19 10:03:49,717 INFO    SenderThread:2082163 [file_pusher.py:finish():177] shutting down file pusher
+2021-09-19 10:03:49,717 INFO    SenderThread:2082163 [file_pusher.py:join():182] waiting for file pusher
+2021-09-19 10:03:49,719 INFO    MainThread:2082163 [internal.py:handle_exit():78] Internal process exited

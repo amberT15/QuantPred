@@ -1,0 +1,65 @@
+2021-09-28 04:20:40,266 INFO    Thread-18 :280680 [wandb_setup.py:_flush():69] setting env: {'root_dir': '/grid/koo/home/toneyan/profile/QuantPred', 'entity': 'toneyan', 'project': 'BASENJI_TRAINSET_THRESHOLD', 'run_id': '814eo4zt', 'sweep_param_path': '/grid/koo/home/toneyan/profile/QuantPred/wandb/sweep-vsb41k4w/config-814eo4zt.yaml', 'sweep_id': 'vsb41k4w'}
+2021-09-28 04:20:40,266 INFO    Thread-18 :280680 [wandb_setup.py:_flush():69] setting login settings: {}
+2021-09-28 04:20:40,266 INFO    Thread-18 :280680 [wandb_init.py:_log_setup():337] Logging user logs to /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210928_042040-814eo4zt/logs/debug.log
+2021-09-28 04:20:40,266 INFO    Thread-18 :280680 [wandb_init.py:_log_setup():338] Logging internal logs to /grid/koo/home/toneyan/profile/QuantPred/wandb/run-20210928_042040-814eo4zt/logs/debug-internal.log
+2021-09-28 04:20:40,266 INFO    Thread-18 :280680 [wandb_init.py:init():370] calling init triggers
+2021-09-28 04:20:40,266 INFO    Thread-18 :280680 [wandb_init.py:init():377] wandb.init called with sweep_config: {'bin_size': 1, 'data_dir': 'datasets/train_thresholds/threshold_10/i_3072_w_1', 'l_rate': 0.001, 'loss_fn': 'poisson', 'model_fn': 'basenji_w1_b64', 'num_epochs': 100, 'window_size': 2048}
+config: {}
+2021-09-28 04:20:40,266 INFO    Thread-18 :280680 [wandb_init.py:init():419] starting backend
+2021-09-28 04:20:40,266 INFO    Thread-18 :280680 [backend.py:_multiprocessing_setup():72] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2021-09-28 04:20:40,269 INFO    Thread-18 :280680 [backend.py:ensure_launched():135] starting backend process...
+2021-09-28 04:20:40,293 INFO    Thread-18 :280680 [backend.py:ensure_launched():140] started backend process with pid: 773670
+2021-09-28 04:20:40,294 INFO    Thread-18 :280680 [wandb_init.py:init():424] backend started and connected
+2021-09-28 04:20:40,297 INFO    Thread-18 :280680 [wandb_run.py:_config_callback():872] config_cb None None {'bin_size': 1, 'data_dir': 'datasets/train_thresholds/threshold_10/i_3072_w_1', 'l_rate': 0.001, 'loss_fn': 'poisson', 'model_fn': 'basenji_w1_b64', 'num_epochs': 100, 'window_size': 2048}
+2021-09-28 04:20:40,297 INFO    Thread-18 :280680 [wandb_init.py:init():472] updated telemetry
+2021-09-28 04:20:40,298 INFO    Thread-18 :280680 [wandb_init.py:init():491] communicating current version
+2021-09-28 04:20:40,866 INFO    Thread-18 :280680 [wandb_init.py:init():496] got version response upgrade_message: "wandb version 0.12.2 is available!  To upgrade, please run:\n $ pip install wandb --upgrade"
+
+2021-09-28 04:20:40,866 INFO    Thread-18 :280680 [wandb_init.py:init():504] communicating run to backend with 30 second timeout
+2021-09-28 04:20:41,535 INFO    Thread-18 :280680 [wandb_init.py:init():529] starting run threads in backend
+2021-09-28 04:20:42,554 INFO    Thread-18 :280680 [wandb_run.py:_console_start():1623] atexit reg
+2021-09-28 04:20:42,555 INFO    Thread-18 :280680 [wandb_run.py:_redirect():1497] redirect: SettingsConsole.REDIRECT
+2021-09-28 04:20:42,555 INFO    Thread-18 :280680 [wandb_run.py:_redirect():1502] Redirecting console.
+2021-09-28 04:20:42,556 ERROR   Thread-18 :280680 [wandb_run.py:_redirect():1561] Failed to redirect.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/wandb_run.py", line 1554, in _redirect
+    out_redir.install()
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/lib/redirect.py", line 709, in install
+    _WSCH.add_fd(self._pipe_read_fd)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/lib/redirect.py", line 659, in add_fd
+    self._register()
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/lib/redirect.py", line 644, in _register
+    old_handler = signal.signal(signal.SIGWINCH, lambda *_: None)
+  File "/usr/lib/python3.6/signal.py", line 47, in signal
+    handler = _signal.signal(_enum_to_int(signalnum), _enum_to_int(handler))
+ValueError: signal only works in main thread
+2021-09-28 04:20:42,556 INFO    Thread-18 :280680 [wandb_init.py:init():554] run started, returning control to user process
+2021-09-28 07:21:45,912 ERROR   Thread-2  :280680 [internal_api.py:execute():130] 500 response executing GraphQL.
+2021-09-28 07:21:45,926 ERROR   Thread-2  :280680 [internal_api.py:execute():131] {"error":"Error 1053: Server shutdown in progress"}
+
+2021-09-28 07:22:42,124 ERROR   Thread-2  :280680 [internal_api.py:execute():130] 500 response executing GraphQL.
+2021-09-28 07:22:42,124 ERROR   Thread-2  :280680 [internal_api.py:execute():131] {"error":"context deadline exceeded"}
+
+2021-09-28 07:23:39,216 ERROR   Thread-2  :280680 [internal_api.py:execute():130] 500 response executing GraphQL.
+2021-09-28 07:23:39,217 ERROR   Thread-2  :280680 [internal_api.py:execute():131] {"error":"context deadline exceeded"}
+
+2021-09-28 07:23:39,217 ERROR   Thread-2  :280680 [retry.py:__call__():126] Retry attempt failed:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/lib/retry.py", line 102, in __call__
+    result = self._call_fn(*args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/internal/internal_api.py", line 133, in execute
+    six.reraise(*sys.exc_info())
+  File "/usr/local/lib/python3.6/dist-packages/six.py", line 719, in reraise
+    raise value
+  File "/usr/local/lib/python3.6/dist-packages/wandb/sdk/internal/internal_api.py", line 127, in execute
+    return self.client.execute(*args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/client.py", line 52, in execute
+    result = self._get_result(document, *args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/client.py", line 60, in _get_result
+    return self.transport.execute(document, *args, **kwargs)
+  File "/usr/local/lib/python3.6/dist-packages/wandb/vendor/gql-0.2.0/gql/transport/requests.py", line 39, in execute
+    request.raise_for_status()
+  File "/usr/local/lib/python3.6/dist-packages/requests/models.py", line 943, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 500 Server Error: Internal Server Error for url: https://api.wandb.ai/graphql
+2021-09-28 08:18:15,396 INFO    Thread-18 :280680 [wandb_run.py:finish():1293] finishing run toneyan/BASENJI_TRAINSET_THRESHOLD/814eo4zt

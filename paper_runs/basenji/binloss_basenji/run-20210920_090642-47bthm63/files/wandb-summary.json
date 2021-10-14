@@ -1,0 +1,1 @@
+{"train_loss": -0.7133182883262634, "train_mse": 169196.625, "train_pearsonr": 0.7051353454589844, "train_poisson": 351.63348388671875, "val_loss": -0.6511066555976868, "val_mse": 167901.9375, "val_pearsonr": 0.6742030382156372, "val_poisson": 352.04608154296875, "_runtime": 17626, "_timestamp": 1632160828, "_step": 65}
