@@ -32,10 +32,10 @@ h5f = h5py.File('./datasets/step1K_chr8_thresh2/step1K_chr8_thresh2.h5', 'r')
 X = h5f['X'][:]
 Y = h5f['Y'][:]
 start_time = time.time()
-variance_saliency, variance_pred = explain.batch_robustness_test(X[:107,:,:], Y[:107,:,:], model,
-                                                                batch_size=10,
+variance_saliency, variance_pred = explain.batch_robustness_test(X, Y, model,
+                                                                batch_size=5,
                                                                 visualize=False,
-                                                                shift_num=10)
+                                                                shift_num=20)
 print(np.mean(variance_pred))
 print("--- %s seconds ---" % (time.time() - start_time))
 
