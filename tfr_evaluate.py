@@ -6,7 +6,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
-from tqdm import tqdm
+# from tqdm import tqdm
 from scipy.spatial import distance
 from scipy import stats
 from test_to_bw_fast import get_config, read_model
@@ -17,7 +17,7 @@ def get_true_pred(run_path, testset):
     model, bin_size = read_model(run_path, compile_model=False)
     all_truth = []
     all_pred = []
-    for i, (x, y) in tqdm(enumerate(testset)):
+    for i, (x, y) in enumerate(testset):
         p = model.predict(x)
         binned_y = util.bin_resolution(y, bin_size)
         y = binned_y.numpy()
@@ -43,11 +43,11 @@ def combine_into_6k_chunks(x, chunk_number=3):
     x_6k = np.reshape(x, (N//chunk_number, chunk_number*L, C))
     return x_6k
 
-def choose_pr_func(testset_type):
+def choose_corr_func(testset_type):
     if testset_type == 'whole':
-        get_pr = metrics.get_pearsonr_concatenated
+        get_pr = metrics.get_correlation_concatenated
     elif testset_type == 'idr':
-        get_pr = metrics.get_pearsonr_per_seq
+        get_pr = metrics.get_correlation_per_seq
     return get_pr
 
 def get_performance(all_truth, all_pred, targets, testset_type):
@@ -57,11 +57,15 @@ def get_performance(all_truth, all_pred, targets, testset_type):
     js_conc = metrics.get_js_concatenated(all_truth, all_pred)
     poiss = metrics.get_poiss_nll(all_truth, all_pred).mean(axis=1).mean(axis=0)
     try:
-        pr = choose_pr_func(testset_type)(all_truth, all_pred)
+        pr_corr = choose_corr_func(testset_type)(all_truth, all_pred,
+                                                corr_type='pearsonr')
+        sp_corr = choose_corr_func(testset_type)(all_truth, all_pred,
+                                                corr_type='spearmanr')
     except ValueError:
-        pr = [np.nan for i in range(len(poiss))]
+        pr_corr = [np.nan for i in range(len(poiss))]
     performance = {'mse': mse, 'js_per_seq': js_per_seq, 'js_conc': js_conc,
-                    'poiss': poiss, 'pr': pr, 'targets':targets}
+                    'poiss': poiss, 'pr_corr': pr_corr, 'sp_corr':sp_corr,
+                    'targets':targets}
     return pd.DataFrame(performance)
 
 def get_scaling_factors(all_truth, all_pred):
@@ -132,7 +136,9 @@ def evaluate_run_idr(run_path, target_dataset, scaling_factors):
 def get_run_metadata(run_dir):
     config = get_config(run_dir)
     relevant_config = {k:[config[k]['value']] for k in config.keys() if k not in ['wandb_version', '_wandb']}
-    return pd.DataFrame(relevant_config)
+    metadata = pd.DataFrame(relevant_config)
+    metadata['run_dir'] = run_dir
+    return metadata
 
 def collect_datasets(data_dir='/home/shush/profile/QuantPred/datasets/chr8/complete/random_chop/i_2048_w_1/'):
     # get testset
