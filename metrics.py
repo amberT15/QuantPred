@@ -16,23 +16,25 @@ import seaborn as sns
 from scipy.spatial import distance
 from scipy import stats
 
-def get_pearsonr_concatenated(all_truth, all_pred):
+
+def get_correlation_concatenated(all_truth, all_pred, corr_type='pearsonr'):
     pr_all = []
     N,L,C = all_truth.shape
     flat_truth = all_truth.reshape(N*L, C)
     flat_pred = all_pred.reshape(N*L, C)
     for c in range(C):
-        pr = stats.pearsonr(flat_truth[:,c], flat_pred[:,c])[0]
+        pr = eval('stats.'+corr_type)(flat_truth[:,c], flat_pred[:,c])[0]
         pr_all.append(pr)
     return np.array(pr_all)
 
-def get_pearsonr_per_seq(all_truth, all_pred, take_avg=True):
+def get_correlation_per_seq(all_truth, all_pred, take_avg=True,
+                            corr_type='pearsonr'):
     avg_per_cell_line = []
     N,L,C = all_truth.shape
     for c in range(C):
         pr_values = []
         for n in range(N):
-            pr = stats.pearsonr(all_truth[n,:,c], all_pred[n,:,c])[0]
+            pr = eval('stats.'+corr_type)(all_truth[n,:,c], all_pred[n,:,c])[0]
             pr_values.append(pr)
         if take_avg:
             avg_per_cell_line.append(np.nanmean(pr_values))
