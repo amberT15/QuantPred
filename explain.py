@@ -387,8 +387,8 @@ def visualize_vcf(ref,alt,model,background_size = 100,title = None):
 
 def complete_saliency(X,model,class_index,func = tf.math.reduce_mean):
   """fast function to generate saliency maps"""
-  if not tf.is_tensor(X):
-    X = tf.Variable(X)
+  # if not tf.is_tensor(X):
+  #   X = tf.Variable(X)
 
   X = tf.cast(X, dtype='float32')
 
