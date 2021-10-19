@@ -365,10 +365,14 @@ class SeabornFig2Grid():
         self.sg.fig.set_size_inches(self.fig.get_size_inches())
 
 
-def convert_tfr_to_np(testset):
-    all_x = []
-    all_y = []
-    for i, (x, y) in tqdm(enumerate(testset)):
-        all_x.append(x)
-        all_y.append(y)
-    return np.concatenate(all_x), np.concatenate(all_y)
+def convert_tfr_to_np(testset, number_data_types=2):
+    all_data = [[] for i in range(number_data_types)]
+    for i, (data) in tqdm(enumerate(testset)):
+        for j, data_type in enumerate(data):
+            all_data[j].append(data_type)
+    return [np.concatenate(d) for d in all_data]
+
+
+def batch_np(whole_dataset, batch_size):
+    for i in range(0, whole_dataset.shape[0], batch_size):
+        yield whole_dataset[i:i+batch_size]
