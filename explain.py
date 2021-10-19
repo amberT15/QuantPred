@@ -11,6 +11,44 @@ import util
 import custom_fit
 import seaborn as sns
 
+def batch_pred_robustness_test(selected_read, model, batch_size=50,
+                               shift_num=10, window_size=2048):
+    var_pred_list = []
+    pred_list = []
+    chop_size = selected_read.shape[1]
+    center_idx = int(0.5*(chop_size-window_size))
+    center_range = np.array(range(center_idx,center_idx+window_size))
+    conserve_size = window_size*2 - chop_size
+    conserve_start = chop_size//2 - conserve_size//2
+    conserve_end = conserve_start + conserve_size-1
+
+    for seq in util.batch_np(selected_read, batch_size):
+        batch_n = seq.shape[0]
+        shifted_seq,_,shift_idx = util.window_shift(seq,seq,window_size,shift_num)
+        #get prediction for shifted read
+        shift_pred = model.predict(shifted_seq)
+        bin_size = window_size / shift_pred.shape[1]
+        shift_pred = np.repeat(shift_pred,bin_size,axis = 1)
+
+        #Select conserve part only
+        crop_start_i = conserve_start - shift_idx - center_idx
+        crop_idx = crop_start_i[:,None] + np.arange(conserve_size)
+        crop_idx = crop_idx.reshape(conserve_size*shift_num*batch_n)
+        crop_row_idx = np.repeat(range(0,shift_num*batch_n),conserve_size)
+        crop_f_index = np.vstack((crop_row_idx,crop_idx)).T.reshape(shift_num*batch_n,conserve_size,2)
+
+        #get pred 1k part
+        shift_pred_1k=tf.gather_nd(shift_pred[range(shift_pred.shape[0]),:,:],crop_f_index)
+        sep_pred = np.array(np.array_split(shift_pred_1k,batch_n))
+        batch_avg_predictions = sep_pred.mean(axis=1)
+        var_pred = np.var(sep_pred,axis = 1)
+        var_pred_sum = np.sum(var_pred,axis = 1)
+
+        #add var result to list
+        var_pred_list.append(var_pred_sum)
+        pred_list.append(batch_avg_predictions)
+    return np.concatenate(pred_list), np.concatenate(var_pred_list)
+
 def task_robustness(selected_read,model, task_idx, batch_size = 50, shift_num = 10, window_size = 2048, visualize = True, smooth_saliency = True):
     var_saliency_list = []
     var_pred_list = []
@@ -145,13 +183,13 @@ def batch_robustness_test(selected_read,selected_target,model,visualize = True,g
         bin_size = window_size / shift_pred.shape[1]
         shift_pred = np.repeat(shift_pred,bin_size,axis = 1)
 
-        #get saliency for shifted read
+        # #get saliency for shifted read
         center_seq,_ = custom_fit.center_crop(seq,seq,window_size)
         center_pred = model.predict(center_seq)
         short_max_task = np.argmax(np.sum(center_pred,axis=1),axis = 1)
         max_task = np.repeat(short_max_task,shift_num)
-        shift_saliency = complete_saliency(shifted_seq,model,class_index = max_task[0])
-        shift_saliency = shift_saliency * shifted_seq
+        # shift_saliency = complete_saliency(shifted_seq,model,class_index = max_task[0])
+        # shift_saliency = shift_saliency * shifted_seq
 
         #Select conserve part only
         crop_start_i = conserve_start - shift_idx - center_idx
@@ -161,13 +199,13 @@ def batch_robustness_test(selected_read,selected_target,model,visualize = True,g
         crop_f_index = np.vstack((crop_row_idx,crop_idx)).T.reshape(shift_num*batch_n,conserve_size,2)
 
         #get saliency 1k part
-        shift_saliency_1k=tf.gather_nd(shift_saliency,crop_f_index)
+        # shift_saliency_1k=tf.gather_nd(shift_saliency,crop_f_index)
 
-        sep_saliency =np.array(np.array_split(shift_saliency_1k,batch_n))
-        average_saliency = np.average(np.array(sep_saliency),axis = 1)
+        # sep_saliency =np.array(np.array_split(shift_saliency_1k,batch_n))
+        # average_saliency = np.average(np.array(sep_saliency),axis = 1)
 
-        var_saliency = np.var(np.sum(sep_saliency,axis = -1),axis = 1)
-        var_saliency_sum = np.sum(var_saliency,axis = 1)
+        # var_saliency = np.var(np.sum(sep_saliency,axis = -1),axis = 1)
+        # var_saliency_sum = np.sum(var_saliency,axis = 1)
 
         #get pred 1k part
         shift_pred_1k=tf.gather_nd(shift_pred[range(shift_pred.shape[0]),:,max_task],crop_f_index)
@@ -176,7 +214,7 @@ def batch_robustness_test(selected_read,selected_target,model,visualize = True,g
         var_pred_sum = np.sum(var_pred,axis = 1)
 
         #add var result to list
-        var_saliency_list.append(var_saliency_sum)
+        # var_saliency_list.append(var_saliency_sum)
         var_pred_list.append(var_pred_sum)
 
         if visualize == True:
@@ -227,7 +265,7 @@ def batch_robustness_test(selected_read,selected_target,model,visualize = True,g
                 plt.tight_layout()
                 plt.show()
 
-    return np.concatenate(var_saliency_list), np.concatenate(var_pred_list)
+    return np.concatenate(var_pred_list)
 
 def plot_saliency(saliency_map):
 
