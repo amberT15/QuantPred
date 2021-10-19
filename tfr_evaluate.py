@@ -13,8 +13,8 @@ from test_to_bw_fast import get_config, read_model
 import util
 import metrics
 
-def get_true_pred(run_path, testset):
-    model, bin_size = read_model(run_path, compile_model=False)
+def get_true_pred(model, bin_size, testset):
+    # model, bin_size = read_model(run_path, compile_model=False)
     all_truth = []
     all_pred = []
     for i, (x, y) in enumerate(testset):
@@ -88,9 +88,9 @@ def get_performance_raw_scaled(truth, targets, pred_labels, eval_type):
     return pd.concat(complete_performance)
 
 
-def evaluate_run_whole(run_path, testset, targets):
+def evaluate_run_whole(model, bin_size, testset, targets):
     # make predictions
-    truth, raw_pred = get_true_pred(run_path, testset)
+    truth, raw_pred = get_true_pred(model, bin_size, testset)
     # get scales predictions
     scaling_factors = get_scaling_factors(truth, raw_pred)
     if (np.isfinite(scaling_factors)).sum() == len(scaling_factors): # if all factors are ok
@@ -115,11 +115,11 @@ def extract_datasets(path_pattern='/mnt/1a18a49e-9a31-4dbf-accd-3fb8abbfab2d/shu
         target_dataset[(int(i), target)] = testset_2K
     return target_dataset
 
-def evaluate_run_idr(run_path, target_dataset, scaling_factors):
+def evaluate_run_idr(model, bin_size, target_dataset, scaling_factors):
     complete_performance = []
     for (i, target), one_testset in target_dataset.items():
         # make predictions and slice the cell line
-        truth, all_pred = get_true_pred(run_path, one_testset)
+        truth, all_pred = get_true_pred(model, bin_size, one_testset)
         raw_pred = np.expand_dims(all_pred[:,:,i], axis=-1)
         truth_6k = combine_into_6k_chunks(truth)
         raw_pred_6k = combine_into_6k_chunks(raw_pred)
@@ -150,10 +150,12 @@ def collect_datasets(data_dir='/home/shush/profile/QuantPred/datasets/chr8/compl
     return (testset, targets, target_dataset_idr)
 
 def evaluate_run_whole_idr(run_dir, testset, targets, target_dataset_idr):
+    # load model
+    model, bin_size = read_model(run_dir, compile_model=False)
     # get performance for the whole chromosome
-    complete_performance_whole, scaling_factors = evaluate_run_whole(run_dir, testset, targets)
+    complete_performance_whole, scaling_factors = evaluate_run_whole(model, bin_size, testset, targets)
     # get performance for the IDR regions only
-    complete_performance_idr = evaluate_run_idr(run_dir, target_dataset_idr, scaling_factors)
+    complete_performance_idr = evaluate_run_idr(model, bin_size, target_dataset_idr, scaling_factors)
     # get metadata for the run
     metadata = get_run_metadata(run_dir)
     # add metadata to performance dataframes
@@ -161,6 +163,7 @@ def evaluate_run_whole_idr(run_dir, testset, targets, target_dataset_idr):
     n_rows = combined_performance.shape[0]
     metadata_broadcasted = pd.DataFrame(np.repeat(metadata.values, n_rows, axis=0), columns=metadata.columns)
     combined_performance_w_metadata = pd.concat([combined_performance, metadata_broadcasted], axis=1)
+    combined_performance_w_metadata['run_dir'] = run_dir
     # save scaling factors
     scaling_factors_per_cell = pd.DataFrame(zip(targets, scaling_factors,
                                             [run_dir for i in range(len(scaling_factors))]))
@@ -215,8 +218,8 @@ def collect_sweep_dirs(sweep_id, wandb_dir='/mnt/31dac31c-c4e2-4704-97bd-0788af3
 
 if __name__ == '__main__':
     run_dirs = []
-    dir_of_all_runs = '/home/amber/QuantPred/paper_wandb/augmentation_48'
-    output_dir = 'summary_metrics_tables' # output dir
+    dir_of_all_runs = '/home/shush/profile/QuantPred/paper_runs/basenji/augmentation_basenji'
+    output_dir = 'results_tfr_evaluate' # output dir
     util.make_dir(output_dir)
     # project name in wandb or name to use for saving if list of runs provided
     project_name = 'XXX'
