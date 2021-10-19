@@ -316,10 +316,10 @@ def vcf_robust(ref,alt,model,shift_num=10,window_size=2048):
         ref_pred = np.repeat(ref_pred,bin_size,axis = 1)
         alt_pred = np.repeat(alt_pred,bin_size,axis = 1)
 
-        #get the maximum cell line that VCF analysis will be done on
-        center_seq,_ = custom_fit.center_crop(ref_seq,alt_seq,window_size)
-        center_pred = model.predict(center_seq)
-        max_task = np.argmax(np.sum(center_pred,axis=1),axis = 1)
+        # #get the maximum cell line that VCF analysis will be done on
+        # center_seq,_ = custom_fit.center_crop(ref_seq,alt_seq,window_size)
+        # center_pred = model.predict(center_seq)
+        # max_task = np.argmax(np.sum(center_pred,axis=1),axis = 1)
 
         #Select conserved part
         crop_start_i = conserve_start - shift_idx - center_idx
@@ -329,15 +329,15 @@ def vcf_robust(ref,alt,model,shift_num=10,window_size=2048):
         crop_f_index = np.vstack((crop_row_idx,crop_idx)).T.reshape(shift_num,conserve_size,2)
 
         #get pred 1k part
-        ref_pred_1k=tf.gather_nd(ref_pred[:,:,max_task],crop_f_index)
-        alt_pred_1k=tf.gather_nd(alt_pred[:,:,max_task],crop_f_index)
+        ref_pred_1k=tf.gather_nd(ref_pred,crop_f_index)
+        alt_pred_1k=tf.gather_nd(alt_pred,crop_f_index)
 
         #get average pred
         avg_ref = np.mean(ref_pred_1k,axis=0)
         avg_alt = np.mean(alt_pred_1k,axis=0)
 
         #get difference between average coverage value
-        vcf_diff = np.sum(avg_alt) - np.sum(avg_ref)
+        vcf_diff = np.sum(avg_alt,axis = 0) - np.sum(avg_ref,axis = 0)
         vcf_diff_list.append(vcf_diff)
 
     return vcf_diff_list
