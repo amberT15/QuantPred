@@ -11,18 +11,26 @@ import util
 import custom_fit
 import seaborn as sns
 
-def batch_pred_robustness_test(selected_read, model, batch_size=50,
+def get_center_coordinates(coord, conserve_start, conserve_end):
+    '''Extract coordinates according to robsutness test procedure'''
+    chrom, start, end = str(np.array(coord)).strip('\"b\'').split('_')
+    start, end = np.arange(int(start), int(end))[[conserve_start,conserve_end]]
+    return (chrom, start, end)
+
+def batch_pred_robustness_test(testset, sts, model, batch_size=50,
                                shift_num=10, window_size=2048):
     var_pred_list = []
     pred_list = []
-    chop_size = selected_read.shape[1]
+    coord_list = []
+    middle_Ys = []
+
+    chop_size = sts['target_length']
     center_idx = int(0.5*(chop_size-window_size))
-    center_range = np.array(range(center_idx,center_idx+window_size))
     conserve_size = window_size*2 - chop_size
     conserve_start = chop_size//2 - conserve_size//2
     conserve_end = conserve_start + conserve_size-1
 
-    for seq in util.batch_np(selected_read, batch_size):
+    for C, seq, Y in testset:
         batch_n = seq.shape[0]
         shifted_seq,_,shift_idx = util.window_shift(seq,seq,window_size,shift_num)
         #get prediction for shifted read
@@ -47,7 +55,9 @@ def batch_pred_robustness_test(selected_read, model, batch_size=50,
         #add var result to list
         var_pred_list.append(var_pred_sum)
         pred_list.append(batch_avg_predictions)
-    return np.concatenate(pred_list), np.concatenate(var_pred_list)
+        coord_list.append([get_center_coordinates(coord, conserve_start, conserve_end) for coord in C])
+        middle_Ys.append(Y.numpy()[:,conserve_start:conserve_end+1,:])
+    return np.concatenate(pred_list),np.concatenate(var_pred_list), np.concatenate(coord_list), np.concatenate(middle_Ys)
 
 def task_robustness(selected_read,model, task_idx, batch_size = 50, shift_num = 10, window_size = 2048, visualize = True, smooth_saliency = True):
     var_saliency_list = []
