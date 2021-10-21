@@ -18,7 +18,7 @@ from collections import OrderedDict
 # import metrics
 import scipy
 import yaml
-from tqdm import tqdm
+
  ################################################################
  # functions for loading tfr files into tfr dataset
  ################################################################
@@ -367,7 +367,7 @@ class SeabornFig2Grid():
 
 def convert_tfr_to_np(testset, number_data_types=2):
     all_data = [[] for i in range(number_data_types)]
-    for i, (data) in tqdm(enumerate(testset)):
+    for i, (data) in enumerate(testset):
         for j, data_type in enumerate(data):
             all_data[j].append(data_type)
     return [np.concatenate(d) for d in all_data]
