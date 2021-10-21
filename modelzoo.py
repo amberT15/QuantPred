@@ -5,7 +5,7 @@ import numpy as np
 import os,yaml
 from loss import *
 import metrics
-
+from tensorflow import keras
 
 def basenjimod(input_shape, output_shape, wandb_config={}):
                #  add_dropout, filtN_1=64, filtN_2=64, filt_mlt=1.125,
@@ -90,48 +90,6 @@ def basenjimod(input_shape, output_shape, wandb_config={}):
         return False
     else:
         return model
-
-
-# def basenji(input_shape, output_shape, augment_rc=True, augment_shift=3):
-#     """
-#     Basenji model turned into a single function.
-#     inputs (None, seq_length, 4)
-#     """
-#     n_exp = output_shape[-1]
-#     sequence = tf.keras.Input(shape=input_shape, name='sequence')
-#     #StochasticReverseComplement
-#     if augment_rc:
-#       current, reverse_bool = StochasticReverseComplement()(sequence)
-#     #StochasticShift
-#     if augment_shift != [0]:
-#       current = StochasticShift(augment_shift)(current)
-#
-#     current = conv_block(current, filters=64, kernel_size=15, activation='gelu', activation_end=None,
-#         strides=1, dilation_rate=1, l2_scale=0, dropout=0, conv_type='standard', residual=False,
-#         pool_size=8, batch_norm=True, bn_momentum=0.9, bn_gamma=None, bn_type='standard',
-#         kernel_initializer='he_normal', padding='same')
-#
-#     current, _ = conv_tower(current, filters_init=64, filters_mult=1.125, repeat=1,
-#         pool_size=4, kernel_size=5, batch_norm=True, bn_momentum=0.9,
-#         activation='gelu')
-#
-#     current = dilated_residual(current, filters=32, kernel_size=3, rate_mult=2,
-#         conv_type='standard', dropout=0.25, repeat=2, round=False, # repeat=4
-#         activation='gelu', batch_norm=True, bn_momentum=0.9)
-#
-#     current = conv_block(current, filters=64, kernel_size=1, activation='gelu',
-#         dropout=0.05, batch_norm=True, bn_momentum=0.9)
-#
-#     current = dense_layer(current, n_exp, activation='softplus',
-#         batch_norm=True, bn_momentum=0.9)
-#
-#     # switch reverse
-#     outputs = SwitchReverse()([current, reverse_bool])
-#
-#     model = tf.keras.Model(inputs=sequence, outputs=outputs)
-#     # print(model.summary())
-#     return model
-
 
 
 def basenji_w1_b64(input_shape, output_shape, wandb_config={}):
@@ -923,3 +881,351 @@ def load_model(run_dir,compile):
         model.compile(tf.keras.optimizers.Adam(lr=0.001), loss=eval(loss_fn)(),
                       metrics = [metric,'mse'])
     return model
+
+
+
+
+
+def residual_block(input_layer, kernel_size=3, activation='relu', num_layers=5, dropout=0.1):
+
+  filters = input_layer.shape.as_list()[-1]
+  nn = keras.layers.Conv1D(filters=filters,
+                           kernel_size=kernel_size,
+                           activation=None,
+                           padding='same',
+                           dilation_rate=1)(input_layer)
+  nn = keras.layers.BatchNormalization()(nn)
+
+  base_rate = 2
+  for i in range(1,num_layers):
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.Dropout(dropout)(nn)
+    nn = keras.layers.Conv1D(filters=filters,
+                             kernel_size=kernel_size,
+                             padding='same',
+                             dilation_rate=base_rate**i)(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+  nn = keras.layers.add([input_layer, nn])
+  return keras.layers.Activation(activation)(nn)
+
+
+
+def conv_profile_task_base(input_shape, output_shape, activation='exponential', bottleneck=8):
+    output_len, num_tasks = output_shape
+
+    nn = keras.layers.Conv1D(filters=192, kernel_size=19, padding='same')(inputs)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation(activation, name='filter_activation')(nn)
+    nn = keras.layers.MaxPool1D(pool_size=8)(nn)
+    nn = keras.layers.Dropout(0.1)(nn)
+
+    nn = keras.layers.Conv1D(filters=256, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.1)(nn)
+
+    nn = keras.layers.Conv1D(filters=512, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn = keras.layers.Flatten()(nn)
+    nn = keras.layers.Dense(256)(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.Dropout(0.3)(nn)
+
+    nn = keras.layers.Dense(output_len*bottleneck)(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.Reshape([output_len, bottleneck])(nn)
+    nn = keras.layers.Dropout(0.1)(nn)
+
+    nn = keras.layers.Conv1D(filters=256, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn_cat = []
+    for i in range(num_tasks):
+      nn2 = keras.layers.Conv1D(filters=64, kernel_size=7, padding='same')(nn)
+      nn2 = keras.layers.BatchNormalization()(nn2)
+      nn2 = keras.layers.Activation('relu')(nn2)
+      nn2 = keras.layers.Dropout(0.1)(nn2)
+      nn2 = keras.layers.Dense(1, activation='softplus')(nn2)
+      nn_cat.append(nn2)
+    outputs =  tf.concat(nn_cat, axis=2)
+
+
+  return keras.Model(inputs=inputs, outputs=outputs)
+
+
+def residual_profile_task_base(input_shape, output_shape, activation='exponential', bottleneck=8):
+    output_len, num_tasks = output_shape
+
+    inputs = keras.Input(shape=input_shape, name='sequence')
+
+    nn = keras.layers.Conv1D(filters=192, kernel_size=19, padding='same')(inputs)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation(activation, name='filter_activation')(nn)
+    nn = residual_block(nn, 3, activation='relu', dilated=5)
+    nn = keras.layers.MaxPool1D(pool_size=8)(nn)
+    nn = keras.layers.Dropout(0.1)(nn)
+
+    nn = keras.layers.Conv1D(filters=256, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = residual_block(nn, 3, activation='relu', dilated=5)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.1)(nn)
+
+    nn = keras.layers.Conv1D(filters=512, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = residual_block(nn, 3, activation='relu', dilated=3)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn = keras.layers.Flatten()(nn)
+    nn = keras.layers.Dense(512)(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.Dropout(0.3)(nn)
+
+    nn = keras.layers.Dense(output_len*bottleneck)(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.Reshape([output_len, bottleneck])(nn)
+    nn = keras.layers.Dropout(0.1)(nn)
+
+    nn = keras.layers.Conv1D(filters=256, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+    nn = residual_block(nn, 3, activation='relu', dilated=6)
+
+    nn_cat = []
+    for i in range(num_tasks):
+      nn2 = keras.layers.Conv1D(filters=64, kernel_size=7, padding='same')(nn)
+      nn2 = keras.layers.BatchNormalization()(nn2)
+      nn2 = keras.layers.Activation('relu')(nn2)
+      nn2 = keras.layers.Dropout(0.1)(nn2)
+      nn2 = keras.layers.Dense(1, activation='softplus')(nn2)
+      nn_cat.append(nn2)
+    outputs =  tf.concat(nn_cat, axis=2)
+
+    model = tf.keras.Model(inputs=inputs, outputs=outputs)
+    return model
+
+
+
+
+def residual_profile_all_base(input_shape, output_shape, activation='exponential', bottleneck=8):
+    output_len, num_tasks = output_shape
+
+    inputs = keras.Input(shape=input_shape, name='sequence')
+
+    nn = keras.layers.Conv1D(filters=192, kernel_size=19, padding='same')(inputs)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation(activation, name='filter_activation')(nn)
+    nn = residual_block(nn, 3, activation='relu', dilated=5)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.1)(nn)
+
+    nn = keras.layers.Conv1D(filters=256, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = residual_block(nn, 3, activation='relu', dilated=5)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.1)(nn)
+
+    nn = keras.layers.Conv1D(filters=512, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = residual_block(nn, 3, activation='relu', dilated=4)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn = keras.layers.Flatten()(nn)
+    nn = keras.layers.Dense(512)(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.Dropout(0.3)(nn)
+
+    nn = keras.layers.Dense(output_len*bottleneck)(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.Reshape([output_len, bottleneck])(nn)
+    nn = keras.layers.Dropout(0.1)(nn)
+
+    nn = keras.layers.Conv1D(filters=256, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.Dropout(0.1)(nn)
+    nn = residual_block(nn, 3, activation='relu', dilated=5)
+
+    outputs = keras.layers.Dense(num_tasks, activation='softplus')(nn)
+    model = tf.keras.Model(inputs=inputs, outputs=outputs)
+    return model
+
+
+
+
+def conv_profile_all_dense_32(input_shape, output_shape, activation='exponential'):
+    output_len, num_tasks = output_shape
+
+    inputs = keras.Input(shape=input_shape, name='sequence')
+
+    nn = keras.layers.Conv1D(filters=256, kernel_size=19, padding='same')(inputs)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation(activation, name='filter_activation')(nn)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn = keras.layers.Conv1D(filters=512, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn = keras.layers.Conv1D(filters=1024, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.MaxPool1D(pool_size=2)(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn = keras.layers.Dense(256)(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.Dropout(0.3)(nn)
+
+    outputs = keras.layers.Dense(num_tasks, activation='softplus')(nn)
+
+    return tf.keras.Model(inputs=inputs, outputs=outputs)
+
+
+
+def residual_profile_all_dense_32(input_shape, output_shape, activation='exponential'):
+    output_len, num_tasks = output_shape
+
+    inputs = keras.Input(shape=input_shape, name='sequence')
+
+    nn = keras.layers.Conv1D(filters=256, kernel_size=19, padding='same')(inputs)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation(activation, name='filter_activation')(nn)
+    nn = residual_block(nn, kernel_size=3, activation='relu', num_layers=5)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn = keras.layers.Conv1D(filters=512, kernel_size=7,padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = residual_block(nn, kernel_size=3, activation='relu', num_layers=5)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn = keras.layers.Conv1D(filters=1024, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = residual_block(nn, kernel_size=3, activation='relu', num_layers=3)
+    nn = keras.layers.MaxPool1D(pool_size=2)(nn)
+    nn = keras.layers.Dropout(0.5)(nn)
+
+    nn = keras.layers.Dense(256)(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.Dropout(0.3)(nn)
+
+    outputs = keras.layers.Dense(num_tasks, activation='softplus')(nn)
+
+    model = tf.keras.Model(inputs=inputs, outputs=outputs)
+    return model
+
+
+
+def conv_profile_task_conv_32(input_shape, output_shape, activation='exponential'):
+    output_len, num_tasks = output_shape
+
+    inputs = keras.Input(shape=input_shape, name='sequence')
+
+    nn = keras.layers.Conv1D(filters=196, kernel_size=19, padding='same')(inputs)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation(activation, name='filter_activation')(nn)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn = keras.layers.Conv1D(filters=256, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn = keras.layers.Conv1D(filters=512, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.MaxPool1D(pool_size=2)(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn = keras.layers.Conv1D(filters=256, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn_cat = []
+    for i in range(num_tasks):
+        nn2 = keras.layers.Conv1D(filters=64, kernel_size=7, padding='same')(nn)
+        nn2 = keras.layers.BatchNormalization()(nn2)
+        nn2 = keras.layers.Activation('relu')(nn2)
+        nn2 = keras.layers.Dropout(0.1)(nn2)
+        nn2 = keras.layers.Dense(1, activation='softplus')(nn2)
+        nn_cat.append(nn2)
+    outputs =  tf.concat(nn_cat, axis=2)
+
+    return tf.keras.Model(inputs=inputs, outputs=outputs)
+
+
+
+def residual_profile_task_conv_32(input_shape, output_shape, activation='exponential'):
+    output_len, num_tasks = output_shape
+
+    inputs = keras.Input(shape=input_shape, name='sequence')
+
+    nn = keras.layers.Conv1D(filters=256, kernel_size=19, padding='same')(inputs)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation(activation, name='filter_activation')(nn)
+    nn = residual_block(nn, kernel_size=3, activation='relu', num_layers=5)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn = keras.layers.Conv1D(filters=512, kernel_size=7,padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = residual_block(nn, kernel_size=3, activation='relu', num_layers=5)
+    nn = keras.layers.MaxPool1D(pool_size=4)(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn = keras.layers.Conv1D(filters=1024, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = residual_block(nn, kernel_size=3, activation='relu', num_layers=3)
+    nn = keras.layers.MaxPool1D(pool_size=2)(nn)
+    nn = keras.layers.Dropout(0.5)(nn)
+
+    nn = keras.layers.Conv1D(filters=256, kernel_size=7, padding='same')(nn)
+    nn = keras.layers.BatchNormalization()(nn)
+    nn = keras.layers.Activation('relu')(nn)
+    nn = keras.layers.Dropout(0.2)(nn)
+
+    nn_cat = []
+    for i in range(num_tasks):
+        nn2 = keras.layers.Conv1D(filters=64, kernel_size=7, padding='same')(nn)
+        nn2 = keras.layers.BatchNormalization()(nn2)
+        nn2 = keras.layers.Activation('relu')(nn2)
+        nn2 = keras.layers.Dropout(0.1)(nn2)
+        nn2 = keras.layers.Dense(1, activation='softplus')(nn2)
+        nn_cat.append(nn2)
+    outputs =  tf.concat(nn_cat, axis=2)
+
+    return tf.keras.Model(inputs=inputs, outputs=outputs)
