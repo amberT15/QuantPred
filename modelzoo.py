@@ -910,13 +910,14 @@ def residual_block(input_layer, kernel_size=3, activation='relu', num_layers=5, 
 
 
 
-def conv_profile_task_base(input_shape, output_shape, activation='exponential', bottleneck=8,  **kwargs):
+def conv_profile_task_base(input_shape, output_shape, bottleneck=8, wandb_config={}):
+    assert 'activation' in wandb_config.keys(), 'ERROR: no activation defined!'
     output_len, num_tasks = output_shape
     inputs = keras.Input(shape=input_shape, name='sequence')
 
     nn = keras.layers.Conv1D(filters=192, kernel_size=19, padding='same')(inputs)
     nn = keras.layers.BatchNormalization()(nn)
-    nn = keras.layers.Activation(activation, name='filter_activation')(nn)
+    nn = keras.layers.Activation(wandb_config['activation'], name='filter_activation')(nn)
     nn = keras.layers.MaxPool1D(pool_size=8)(nn)
     nn = keras.layers.Dropout(0.1)(nn)
 
@@ -963,14 +964,15 @@ def conv_profile_task_base(input_shape, output_shape, activation='exponential', 
     return keras.Model(inputs=inputs, outputs=outputs)
 
 
-def residual_profile_task_base(input_shape, output_shape, activation='exponential', bottleneck=8, **kwargs):
+def residual_profile_task_base(input_shape, output_shape, bottleneck=8, wandb_config={}):
+    assert 'activation' in wandb_config.keys(), 'ERROR: no activation defined!'
     output_len, num_tasks = output_shape
 
     inputs = keras.Input(shape=input_shape, name='sequence')
 
     nn = keras.layers.Conv1D(filters=192, kernel_size=19, padding='same')(inputs)
     nn = keras.layers.BatchNormalization()(nn)
-    nn = keras.layers.Activation(activation, name='filter_activation')(nn)
+    nn = keras.layers.Activation(wandb_config['activation'], name='filter_activation')(nn)
     nn = residual_block(nn, 3, activation='relu', num_layers=5)
     nn = keras.layers.MaxPool1D(pool_size=8)(nn)
     nn = keras.layers.Dropout(0.1)(nn)
@@ -1023,14 +1025,15 @@ def residual_profile_task_base(input_shape, output_shape, activation='exponentia
 
 
 
-def residual_profile_all_base(input_shape, output_shape, activation='exponential', bottleneck=8, **kwargs):
+def residual_profile_all_base(input_shape, output_shape, bottleneck=8, wandb_config={}):
+    assert 'activation' in wandb_config.keys(), 'ERROR: no activation defined!'
     output_len, num_tasks = output_shape
 
     inputs = keras.Input(shape=input_shape, name='sequence')
 
     nn = keras.layers.Conv1D(filters=192, kernel_size=19, padding='same')(inputs)
     nn = keras.layers.BatchNormalization()(nn)
-    nn = keras.layers.Activation(activation, name='filter_activation')(nn)
+    nn = keras.layers.Activation(wandb_config['activation'], name='filter_activation')(nn)
     nn = residual_block(nn, 3, activation='relu', num_layers=5)
     nn = keras.layers.MaxPool1D(pool_size=4)(nn)
     nn = keras.layers.Dropout(0.1)(nn)
@@ -1074,14 +1077,15 @@ def residual_profile_all_base(input_shape, output_shape, activation='exponential
 
 
 
-def conv_profile_all_dense_32(input_shape, output_shape, activation='exponential', **kwargs):
+def conv_profile_all_dense_32(input_shape, output_shape, activation='exponential', wandb_config={}):
+    assert 'activation' in wandb_config.keys(), 'ERROR: no activation defined!'
     output_len, num_tasks = output_shape
 
     inputs = keras.Input(shape=input_shape, name='sequence')
 
     nn = keras.layers.Conv1D(filters=256, kernel_size=19, padding='same')(inputs)
     nn = keras.layers.BatchNormalization()(nn)
-    nn = keras.layers.Activation(activation, name='filter_activation')(nn)
+    nn = keras.layers.Activation(wandb_config['activation'], name='filter_activation')(nn)
     nn = keras.layers.MaxPool1D(pool_size=4)(nn)
     nn = keras.layers.Dropout(0.2)(nn)
 
@@ -1109,14 +1113,15 @@ def conv_profile_all_dense_32(input_shape, output_shape, activation='exponential
 
 
 def residual_profile_all_dense_32(input_shape, output_shape,
-                                    activation='exponential', **kwargs):
+                                  wandb_config={}):
+    assert 'activation' in wandb_config.keys(), 'ERROR: no activation defined!'
     output_len, num_tasks = output_shape
 
     inputs = keras.Input(shape=input_shape, name='sequence')
 
     nn = keras.layers.Conv1D(filters=256, kernel_size=19, padding='same')(inputs)
     nn = keras.layers.BatchNormalization()(nn)
-    nn = keras.layers.Activation(activation, name='filter_activation')(nn)
+    nn = keras.layers.Activation(wandb_config['activation'], name='filter_activation')(nn)
     nn = residual_block(nn, kernel_size=3, activation='relu', num_layers=5)
     nn = keras.layers.MaxPool1D(pool_size=4)(nn)
     nn = keras.layers.Dropout(0.2)(nn)
@@ -1148,14 +1153,15 @@ def residual_profile_all_dense_32(input_shape, output_shape,
 
 
 def conv_profile_task_conv_32(input_shape, output_shape,
-                              activation='exponential',  **kwargs):
+                              wandb_config={}):
+    assert 'activation' in wandb_config.keys(), 'ERROR: no activation defined!'
     output_len, num_tasks = output_shape
 
     inputs = keras.Input(shape=input_shape, name='sequence')
 
     nn = keras.layers.Conv1D(filters=196, kernel_size=19, padding='same')(inputs)
     nn = keras.layers.BatchNormalization()(nn)
-    nn = keras.layers.Activation(activation, name='filter_activation')(nn)
+    nn = keras.layers.Activation(wandb_config['activation'], name='filter_activation')(nn)
     nn = keras.layers.MaxPool1D(pool_size=4)(nn)
     nn = keras.layers.Dropout(0.2)(nn)
 
@@ -1188,17 +1194,16 @@ def conv_profile_task_conv_32(input_shape, output_shape,
 
     return tf.keras.Model(inputs=inputs, outputs=outputs)
 
-
-
 def residual_profile_task_conv_32(input_shape, output_shape,
-                                  activation='exponential', **kwargs):
+                                  wandb_config={}):
+    assert 'activation' in wandb_config.keys(), 'ERROR: no activation defined!'
     output_len, num_tasks = output_shape
 
     inputs = keras.Input(shape=input_shape, name='sequence')
 
     nn = keras.layers.Conv1D(filters=256, kernel_size=19, padding='same')(inputs)
     nn = keras.layers.BatchNormalization()(nn)
-    nn = keras.layers.Activation(activation, name='filter_activation')(nn)
+    nn = keras.layers.Activation(wandb_config['activation'], name='filter_activation')(nn)
     nn = residual_block(nn, kernel_size=3, activation='relu', num_layers=5)
     nn = keras.layers.MaxPool1D(pool_size=4)(nn)
     nn = keras.layers.Dropout(0.2)(nn)
