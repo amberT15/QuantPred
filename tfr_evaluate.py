@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import tensorflow as tf
 import wandb
-import glob, os
+import glob, os, sys
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -59,10 +59,14 @@ def get_performance(all_truth, all_pred, targets, testset_type):
     try:
         pr_corr = choose_corr_func(testset_type)(all_truth, all_pred,
                                                 corr_type='pearsonr')
+    except ValueError:
+        pr_corr = [np.nan for i in range(len(poiss))]
+
+    try:
         sp_corr = choose_corr_func(testset_type)(all_truth, all_pred,
                                                 corr_type='spearmanr')
     except ValueError:
-        pr_corr = [np.nan for i in range(len(poiss))]
+        sp_corr = [np.nan for i in range(len(poiss))]
     performance = {'mse': mse, 'js_per_seq': js_per_seq, 'js_conc': js_conc,
                     'poiss': poiss, 'pr_corr': pr_corr, 'sp_corr':sp_corr,
                     'targets':targets}
@@ -218,7 +222,8 @@ def collect_sweep_dirs(sweep_id, wandb_dir='/mnt/31dac31c-c4e2-4704-97bd-0788af3
 
 if __name__ == '__main__':
     run_dirs = []
-    dir_of_all_runs = '/home/shush/profile/QuantPred/paper_runs/basenji/augmentation_basenji'
+    # dir_of_all_runs = '/home/shush/profile/QuantPred/paper_runs/basenji/augmentation_basenji'
+    dir_of_all_runs = sys.argv[1]
     output_dir = 'results_tfr_evaluate' # output dir
     util.make_dir(output_dir)
     # project name in wandb or name to use for saving if list of runs provided
