@@ -910,8 +910,9 @@ def residual_block(input_layer, kernel_size=3, activation='relu', num_layers=5, 
 
 
 
-def conv_profile_task_base(input_shape, output_shape, activation='exponential', bottleneck=8):
+def conv_profile_task_base(input_shape, output_shape, activation='exponential', bottleneck=8,  **kwargs):
     output_len, num_tasks = output_shape
+    inputs = keras.Input(shape=input_shape, name='sequence')
 
     nn = keras.layers.Conv1D(filters=192, kernel_size=19, padding='same')(inputs)
     nn = keras.layers.BatchNormalization()(nn)
@@ -959,10 +960,10 @@ def conv_profile_task_base(input_shape, output_shape, activation='exponential', 
     outputs =  tf.concat(nn_cat, axis=2)
 
 
-  return keras.Model(inputs=inputs, outputs=outputs)
+    return keras.Model(inputs=inputs, outputs=outputs)
 
 
-def residual_profile_task_base(input_shape, output_shape, activation='exponential', bottleneck=8):
+def residual_profile_task_base(input_shape, output_shape, activation='exponential', bottleneck=8, **kwargs):
     output_len, num_tasks = output_shape
 
     inputs = keras.Input(shape=input_shape, name='sequence')
@@ -970,21 +971,21 @@ def residual_profile_task_base(input_shape, output_shape, activation='exponentia
     nn = keras.layers.Conv1D(filters=192, kernel_size=19, padding='same')(inputs)
     nn = keras.layers.BatchNormalization()(nn)
     nn = keras.layers.Activation(activation, name='filter_activation')(nn)
-    nn = residual_block(nn, 3, activation='relu', dilated=5)
+    nn = residual_block(nn, 3, activation='relu', num_layers=5)
     nn = keras.layers.MaxPool1D(pool_size=8)(nn)
     nn = keras.layers.Dropout(0.1)(nn)
 
     nn = keras.layers.Conv1D(filters=256, kernel_size=7, padding='same')(nn)
     nn = keras.layers.BatchNormalization()(nn)
     nn = keras.layers.Activation('relu')(nn)
-    nn = residual_block(nn, 3, activation='relu', dilated=5)
+    nn = residual_block(nn, 3, activation='relu', num_layers=5)
     nn = keras.layers.MaxPool1D(pool_size=4)(nn)
     nn = keras.layers.Dropout(0.1)(nn)
 
     nn = keras.layers.Conv1D(filters=512, kernel_size=7, padding='same')(nn)
     nn = keras.layers.BatchNormalization()(nn)
     nn = keras.layers.Activation('relu')(nn)
-    nn = residual_block(nn, 3, activation='relu', dilated=3)
+    nn = residual_block(nn, 3, activation='relu', num_layers=3)
     nn = keras.layers.MaxPool1D(pool_size=4)(nn)
     nn = keras.layers.Dropout(0.2)(nn)
 
@@ -1004,7 +1005,7 @@ def residual_profile_task_base(input_shape, output_shape, activation='exponentia
     nn = keras.layers.BatchNormalization()(nn)
     nn = keras.layers.Activation('relu')(nn)
     nn = keras.layers.Dropout(0.2)(nn)
-    nn = residual_block(nn, 3, activation='relu', dilated=6)
+    nn = residual_block(nn, 3, activation='relu', num_layers=6)
 
     nn_cat = []
     for i in range(num_tasks):
@@ -1022,7 +1023,7 @@ def residual_profile_task_base(input_shape, output_shape, activation='exponentia
 
 
 
-def residual_profile_all_base(input_shape, output_shape, activation='exponential', bottleneck=8):
+def residual_profile_all_base(input_shape, output_shape, activation='exponential', bottleneck=8, **kwargs):
     output_len, num_tasks = output_shape
 
     inputs = keras.Input(shape=input_shape, name='sequence')
@@ -1030,21 +1031,21 @@ def residual_profile_all_base(input_shape, output_shape, activation='exponential
     nn = keras.layers.Conv1D(filters=192, kernel_size=19, padding='same')(inputs)
     nn = keras.layers.BatchNormalization()(nn)
     nn = keras.layers.Activation(activation, name='filter_activation')(nn)
-    nn = residual_block(nn, 3, activation='relu', dilated=5)
+    nn = residual_block(nn, 3, activation='relu', num_layers=5)
     nn = keras.layers.MaxPool1D(pool_size=4)(nn)
     nn = keras.layers.Dropout(0.1)(nn)
 
     nn = keras.layers.Conv1D(filters=256, kernel_size=7, padding='same')(nn)
     nn = keras.layers.BatchNormalization()(nn)
     nn = keras.layers.Activation('relu')(nn)
-    nn = residual_block(nn, 3, activation='relu', dilated=5)
+    nn = residual_block(nn, 3, activation='relu', num_layers=5)
     nn = keras.layers.MaxPool1D(pool_size=4)(nn)
     nn = keras.layers.Dropout(0.1)(nn)
 
     nn = keras.layers.Conv1D(filters=512, kernel_size=7, padding='same')(nn)
     nn = keras.layers.BatchNormalization()(nn)
     nn = keras.layers.Activation('relu')(nn)
-    nn = residual_block(nn, 3, activation='relu', dilated=4)
+    nn = residual_block(nn, 3, activation='relu', num_layers=4)
     nn = keras.layers.MaxPool1D(pool_size=4)(nn)
     nn = keras.layers.Dropout(0.2)(nn)
 
@@ -1064,7 +1065,7 @@ def residual_profile_all_base(input_shape, output_shape, activation='exponential
     nn = keras.layers.BatchNormalization()(nn)
     nn = keras.layers.Activation('relu')(nn)
     nn = keras.layers.Dropout(0.1)(nn)
-    nn = residual_block(nn, 3, activation='relu', dilated=5)
+    nn = residual_block(nn, 3, activation='relu', num_layers=5)
 
     outputs = keras.layers.Dense(num_tasks, activation='softplus')(nn)
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
@@ -1073,7 +1074,7 @@ def residual_profile_all_base(input_shape, output_shape, activation='exponential
 
 
 
-def conv_profile_all_dense_32(input_shape, output_shape, activation='exponential'):
+def conv_profile_all_dense_32(input_shape, output_shape, activation='exponential', **kwargs):
     output_len, num_tasks = output_shape
 
     inputs = keras.Input(shape=input_shape, name='sequence')
@@ -1107,7 +1108,8 @@ def conv_profile_all_dense_32(input_shape, output_shape, activation='exponential
 
 
 
-def residual_profile_all_dense_32(input_shape, output_shape, activation='exponential'):
+def residual_profile_all_dense_32(input_shape, output_shape,
+                                    activation='exponential', **kwargs):
     output_len, num_tasks = output_shape
 
     inputs = keras.Input(shape=input_shape, name='sequence')
@@ -1145,7 +1147,8 @@ def residual_profile_all_dense_32(input_shape, output_shape, activation='exponen
 
 
 
-def conv_profile_task_conv_32(input_shape, output_shape, activation='exponential'):
+def conv_profile_task_conv_32(input_shape, output_shape,
+                              activation='exponential',  **kwargs):
     output_len, num_tasks = output_shape
 
     inputs = keras.Input(shape=input_shape, name='sequence')
@@ -1187,7 +1190,8 @@ def conv_profile_task_conv_32(input_shape, output_shape, activation='exponential
 
 
 
-def residual_profile_task_conv_32(input_shape, output_shape, activation='exponential'):
+def residual_profile_task_conv_32(input_shape, output_shape,
+                                  activation='exponential', **kwargs):
     output_len, num_tasks = output_shape
 
     inputs = keras.Input(shape=input_shape, name='sequence')
