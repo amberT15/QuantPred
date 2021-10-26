@@ -1,0 +1,54 @@
+wandb_version: 1
+
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.10.33
+    framework: tensorflow
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    python_version: 3.6.9
+    t:
+      1:
+      - 3
+      - 5
+      2:
+      - 3
+      - 5
+      3:
+      - 2
+      - 3
+      - 8
+      4: 3.6.9
+      5: 0.10.33
+      8:
+      - 5
+dense:
+  desc: null
+  value: 1000
+drop_out:
+  desc: null
+  value:
+  - 0.5
+  - 0.5
+filtN:
+  desc: null
+  value:
+  - 150
+  - 100
+  - 100
+kern:
+  desc: null
+  value:
+  - 11
+  - 9
+  - 6
+max_pool:
+  desc: null
+  value:
+  - 3
+  - 4
+  - 4
+model:
+  desc: null
+  value: ori_Basset
