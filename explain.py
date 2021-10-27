@@ -317,7 +317,7 @@ def select_top_pred(pred,num_task,top_num):
     task_top_list = np.array(task_top_list)
     return task_top_list
 
-def vcf_robust(ref,alt,model,shift_num=10,window_size=2048):
+def vcf_robust(ref,alt,model,shift_num=10,window_size=2048,batch_size = 64):
     #calculate the coordinates for sequences to conserve in the center
     vcf_diff_list = []
     chop_size = ref.shape[1]
@@ -327,37 +327,105 @@ def vcf_robust(ref,alt,model,shift_num=10,window_size=2048):
     conserve_start = chop_size//2 - conserve_size//2
     conserve_end = conserve_start + conserve_size-1
 
-    for i, (ref_seq, alt_seq) in enumerate(zip(ref,alt)):
+    i = 0
+    while i < len(ref):
+        if i+ batch_size < len(ref):
+            ref_seq = ref[i:i+batch_size]
+            alt_seq = alt[i:i+batch_size]
+            batch_n = batch_size
+            i = i+batch_size
+        else:
+            ref_seq = ref[i:len(ref)]
+            alt_seq = alt[i:len(ref)]
+            batch_n = len(ref) - i
+            i = len(ref)
+
         #creat shifted sequence list and make predictions
-        shifted_ref,shifted_alt,shift_idx = util.window_shift(ref_seq,alt_seq,window_size,shift_num,both_seq = True)
+        shifted_ref,shifted_alt,shift_idx = util.window_shift(ref_seq,alt_seq,
+                                                              window_size,shift_num,both_seq = True)
         ref_pred = model.predict(shifted_ref)
         alt_pred = model.predict(shifted_alt)
         bin_size = window_size / ref_pred.shape[1]
         ref_pred = np.repeat(ref_pred,bin_size,axis = 1)
         alt_pred = np.repeat(alt_pred,bin_size,axis = 1)
 
-        # #get the maximum cell line that VCF analysis will be done on
-        # center_seq,_ = custom_fit.center_crop(ref_seq,alt_seq,window_size)
-        # center_pred = model.predict(center_seq)
-        # max_task = np.argmax(np.sum(center_pred,axis=1),axis = 1)
-
         #Select conserved part
         crop_start_i = conserve_start - shift_idx - center_idx
         crop_idx = crop_start_i[:,None] + np.arange(conserve_size)
-        crop_idx = crop_idx.reshape(conserve_size*shift_num)
-        crop_row_idx = np.repeat(range(0,shift_num),conserve_size)
-        crop_f_index = np.vstack((crop_row_idx,crop_idx)).T.reshape(shift_num,conserve_size,2)
+        crop_idx = crop_idx.reshape(conserve_size*shift_num*batch_n)
+        crop_row_idx = np.repeat(range(0,shift_num*batch_n),conserve_size)
+        crop_f_index = np.vstack((crop_row_idx,crop_idx)).T.reshape(shift_num*batch_n,conserve_size,2)
 
         #get pred 1k part
         ref_pred_1k=tf.gather_nd(ref_pred,crop_f_index)
         alt_pred_1k=tf.gather_nd(alt_pred,crop_f_index)
 
+        sep_ref = np.array(np.array_split(ref_pred_1k,batch_n))
+        sep_alt = np.array(np.array_split(alt_pred_1k,batch_n))
+
         #get average pred
-        avg_ref = np.mean(ref_pred_1k,axis=0)
-        avg_alt = np.mean(alt_pred_1k,axis=0)
+        avg_ref = np.mean(sep_ref,axis=1)
+        avg_alt = np.mean(sep_alt,axis=1)
 
         #get difference between average coverage value
-        vcf_diff = np.sum(avg_alt,axis = 0) - np.sum(avg_ref,axis = 0)
+        vcf_diff = np.sum(avg_alt,axis = 1) - np.sum(avg_ref,axis = 1)
+        vcf_diff_list.append(vcf_diff)
+
+    return vcf_diff_list
+
+def vcf_binary(ref,alt,model,shift_num=10,window_size=2048,batch_size = 64):
+    #calculate the coordinates for sequences to conserve in the center
+    vcf_diff_list = []
+    chop_size = ref.shape[1]
+    center_idx = int(0.5*(chop_size-window_size))
+    center_range = np.array(range(center_idx,center_idx+window_size))
+    conserve_size = window_size*2 - chop_size
+    conserve_start = chop_size//2 - conserve_size//2
+    conserve_end = conserve_start + conserve_size-1
+
+    i = 0
+    while i < len(ref):
+        if i+ batch_size < len(ref):
+            ref_seq = ref[i:i+batch_size]
+            alt_seq = alt[i:i+batch_size]
+            batch_n = batch_size
+            i = i+batch_size
+        else:
+            ref_seq = ref[i:len(ref)]
+            alt_seq = alt[i:len(ref)]
+            batch_n = len(ref) - i
+            i = len(ref)
+
+        #creat shifted sequence list and make predictions
+        shifted_ref,shifted_alt,shift_idx = util.window_shift(ref_seq,alt_seq,
+                                                              window_size,shift_num,both_seq = True)
+        ref_pred = model.predict(shifted_ref)
+        alt_pred = model.predict(shifted_alt)
+
+        #seperate label per seq
+        sep_ref = np.array(np.array_split(ref_pred,batch_n))
+        sep_alt = np.array(np.array_split(alt_pred,batch_n))
+        ##shape(batch_size,shift_num,15)
+
+        #get mode from predictions across shifts
+        batch_alt = []
+        batch_ref = []
+        for seq_i in range(0,batch_n):
+            exp_alt = []
+            exp_ref = []
+            for exp in range(0,sep_ref.shape[-1]):
+                ref_exp = sep_ref[seq_i,:,exp]
+                alt_exp = sep_alt[seq_i,:,exp]
+                mode_alt = max(set(alt_exp), key=list(alt_exp).count)
+                mode_ref = max(set(ref_exp), key=list(ref_exp).count)
+                exp_alt.append(mode_alt)
+                exp_ref.append(mode_ref)
+            batch_alt.append(exp_alt)
+            batch_ref.append(exp_ref)
+
+
+        #get difference between average coverage value
+        vcf_diff = np.array(batch_alt) - np.array(batch_ref)
         vcf_diff_list.append(vcf_diff)
 
     return vcf_diff_list
