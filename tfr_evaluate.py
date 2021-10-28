@@ -224,7 +224,7 @@ if __name__ == '__main__':
     run_dirs = []
     # dir_of_all_runs = '/home/shush/profile/QuantPred/paper_runs/basenji/augmentation_basenji'
     dir_of_all_runs = sys.argv[1]
-    output_dir = 'results_tfr_evaluate' # output dir
+    output_dir = '/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/model_evaluations' # output dir
     util.make_dir(output_dir)
     # project name in wandb or name to use for saving if list of runs provided
     project_name = 'XXX'
@@ -234,8 +234,10 @@ if __name__ == '__main__':
     if os.path.isdir(dir_of_all_runs):
         run_dirs = [os.path.join(dir_of_all_runs, d) for d in os.listdir(dir_of_all_runs)
                     if os.path.isfile(os.path.join(dir_of_all_runs, d, 'files/best_model.h5'))]
-        project_name = os.path.basename(dir_of_all_runs)
+        project_name = os.path.basename(dir_of_all_runs.rstrip('/'))
+        assert len(project_name)>0, 'Invalid project name'
         print('SELECTED ALL RUNS IN DIRECTORY: ' + dir_of_all_runs)
+        print('PROJECT NAME: ' + project_name)
 
     # else check if list of runs also is absent then collect runs
     elif len(run_dirs) == 0:
