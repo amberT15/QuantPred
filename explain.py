@@ -398,24 +398,28 @@ def vcf_binary(ref,alt,model,shift_num=10,window_size=2048,batch_size = 64):
         ##shape(batch_size,shift_num,15)
 
         #get mode from predictions across shifts
-        batch_alt = []
-        batch_ref = []
-        for seq_i in range(0,batch_n):
-            exp_alt = []
-            exp_ref = []
-            for exp in range(0,sep_ref.shape[-1]):
-                ref_exp = sep_ref[seq_i,:,exp]
-                alt_exp = sep_alt[seq_i,:,exp]
-                mode_alt = max(set(alt_exp), key=list(alt_exp).count)
-                mode_ref = max(set(ref_exp), key=list(ref_exp).count)
-                exp_alt.append(mode_alt)
-                exp_ref.append(mode_ref)
-            batch_alt.append(exp_alt)
-            batch_ref.append(exp_ref)
+        # batch_alt = []
+        # batch_ref = []
+        # for seq_i in range(0,batch_n):
+        #     exp_alt = []
+        #     exp_ref = []
+        #     for exp in range(0,sep_ref.shape[-1]):
+        #         ref_exp = sep_ref[seq_i,:,exp]
+        #         alt_exp = sep_alt[seq_i,:,exp]
+        #         mode_alt = max(set(alt_exp), key=list(alt_exp).count)
+        #         mode_ref = max(set(ref_exp), key=list(ref_exp).count)
+        #         exp_alt.append(mode_alt)
+        #         exp_ref.append(mode_ref)
 
+            # batch_alt.append(exp_alt)
+            # batch_ref.append(exp_ref)
+
+        average_ref = np.mean(sep_ref,axis = 1)
+        average_alt = np.mean(sep_alt,axis = 1)
+        ##shape(batch_size,15)
 
         #get difference between average coverage value
-        vcf_diff = np.array(batch_alt) - np.array(batch_ref)
+        vcf_diff = average_ref - average_alt
         vcf_diff_list.append(vcf_diff)
 
     return vcf_diff_list
