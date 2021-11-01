@@ -144,11 +144,15 @@ def get_run_metadata(run_dir):
     metadata['run_dir'] = run_dir
     return metadata
 
+def collect_whole_testset(data_dir='/home/shush/profile/QuantPred/datasets/chr8/complete/random_chop/i_2048_w_1/', coords=False):
+    sts = util.load_stats(data_dir)
+    testset = util.make_dataset(data_dir, 'test', sts, batch_size=512, shuffle=False, coords=coords)
+    targets = pd.read_csv(data_dir+'targets.txt', sep='\t')['identifier'].values
+    return testset, targets
+
 def collect_datasets(data_dir='/home/shush/profile/QuantPred/datasets/chr8/complete/random_chop/i_2048_w_1/'):
     # get testset
-    sts = util.load_stats(data_dir)
-    testset = util.make_dataset(data_dir, 'test', sts, batch_size=512, shuffle=False)
-    targets = pd.read_csv(data_dir+'targets.txt', sep='\t')['identifier'].values
+    testset, targets = collect_whole_testset()
     # get cell line specific IDR testsets in 6K
     target_dataset_idr = extract_datasets()
     return (testset, targets, target_dataset_idr)

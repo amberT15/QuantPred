@@ -74,15 +74,19 @@ def change_filename(filepath, new_binningsize=None, new_thresholdmethod=None):
     new_filename = '_'.join([celline, bigwigtype, bin, threshold])+'.bw'
     return os.path.join(directory, new_filename) # return full path
 
-def read_dataset(data_path):
+def read_dataset(data_path, return_stats=False, batch_size=64):
     '''This function returns testset and corresponding cell lines'''
     # data_path = 'datasets/only_test/complete/random_chop/i_2048_w_1' - test set
     sts = util.load_stats(data_path) # load stats file
     # make dataset from tfrecords
-    testset = util.make_dataset(data_path, 'test', sts, coords=True, shuffle=False)
+    testset = util.make_dataset(data_path, 'test', sts, coords=True,
+                                batch_size=batch_size, shuffle=False)
     targets_path = os.path.join(data_path, 'targets.txt') # load cell line names
     targets = pd.read_csv(targets_path, delimiter='\t')['identifier'].values
-    return testset, targets # return test set and cell line names
+    if return_stats:
+        return testset, targets, sts
+    else:
+        return testset, targets # return test set and cell line names
 
 def get_config(run_path):
     '''This function returns config of a wandb run as a dictionary'''
@@ -130,7 +134,7 @@ def get_vals_per_range(bw_path, bed_path):
         vals = bw.values(cols[0], int(cols[1]), int(cols[2]))
         bw_list.append(vals)
     bw.close()
-    return np.array(bw_list)
+    return bw_list
 
 def remove_nans(all_vals_dict):
     '''This function masks nans in all values in a dict'''
