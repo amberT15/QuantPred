@@ -98,12 +98,15 @@ def get_config(run_path):
 def read_model(run_path, compile_model=True):
     '''This function loads a per-trained model'''
     config = get_config(run_path) # load wandb config
-    loss_fn_str = config['loss_fn']['value'] # get loss
-    bin_size = config['bin_size']['value'] # get bin size
+    if 'bin_size' in config.keys():
+        bin_size = config['bin_size']['value'] # get bin size
+    else:
+        bin_size = 'NA'
     model_path = os.path.join(run_path, 'files', 'best_model.h5') # pretrained model
     # load model
     trained_model = tf.keras.models.load_model(model_path, custom_objects={"GELU": GELU})
     if compile_model:
+        loss_fn_str = config['loss_fn']['value'] # get loss
         loss_fn = eval(loss_fn_str)() # turn loss into function
         trained_model.compile(optimizer="Adam", loss=loss_fn)
     return trained_model, bin_size # model and bin size
