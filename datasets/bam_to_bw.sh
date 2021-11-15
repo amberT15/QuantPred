@@ -10,7 +10,7 @@ for FILE in $folder_path*.bam; do
   # echo Processing $FILE
   filepath="${FILE%.*}"
   exp_id="${filepath##*/}"
-  output_path="$output_dir/$exp_id.bw"
+  output_path="$output_dir/$exp_id.bam.bw"
   echo Sorting bam file $FILE
   samtools sort $filepath.bam -o $filepath.sorted.bam
   echo Converting bam to bedGraph

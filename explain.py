@@ -369,8 +369,8 @@ def vcf_robust(ref,alt,model,shift_num=10,window_size=2048,batch_size = 64):
         avg_alt = np.mean(sep_alt,axis=1)
 
         #get difference between average coverage value
-        vcf_diff = np.sum(avg_alt,axis = 1) - np.sum(avg_ref,axis = 1)
-        vcf_diff_list.append(vcf_diff)
+        vcf_diff = np.sum(avg_alt,axis = 1) / np.sum(avg_ref,axis = 1)
+        vcf_diff_list.append(np.log2(vcf_diff))
 
     return vcf_diff_list
 
