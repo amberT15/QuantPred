@@ -289,7 +289,7 @@ def batch_robustness_test(selected_read,selected_target,model,visualize = True,g
 
 def plot_saliency(saliency_map):
 
-    fig, axs = plt.subplots(saliency_map.shape[0],1,figsize=(200,5*saliency_map.shape[0]))
+    fig, axs = plt.subplots(saliency_map.shape[0],1,figsize=(20,2*saliency_map.shape[0]))
     for n, w in enumerate(saliency_map):
         if saliency_map.shape[0] == 1:
             ax = axs
@@ -429,49 +429,61 @@ def vcf_binary(ref,alt,model,shift_num=10,window_size=2048,batch_size = 64):
         ##shape(batch_size,15)
 
         #get difference between average coverage value
-        vcf_diff = average_ref - average_alt
-        vcf_diff_list.append(vcf_diff)
+        vcf_diff = average_alt / average_ref
+        vcf_diff_list.append(np.log2(vcf_diff))
 
     return vcf_diff_list
 
-def vcf_test(ref,alt,coords,model,background_size = 100):
-    # score for reference and alternative allele
-    ref_pred = model.predict(ref)
-    alt_pred = model.predict(alt)
+def vcf_test(ref,alt,coords,model):
+    # score for reference and alternative allele without robustenss
+    #calculate the coordinates for sequences to conserve in the center
+    vcf_diff_list = []
+    chop_size = ref.shape[1]
+    center_idx = int(0.5*(chop_size-window_size))
+    center_range = np.array(range(center_idx,center_idx+window_size))
+    conserve_size = window_size*2 - chop_size
+    conserve_start = chop_size//2 - conserve_size//2
+    conserve_end = conserve_start + conserve_size-1
 
-    ref_pred_cov = np.sum(ref_pred,axis = 1)
-    alt_pred_cov = np.sum(alt_pred,axis = 1)
-    max_task = np.argmax(ref_pred_cov,axis = 1)
-    ref_max_cov = ref_pred_cov[range(0,ref.shape[0]),max_task]
-    alt_max_cov = alt_pred_cov[range(0,ref.shape[0]),max_task]
+    i = 0
+    while i < len(ref):
+        if i+ batch_size < len(ref):
+            ref_seq = ref[i:i+batch_size]
+            alt_seq = alt[i:i+batch_size]
+            batch_n = batch_size
+            i = i+batch_size
+        else:
+            ref_seq = ref[i:len(ref)]
+            alt_seq = alt[i:len(ref)]
+            batch_n = len(ref) - i
+            i = len(ref)
 
-    d = {'chromosome': coords[:,0], 'start': coords[:,1],'end':coords[:,2]}
-    df = pd.DataFrame(data=d)
+        #creat shifted sequence list and make predictions
+        ref_pred = model.predict(ref_seq[center_range[0]:center_range[-1]+1])
+        alt_pred = model.predict(alt_seq[center_range[0]:center_range[-1]+1])
+        bin_size = window_size / ref_pred.shape[1]
 
-    df['ref'] = ref_max_cov
-    df['alt'] = alt_max_cov
 
-    #mutate very edge regions
-    background_distribution = []
-    for i,ref_seq in enumerate(ref):
-        mut_loci = np.random.randint(500,1023,size = background_size)
-        direction = np.random.choice([-1,1],size = background_size)
-        mut_loci = len(ref_seq)/2 + mut_loci * direction
-        mut_loci = mut_loci.astype('int')
-        mut_batch = np.tile(ref_seq,(background_size,1,1))
-        mut_row = mut_batch[range(0,background_size),mut_loci]
-        ori_empty_base = np.where(mut_row!= 1)[1].reshape(mut_row.shape[0],3)
-        mut_base = np.apply_along_axis(np.random.choice, axis=1, arr=ori_empty_base, size=1)
-        mut_batch[range(0,background_size),mut_loci] = [0,0,0,0]
-        mut_batch[range(0,background_size),mut_loci,mut_base] = 1
+        #Select conserved part
+        crop_start_i = conserve_start - center_idx
+        crop_idx = crop_start_i + np.arange(conserve_size)
+        crop_idx = crop_idx.reshape(conserve_size*batch_n)
+        crop_row_idx = np.repeat(range(0,batch_n),conserve_size)
+        crop_f_index = np.vstack((crop_row_idx,crop_idx)).T.reshape(batch_n,conserve_size,2)
 
-        mut_pred = model.predict(mut_batch)
-        mut_pred_cov = np.sum(mut_pred,axis =1)[:,max_task[i]]
-        background_distribution.append(mut_pred_cov)
+        #get pred 1k part
+        ref_pred_1k=tf.gather_nd(ref_pred,crop_f_index)
+        alt_pred_1k=tf.gather_nd(alt_pred,crop_f_index)
 
-    df['background'] = background_distribution
-    return df
+        sep_ref = np.array(np.array_split(ref_pred_1k,batch_n))
+        sep_alt = np.array(np.array_split(alt_pred_1k,batch_n))
 
+
+        #get difference between average coverage value
+        vcf_diff = np.sum(sep_alt,axis = 1) / np.sum(sep_ref,axis = 1)
+        vcf_diff_list.append(np.log2(vcf_diff))
+
+    return vcf_diff_list
 
 
 
@@ -483,37 +495,55 @@ def visualize_vcf(ref,alt,model,background_size = 100,title = None):
     alt_pred = model.predict(alt)
     ref_pred_cov = np.sum(ref_pred,axis = 1)
     alt_pred_cov = np.sum(alt_pred,axis = 1)
-    max_task = np.argmax(ref_pred_cov,axis = 1)
+    diff = np.absolute(np.log2(alt_pred_cov / ref_pred_cov))
+    max_task = np.argmax(diff,axis = 1)
     ref_pred = np.squeeze(ref_pred[:,:,max_task])
     alt_pred = np.squeeze(alt_pred[:,:,max_task])
 
-    #generate random background mutation
-    background_distribution = []
-    for i,ref_seq in enumerate(ref):
-        mut_loci = np.random.randint(500,1023,size = background_size)
-        direction = np.random.choice([-1,1],size = background_size)
-        mut_loci = len(ref_seq)/2 + mut_loci * direction
-        mut_loci = mut_loci.astype('int')
-        mut_batch = np.tile(ref_seq,(background_size,1,1))
-        mut_row = mut_batch[range(0,background_size),mut_loci]
-        ori_empty_base = np.where(mut_row!= 1)[1].reshape(mut_row.shape[0],3)
-        mut_base = np.apply_along_axis(np.random.choice, axis=1, arr=ori_empty_base, size=1)
-        mut_batch[range(0,background_size),mut_loci] = [0,0,0,0]
-        mut_batch[range(0,background_size),mut_loci,mut_base] = 1
+    input_size = ref.shape[1]
+    pred_size = ref_pred.shape[0]
+    bin_size = input_size / pred_size
 
-        mut_pred = model.predict(mut_batch)[:,:,max_task]
+    full_ref_pred = np.repeat(ref_pred,bin_size)
+    full_alt_pred = np.repeat(alt_pred,bin_size)
 
-    fig = plt.fill_between(range(0,mut_pred.shape[1]),
-                    np.squeeze(mut_pred.max(axis = 0)),
-                    np.squeeze(mut_pred.min(axis = 0)),facecolor='grey')
-
-    plt.plot(ref_pred,label = 'reference', color = 'black')
-    plt.plot(alt_pred,label = 'alternative',color = 'red')
+    #generate covergae difference plot
+    plt.figure(figsize = (20,4))
+    plt.plot(full_ref_pred,label = 'reference', color = 'black')
+    plt.plot(full_alt_pred,label = 'alternative',color = 'red')
     plt.xlabel('Position')
     plt.ylabel('Coverage')
     plt.legend()
     if title:
         plt.title(title)
+
+    #Saliency of center 256 neucleotid
+    with tf.GradientTape() as tape:
+        tape.watch(ref)
+        pred = model(ref)
+        saliency_range = 256
+
+        window_range = saliency_range/bin_size
+
+        outputs = pred[:,int(pred_size/2-window_range/2):int(pred_size/2+window_range/2),max_task[0]]
+        saliency = tape.gradient(outputs, ref)
+
+        saliency_start = int(input_size/2 - saliency_range/2)
+        saliency_end = int(input_size/2 + saliency_range/2)
+        peak_saliency = np.transpose(saliency[0,saliency_start:saliency_end])
+
+        #saliency_logo
+        logo_saliency = peak_saliency.T * ref[0,saliency_start:saliency_end]
+        logo_plot = plot_saliency(np.expand_dims(logo_saliency,axis=0))
+        logo_plot.show
+
+        plt.figure(figsize = (20,2))
+        ax = sns.heatmap(peak_saliency,cbar_kws = dict(use_gridspec=False,location="bottom"),cmap = 'vlag')
+        ax.tick_params(left=True, bottom=False)
+        ax.set_yticklabels(['A','C','G','T'])
+        ax.set_xticklabels([])
+
+
 
 def complete_saliency(X,model,class_index,func = tf.math.reduce_mean):
   """fast function to generate saliency maps"""
