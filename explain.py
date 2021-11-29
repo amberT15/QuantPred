@@ -10,6 +10,7 @@ import os, shutil, h5py,scipy
 import util
 import custom_fit
 import seaborn as sns
+import tfomics
 
 def get_center_coordinates(coord, conserve_start, conserve_end):
     '''Extract coordinates according to robsutness test procedure'''
@@ -858,3 +859,139 @@ def get_h5_with_cells(dsq_path, window=3072, out_dir='.',
     else:
         for f in interm_files:
             os.remove(f)
+            
+            
+class Explainer():
+  """wrapper class for attribution maps"""
+
+  def __init__(self, model, class_index=None, func=tf.math.reduce_mean):
+
+    self.model = model
+    self.class_index = class_index
+    self.func = func
+
+  def saliency_maps(self, X, batch_size=128):
+    
+    return function_batch(X, saliency_map, batch_size, model=self.model, 
+                          class_index=self.class_index, func=self.func) 
+
+@tf.function
+def saliency_map(X, model, class_index=None, func=tf.math.reduce_mean):
+  """fast function to generate saliency maps"""
+  if not tf.is_tensor(X):
+    X = tf.Variable(X)
+
+  with tf.GradientTape() as tape:
+    tape.watch(X)
+    outputs = tf.math.reduce_mean(model(X)[:,:,class_index], axis=1)
+  return tape.gradient(outputs, X)
+
+
+def function_batch(X, fun, batch_size=128, **kwargs):
+  """ run a function in batches """
+
+  dataset = tf.data.Dataset.from_tensor_slices(X)
+  outputs = []
+  for x in dataset.batch(batch_size):
+    outputs.append(fun(x, **kwargs))
+  return np.concatenate(outputs, axis=0)
+
+
+
+
+
+def plot_embedding(embedding, cluster_index):
+  fig = plt.figure(figsize=[10,10]) 
+  sns.scatterplot(
+      x=embedding[:, 1],
+      y=embedding[:, 0],
+      alpha=0.2
+  )
+
+  sns.scatterplot(
+      x=embedding[cluster_index, 1],
+      y=embedding[cluster_index, 0],
+      alpha=1
+  )
+  
+
+def plot_embedding_with_box(embedding, anchors, w=1.2, h=1.5, colors = ['r', 'g', 'b']):
+  fig, ax = plt.subplots(1,1,figsize=[10,10]) 
+  plt.rcParams.update({'font.size': 18})
+  sns.scatterplot(
+      x=embedding[:, 1],
+      y=embedding[:, 0],
+      hue=txt_lab,
+      alpha=0.2,
+      ax=ax
+      )
+  plt.legend(frameon=False)
+#   plt.title('UMAP projections')
+  cluster_index_list = []
+  for a, anchor in enumerate(anchors):
+    rect = patches.Rectangle(anchor, w, h, linewidth=3, edgecolor=colors[a], facecolor='none')
+    ax.add_patch(rect)
+    cluster_index = np.argwhere((anchor[0]<embedding[:, 1]) & 
+                                ((anchor[0]+w)>embedding[:, 1]) & 
+                                (anchor[1]<embedding[:, 0]) & 
+                                ((anchor[1]+h)>embedding[:, 0])).flatten()
+    cluster_index_list.append(cluster_index)
+  plt.savefig('plots/UMAP/UMAP.svg')
+  return cluster_index_list
+
+def plot_profiles(pred, cluster_index, class_index=8, bin_size=1, color_edge='k', file_prefix='out'):
+  fig, ax = plt.subplots(1,1, figsize=[10, 6])
+  p = pred[cluster_index,:,class_index]
+  ax.plot(np.repeat(p, bin_size, 1).T, alpha=0.4);
+  # Set the borders to a given color...
+  #     ax.tick_params(color=color_edge, labelcolor='green')
+#   for spine in ax.spines.values():
+#     spine.set_edgecolor(color_edge)
+#     spine.set_linewidth(3)
+#   plt.savefig('plots/UMAP/{}_coverage.svg'.format(file_prefix))
+
+
+def plot_saliency_values(saliency_scores, X_sample, file_prefix='out'):
+  fig, ax = plt.subplots(1,1, figsize=[10, 6])
+#   fig = plt.figure(figsize=(20,2))
+  for i in range(len(saliency_scores)):
+    grad_times_input = np.sum(saliency_scores[i]*X_sample[i], axis=1)
+    plt.plot(grad_times_input, alpha=0.4)
+#   for spine in ax.spines.values():
+#     spine.set_edgecolor(color_edge)
+#     spine.set_linewidth(3)
+#   plt.savefig('plots/UMAP/{}_{}_saliency.svg'.format(file_prefix, len(saliency_scores)))
+
+
+def plot_saliency_logos(saliency_scores, X_sample, window=20, num_plot=25, titles=None):
+  L = X_sample.shape[1]
+
+#   fig = plt.figure(figsize=(20,22))
+  for i in range(len(saliency_scores)):
+#   for i in [6, 14, 58, 65, 78]:
+    fig, ax = plt.subplots(1,1,figsize=[20, 1])
+    x_sample = np.expand_dims(X_sample[i], axis=0)
+    scores = np.expand_dims(saliency_scores[i], axis=0)
+
+    # find window to plot saliency maps (about max saliency value)
+    index = np.argmax(np.max(np.abs(scores), axis=2), axis=1)[0]
+    if index - window < 0:
+      start = 0
+      end = window*2+1
+    elif index + window > L:
+      start = L - window*2 - 1
+      end = L
+    else:
+      start = index - window
+      end = index + window
+
+    saliency_df = tfomics.impress.grad_times_input_to_df(x_sample[:,start:end,:], scores[:,start:end,:])
+
+#     ax = plt.subplot(num_plot,1,i+1)
+    tfomics.impress.plot_attribution_map(saliency_df, ax, figsize=(20,1))
+    if titles:
+        ax.set_title(titles[i])
+#     plt.savefig('plots/UMAP/saliency_plots/{}.svg'.format(i))
+  plt.tight_layout()
+
+
