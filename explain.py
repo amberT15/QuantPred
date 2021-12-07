@@ -859,8 +859,8 @@ def get_h5_with_cells(dsq_path, window=3072, out_dir='.',
     else:
         for f in interm_files:
             os.remove(f)
-            
-            
+
+
 class Explainer():
   """wrapper class for attribution maps"""
 
@@ -871,9 +871,9 @@ class Explainer():
     self.func = func
 
   def saliency_maps(self, X, batch_size=128):
-    
-    return function_batch(X, saliency_map, batch_size, model=self.model, 
-                          class_index=self.class_index, func=self.func) 
+
+    return function_batch(X, saliency_map, batch_size, model=self.model,
+                          class_index=self.class_index, func=self.func)
 
 @tf.function
 def saliency_map(X, model, class_index=None, func=tf.math.reduce_mean):
@@ -897,11 +897,20 @@ def function_batch(X, fun, batch_size=128, **kwargs):
   return np.concatenate(outputs, axis=0)
 
 
+  def plot_true_pred(idx, idx_name, cell_line=13):
+      fig, axs = plt.subplots(1,2, figsize=[15,5])
+      axs[0].plot(filtered_Y[idx,:,cell_line].T);
+      axs[1].plot(np.repeat(preds[idx,:,cell_line], 32, axis=1).T);
+      pr = []
+      for i in idx:
+          pr.append(pearsonr(filtered_Y[i,:,cell_line], np.repeat(preds[i,:,cell_line], 32))[0])
+      pr = np.round(np.mean(pr),3)
 
+      plt.suptitle('{} points, mean per seq pearson r = {}'.format(idx_name, pr));
 
 
 def plot_embedding(embedding, cluster_index):
-  fig = plt.figure(figsize=[10,10]) 
+  fig = plt.figure(figsize=[10,10])
   sns.scatterplot(
       x=embedding[:, 1],
       y=embedding[:, 0],
@@ -913,10 +922,10 @@ def plot_embedding(embedding, cluster_index):
       y=embedding[cluster_index, 0],
       alpha=1
   )
-  
+
 
 def plot_embedding_with_box(embedding, anchors, w=1.2, h=1.5, colors = ['r', 'g', 'b']):
-  fig, ax = plt.subplots(1,1,figsize=[10,10]) 
+  fig, ax = plt.subplots(1,1,figsize=[10,10])
   plt.rcParams.update({'font.size': 18})
   sns.scatterplot(
       x=embedding[:, 1],
@@ -931,9 +940,9 @@ def plot_embedding_with_box(embedding, anchors, w=1.2, h=1.5, colors = ['r', 'g'
   for a, anchor in enumerate(anchors):
     rect = patches.Rectangle(anchor, w, h, linewidth=3, edgecolor=colors[a], facecolor='none')
     ax.add_patch(rect)
-    cluster_index = np.argwhere((anchor[0]<embedding[:, 1]) & 
-                                ((anchor[0]+w)>embedding[:, 1]) & 
-                                (anchor[1]<embedding[:, 0]) & 
+    cluster_index = np.argwhere((anchor[0]<embedding[:, 1]) &
+                                ((anchor[0]+w)>embedding[:, 1]) &
+                                (anchor[1]<embedding[:, 0]) &
                                 ((anchor[1]+h)>embedding[:, 0])).flatten()
     cluster_index_list.append(cluster_index)
   plt.savefig('plots/UMAP/UMAP.svg')
@@ -963,7 +972,7 @@ def plot_saliency_values(saliency_scores, X_sample, file_prefix='out'):
 #   plt.savefig('plots/UMAP/{}_{}_saliency.svg'.format(file_prefix, len(saliency_scores)))
 
 
-def plot_saliency_logos(saliency_scores, X_sample, window=20, num_plot=25, titles=None):
+def plot_saliency_logos(saliency_scores, X_sample, window=20, num_plot=25, titles=None, vline_pos=None):
   L = X_sample.shape[1]
 
 #   fig = plt.figure(figsize=(20,22))
@@ -989,121 +998,9 @@ def plot_saliency_logos(saliency_scores, X_sample, window=20, num_plot=25, title
 
 #     ax = plt.subplot(num_plot,1,i+1)
     tfomics.impress.plot_attribution_map(saliency_df, ax, figsize=(20,1))
+    if vline_pos:
+        ax.axvline(vline_pos, linewidth=2, color='r')
     if titles:
         ax.set_title(titles[i])
 #     plt.savefig('plots/UMAP/saliency_plots/{}.svg'.format(i))
   plt.tight_layout()
-
-
-def dinuc_shuffle(seq, num_shufs=None, rng=None):
-    """
-    Creates shuffles of the given sequence, in which dinucleotide frequencies
-    are preserved.
-    Arguments:
-        `seq`: either a string of length L, or an L x D NumPy array of one-hot
-            encodings
-        `num_shufs`: the number of shuffles to create, N; if unspecified, only
-            one shuffle will be created
-        `rng`: a NumPy RandomState object, to use for performing shuffles
-    If `seq` is a string, returns a list of N strings of length L, each one
-    being a shuffled version of `seq`. If `seq` is a 2D NumPy array, then the
-    result is an N x L x D NumPy array of shuffled versions of `seq`, also
-    one-hot encoded. If `num_shufs` is not specified, then the first dimension
-    of N will not be present (i.e. a single string will be returned, or an L x D
-    array).
-    """
-    if type(seq) is str:
-        arr = string_to_char_array(seq)
-    elif type(seq) is np.ndarray and len(seq.shape) == 2:
-        seq_len, one_hot_dim = seq.shape
-        arr = one_hot_to_tokens(seq)
-    else:
-        raise ValueError("Expected string or one-hot encoded array")
-
-    if not rng:
-        rng = np.random.RandomState()
-   
-    # Get the set of all characters, and a mapping of which positions have which
-    # characters; use `tokens`, which are integer representations of the
-    # original characters
-    chars, tokens = np.unique(arr, return_inverse=True)
-
-    # For each token, get a list of indices of all the tokens that come after it
-    shuf_next_inds = []
-    for t in range(len(chars)):
-        mask = tokens[:-1] == t  # Excluding last char
-        inds = np.where(mask)[0]
-        shuf_next_inds.append(inds + 1)  # Add 1 for next token
- 
-    if type(seq) is str:
-        all_results = []
-    else:
-        all_results = np.empty(
-            (num_shufs if num_shufs else 1, seq_len, one_hot_dim),
-            dtype=seq.dtype
-        )
-
-    for i in range(num_shufs if num_shufs else 1):
-        # Shuffle the next indices
-        for t in range(len(chars)):
-            inds = np.arange(len(shuf_next_inds[t]))
-            inds[:-1] = rng.permutation(len(inds) - 1)  # Keep last index same
-            shuf_next_inds[t] = shuf_next_inds[t][inds]
-
-        counters = [0] * len(chars)
-       
-        # Build the resulting array
-        ind = 0
-        result = np.empty_like(tokens)
-        result[0] = tokens[ind]
-        for j in range(1, len(tokens)):
-            t = tokens[ind]
-            ind = shuf_next_inds[t][counters[t]]
-            counters[t] += 1
-            result[j] = tokens[ind]
-
-        if type(seq) is str:
-            all_results.append(char_array_to_string(chars[result]))
-        else:
-            all_results[i] = tokens_to_one_hot(chars[result], one_hot_dim)
-    return all_results if num_shufs else all_results[0]
-
-
-
-def string_to_char_array(seq):
-    """
-    Converts an ASCII string to a NumPy array of byte-long ASCII codes.
-    e.g. "ACGT" becomes [65, 67, 71, 84].
-    """
-    return np.frombuffer(bytearray(seq, "utf8"), dtype=np.int8)
-
-
-def char_array_to_string(arr):
-    """
-    Converts a NumPy array of byte-long ASCII codes into an ASCII string.
-    e.g. [65, 67, 71, 84] becomes "ACGT".
-    """
-    return arr.tostring().decode("ascii")
-
-
-def one_hot_to_tokens(one_hot):
-    """
-    Converts an L x D one-hot encoding into an L-vector of integers in the range
-    [0, D], where the token D is used when the one-hot encoding is all 0. This
-    assumes that the one-hot encoding is well-formed, with at most one 1 in each
-    column (and 0s elsewhere).
-    """
-    tokens = np.tile(one_hot.shape[1], one_hot.shape[0])  # Vector of all D
-    seq_inds, dim_inds = np.where(one_hot)
-    tokens[seq_inds] = dim_inds
-    return tokens
-
-
-def tokens_to_one_hot(tokens, one_hot_dim):
-    """
-    Converts an L-vector of integers in the range [0, D] to an L x D one-hot
-    encoding. The value `D` must be provided as `one_hot_dim`. A token of D
-    means the one-hot encoding is all 0s.
-    """
-    identity = np.identity(one_hot_dim + 1)[:, :-1]  # Last row is all 0s
-    return identity[tokens]
