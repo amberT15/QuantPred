@@ -61,6 +61,7 @@ class GlobalImportance():
         self.embedded_predictions = {}
         self.seqs_with = {}
         self.seqs_removed = {}
+        self.summary_remove_motifs = []
 
     # methods for removing motifs
 
@@ -72,28 +73,34 @@ class GlobalImportance():
         else:
             self.seqs_to_remove_motif = subset
 
-    def remove_motifs(self, subset, motif_patterns_to_remove, cell_line, num_sample=1000,
+    def occlude_all_motif_instances(self, subset, tandem_motifs_to_remove, cell_line, num_sample=1000,
                       seed=42, func='max', batch_size=32):
         self.set_seqs_for_removing(subset, num_sample, seed)
-        all_motif_dfs = []
-        for motif_pattern in motif_patterns_to_remove:
+        motif_key = ', '.join(tandem_motifs_to_remove)
+        self.seqs_with[motif_key], self.seqs_removed[motif_key] = randomize_multiple_seqs(self.seqs_to_remove_motif,
+                                                      tandem_motifs_to_remove, self.model, cell_line, window_size=2048)
+        if len(self.seqs_with[motif_key]) > 0:
+            if len(self.seqs_with[motif_key]) == 1:
+                self.seqs_with[motif_key], self.seqs_removed[motif_key] = [np.expand_dims(n, axis=0) for n in [self.seqs_with[motif_key], self.seqs_removed[motif_key]]]
+            self.seqs_with[motif_key], self.seqs_removed[motif_key] = [np.array(n) for n in [self.seqs_with[motif_key], self.seqs_removed[motif_key]]]
+            df = self.get_predictions(motif_key, batch_size, cell_line, func)
+        else:
+            df = pd.DataFrame({func+' coverage':[None], 'sequence':[None]})
+        self.summary_remove_motifs.append(df)
 
-            self.seqs_with[motif_pattern], self.seqs_removed[motif_pattern] = randomize_multiple_seqs(self.seqs_to_remove_motif,
-                                                          motif_pattern, self.model, cell_line, window_size=2048)
+    def get_predictions(self, motif_key, batch_size, cell_line, func):
+        ori_preds = embed.predict_np((self.seqs_with[motif_key]),
+                                    self.model, batch_size=batch_size,
+                                    reshape_to_2D=False)
+        del_preds = get_avg_preds(self.seqs_removed[motif_key],
+                                                    self.model)
 
-            ori_preds = embed.predict_np((np.array(self.seqs_with[motif_pattern])),
-                                        self.model, batch_size=batch_size,
-                                        reshape_to_2D=False)
-            del_preds = global_importance.get_avg_preds(self.seqs_removed[motif_pattern],
-                                                        self.model)
-
-            max_ori_pc3 = eval('np.'+func)(ori_preds[:,:,cell_line], axis=1)
-            max_pred_pc3 = eval('np.'+func)(del_preds[:,:,cell_line], axis=1)
-            df = pd.DataFrame({'max coverage': np.concatenate([max_ori_pc3, max_pred_pc3]),
-                       'sequence':['original' for i in range(len(max_ori_pc3))]+['removed' for i in range(len(max_pred_pc3))]})
-            df['motif pattern'] = motif_pattern
-            all_motif_dfs.append(df)
-        self.summary_remove_motifs = pd.concat(all_motif_dfs)
+        max_ori_pc3 = eval('np.'+func)(ori_preds[:,:,cell_line], axis=1)
+        max_pred_pc3 = eval('np.'+func)(del_preds[:,:,cell_line], axis=1)
+        df = pd.DataFrame({func+' coverage': np.concatenate([max_ori_pc3, max_pred_pc3]),
+                   'sequence':['original' for i in range(len(max_ori_pc3))]+['removed' for i in range(len(max_pred_pc3))]})
+        df['motif pattern'] = motif_key
+        return df
 
 
 
@@ -323,32 +330,12 @@ def find_multiple_motifs(motif_pattern_list, str_seq, saliency_values=None,
         motifs_and_indices[motif_pattern] = chosen_ind
     return motifs_and_indices
 
-def find_seqs_with_motif(ind_subset, motif_pattern, all_X, model, cell_line):
-    del_ind = []
-    for i,ind in enumerate(ind_subset):
-        str_seq = ''.join(util.onehot_to_str(all_X[ind,:,:]))
-        grad_times_input = get_saliency_values(all_X[ind,:,:], model, cell_line)
-        motif_d = find_multiple_motifs([motif_pattern], str_seq,
-                             saliency_values=grad_times_input, filter_window=256)
-        if len(motif_d[motif_pattern])==0:
-            del_ind.append(i)
-    ind_subset = np.delete(ind_subset, del_ind)
-    return ind_subset
+
 #-------------------------------------------------------------------------------------
 # functions to remove or randomize a motif
 #-------------------------------------------------------------------------------------
 
-def remove_motif_from_seq(motifs_and_indices, selected_seq):
-    modified_seq = selected_seq.copy()
-    for motif_pattern, motif_start_indices in motifs_and_indices.items():
-        for motif_start in motif_start_indices:
-            motif_end = motif_start+len(motif_pattern)
-            empty_pattern = np.zeros_like(selected_seq[motif_start:motif_end])+0.25
-
-            modified_seq[motif_start:motif_end] = empty_pattern
-    return modified_seq
-
-def randomize_motif_in_seq(motifs_and_indices, selected_seq, n_occlusions=25):
+def randomize_motif_dict_in_seq(motifs_and_indices, selected_seq, n_occlusions=25):
     modified_seqs = []
     for i in range(n_occlusions):
         modified_seq = selected_seq.copy()
@@ -359,22 +346,24 @@ def randomize_motif_in_seq(motifs_and_indices, selected_seq, n_occlusions=25):
         modified_seqs.append(modified_seq)
     return np.array(modified_seqs)
 
-def randomize_multiple_seqs(onehot_seqs, motif_pattern, model, cell_line, window_size=256):
+def randomize_multiple_seqs(onehot_seqs, tandem_motifs_to_remove, model,
+                            cell_line, window_size=None):
     seqs_with_motif = []
     seqs_removed_motifs = []
-    saliency_all_seqs = explain.get_multiple_saliency_values(onehot_seqs, model, cell_line)
+    # saliency_all_seqs = explain.get_multiple_saliency_values(onehot_seqs, model, cell_line)
     for o, onehot_seq in enumerate(onehot_seqs):
         str_seq = ''.join(util.onehot_to_str(onehot_seq))
-        motifs_and_indices = (find_multiple_motifs([motif_pattern], str_seq,
-                             saliency_values=saliency_all_seqs[o], filter_window=window_size))
-        if motifs_and_indices[motif_pattern]:
+        motifs_and_indices = find_multiple_motifs(tandem_motifs_to_remove, str_seq,
+                             # saliency_values=saliency_all_seqs[o],
+                             filter_window=window_size)
+        all_motifs_present = np.array([len(v)>0 for k,v in motifs_and_indices.items()]).all()
+        if all_motifs_present:
             seqs_with_motif.append(onehot_seq.copy())
-            seqs_removed_motifs.append(randomize_motif_in_seq(motifs_and_indices,
+            seqs_removed_motifs.append(randomize_motif_dict_in_seq(motifs_and_indices,
                                                               onehot_seq))
     return (seqs_with_motif, seqs_removed_motifs)
 
 def get_avg_preds(seqs_removed, model):
-    seqs_removed = np.array(seqs_removed)
     N,B,L,C = seqs_removed.shape
     removed_preds = embed.predict_np((seqs_removed.reshape(N*B,L,C)), model,
                                      batch_size=32, reshape_to_2D=False)#[:,:,cell_line]
@@ -382,16 +371,3 @@ def get_avg_preds(seqs_removed, model):
 #     removed_preds = removed_preds.reshape(N,B,L)
     avg_removed_preds = removed_preds.reshape(N,B,L,C).mean(axis=1)
     return avg_removed_preds
-
-def get_delta_per_seq(onehot_seq, motif_pattern, model, cell_line, save_both=False):
-    str_seq = ''.join(util.onehot_to_str(onehot_seq))
-    grad_times_input = get_saliency_values(onehot_seq, model, cell_line)
-    motifs_and_indices = find_multiple_motifs([motif_pattern], str_seq,
-                         saliency_values=grad_times_input, filter_window=256)
-    selected_seq = onehot_seq.copy()
-    modified_seqs = randomize_motif_in_seq(motifs_and_indices, selected_seq)
-    no_motif_preds = model(modified_seqs)[:,:,cell_line]
-    if save_both:
-        return (predictions[i,:,cell_line], no_motif_preds).numpy().mean(axis=0).sum()
-    else:
-        return (predictions[i,:,cell_line] - no_motif_preds).numpy().mean(axis=0).sum()
