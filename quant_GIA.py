@@ -15,45 +15,33 @@ from tqdm import tqdm
 import glob
 from scipy.stats import mannwhitneyu
 from statannotations.Annotator import Annotator
-import global_importance
 import tfr_evaluate, util
 from test_to_bw_fast import read_model, get_config
 import explain
 import embed
 import metrics
+from tqdm import tqdm
 from dinuc_shuffle import dinuc_shuffle
 
-#megafunction for GIA experiments
+from functools import wraps
+import time
 
+def timeit(my_func):
+    @wraps(my_func)
+    def timed(*args, **kw):
 
-# master function for GIA remove
-# input:
-    # cell cell_line
-    # list of motif clusters
+        tstart = time.time()
+        output = my_func(*args, **kw)
+        tend = time.time()
 
-# optional parameters:
-    # background - (i) whole test (ii) thresh test set
-                # (iii) thresh cell line test set (iv) low test set
-    # number of motifs removed:
-        # (i) 1 (ii) 256 window (iii) all
+        print('"{}" took {:.3f} mins to execute\n'.format(my_func.__name__, (tend - tstart) / 60))
+        return output
+    return timed
 
-
-
-# master function for GIA add
-    # input:
-        #cell line
-        # list of motif clusters
-    #optional parameters:
-        # background - (i) null low thresh all cells (ii) dinuc high pred
-                        # (ii) random high pred
-        # sample size
-        # optimize # flanks
-        # position optimization
-        # number of motifs added
 
 class GlobalImportance():
     """Class that performs GIA experiments."""
-    def __init__(self, model, alphabet='ACGU'):
+    def __init__(self, model, targets, alphabet='ACGT'):
         self.model = model
         self.alphabet = alphabet
         self.x_null = None
@@ -62,52 +50,64 @@ class GlobalImportance():
         self.seqs_with = {}
         self.seqs_removed = {}
         self.summary_remove_motifs = []
+        self.seq_idx = {}
+        self.targets = targets
 
     # methods for removing motifs
-
     def set_seqs_for_removing(self, subset, num_sample, seed):
         if num_sample:
+            print('SUBSETTING SEQUENCES')
             if seed:
                 np.random.seed(seed)
-            self.seqs_to_remove_motif = subset[np.random.choice(subset.shape[0], num_sample)]
+            rand_idx = np.random.choice(subset.shape[0], num_sample, replace=False).flatten()
+            self.seqs_to_remove_motif = subset[rand_idx]
         else:
             self.seqs_to_remove_motif = subset
 
-    def occlude_all_motif_instances(self, subset, tandem_motifs_to_remove, cell_line, num_sample=1000,
-                      seed=42, func='max', batch_size=32):
+    @timeit
+    def occlude_all_motif_instances(self, subset, tandem_motifs_to_remove,
+                                    num_sample=None,
+                                    seed=42, func='max', batch_size=32):
         self.set_seqs_for_removing(subset, num_sample, seed)
         motif_key = ', '.join(tandem_motifs_to_remove)
-        self.seqs_with[motif_key], self.seqs_removed[motif_key] = randomize_multiple_seqs(self.seqs_to_remove_motif,
-                                                      tandem_motifs_to_remove, self.model, cell_line, window_size=2048)
+        self.seqs_with[motif_key], self.seqs_removed[motif_key], self.n_instances, self.seq_idx[motif_key] = randomize_multiple_seqs(self.seqs_to_remove_motif,
+                                                      tandem_motifs_to_remove, self.model, window_size=None)
         if len(self.seqs_with[motif_key]) > 0:
-            if len(self.seqs_with[motif_key]) == 1:
-                self.seqs_with[motif_key], self.seqs_removed[motif_key] = [np.expand_dims(n, axis=0) for n in [self.seqs_with[motif_key], self.seqs_removed[motif_key]]]
             self.seqs_with[motif_key], self.seqs_removed[motif_key] = [np.array(n) for n in [self.seqs_with[motif_key], self.seqs_removed[motif_key]]]
-            df = self.get_predictions(motif_key, batch_size, cell_line, func)
+            df = self.get_predictions(motif_key, batch_size, func)
         else:
-            df = pd.DataFrame({func+' coverage':[None], 'sequence':[None]})
+            print('No seqs detected')
+            df = pd.DataFrame({func+' coverage':[None], 'sequence':[None], 'N instances':[None], 'motif pattern': [motif_key]})
         self.summary_remove_motifs.append(df)
 
-    def get_predictions(self, motif_key, batch_size, cell_line, func):
+    @timeit
+    def get_predictions(self, motif_key, batch_size, func):
         ori_preds = embed.predict_np((self.seqs_with[motif_key]),
                                     self.model, batch_size=batch_size,
                                     reshape_to_2D=False)
         del_preds = get_avg_preds(self.seqs_removed[motif_key],
                                                     self.model)
-
-        max_ori_pc3 = eval('np.'+func)(ori_preds[:,:,cell_line], axis=1)
-        max_pred_pc3 = eval('np.'+func)(del_preds[:,:,cell_line], axis=1)
-        df = pd.DataFrame({func+' coverage': np.concatenate([max_ori_pc3, max_pred_pc3]),
-                   'sequence':['original' for i in range(len(max_ori_pc3))]+['removed' for i in range(len(max_pred_pc3))]})
-        df['motif pattern'] = motif_key
-        return df
+        max_ori_pc3 = eval('np.'+func)(make_3D(ori_preds), axis=1)
+        max_pred_pc3 = eval('np.'+func)(make_3D(del_preds), axis=1)
+        df_all = pd.DataFrame({
+                                'mean coverage': np.concatenate([max_ori_pc3.flatten(), max_pred_pc3.flatten()]),
+                                'sequence':['original' for i in range(len(max_ori_pc3.flatten()))]+['removed' for i in range(len(max_pred_pc3.flatten()))],
+                                'cell line': np.concatenate([np.tile(self.targets, max_ori_pc3.shape[0]) for i in range(2)]),
+                                'N instances':np.concatenate([np.repeat(self.n_instances, len(self.targets)) for i in range(2)])
+                                })
+        # df = pd.DataFrame({func+' coverage': np.concatenate([max_ori_pc3, max_pred_pc3]),
+        #            'sequence':['original' for i in range(len(max_ori_pc3))]+['removed' for i in range(len(max_pred_pc3))],
+        #            'N instances':np.concatenate([self.n_instances, self.n_instances])})
+        df_all['motif pattern'] = motif_key
+        # df_all = [max_ori_pc3, max_pred_pc3]
+        return df_all
 
 
 
     def set_null_model(self, null_model, base_sequence, num_sample=1000,
                         binding_scores=None, seed=None):
         """use model-based approach to set the null sequences"""
-        self.x_null, self.null_sample_idx = generate_null_sequence_set(null_model, base_sequence, num_sample, binding_scores, seed)
+        self.x_null = generate_null_sequence_set(null_model, base_sequence, num_sample, binding_scores, seed)
         self.x_null_index = np.argmax(self.x_null, axis=2)
         self.predict_null()
 
@@ -154,13 +154,18 @@ class GlobalImportance():
         assert self.embedded_predictions[pattern_label].shape == self.null_profiles.shape
         return self.embedded_predictions[pattern_label] - self.null_profiles
 
-    def positional_bias(self, motif, positions):
+    def positional_bias(self, motif, positions, targets):
         """GIA to find positional bias"""
         # loop over positions and measure effect size of intervention
         all_scores = []
         for position in positions:
-            all_scores.append(self.embed_predict_quant_effect((motif, position)))
-        return np.array(all_scores)
+            all_scores.append(self.embed_predict_quant_effect([(motif, position)]))
+        mean_per_pos = np.array(all_scores).mean(axis=1).mean(axis=1)
+        df = pd.DataFrame({'position':np.repeat(list(range(0,2048//2,200)), len(targets)),
+                            'mean difference':np.array(mean_per_pos).flatten(),
+                            'cell line': np.tile(targets, mean_per_pos.shape[0])})
+        df['motif'] = motif
+        return df
 
     def multiple_sites(self, motif, positions):
         """GIA to find relation with multiple binding sites"""
@@ -174,7 +179,6 @@ class GlobalImportance():
                 interventions.append((motif, positions[j]))
             all_scores.append(self.embed_predict_quant_effect(interventions))
         return np.array(all_scores)
-
 
 
 #-------------------------------------------------------------------------------------
@@ -194,7 +198,7 @@ def generate_null_sequence_set(null_model, base_sequence, num_sample=1000 , bind
             print('seed set!')
         idx = np.random.choice(base_sequence.shape[0], num_sample)
 
-        return base_sequence[idx], idx
+        return base_sequence[idx]
     else: print ('null_model name not recognized.')
 
 
@@ -267,8 +271,38 @@ def generate_quartile_set(base_sequence, num_sample, binding_scores, quartile):
 
 
 #-------------------------------------------------------------------------------------
-# Plotting functions
+# util functions
 #-------------------------------------------------------------------------------------
+def select_set(testset_type, C, X, Y, cell_line=None):
+    if testset_type == 'whole':
+        return (X)
+    elif testset_type == 'all_threshold':
+        threshold_mask = (Y.max(axis=1)>2).any(axis=-1)
+        return (X[threshold_mask])
+    elif testset_type == 'cell_high':
+        assert cell_line, 'No cell line provided!'
+        _, thresh_X, _ = embed.threshold_cell_line_np(C, X, Y, cell_line,
+                                                    more_than=2,
+                                                    less_than=None)
+        return (thresh_X)
+    elif testset_type == 'cell_low':
+        assert cell_line, 'No cell line provided!'
+        _, thresh_X, _ = embed.threshold_cell_line_np(C, X, Y, cell_line,
+                                                    more_than=1,
+                                                    less_than=2)
+        return (thresh_X)
+    else:
+        print('Wrong please try again thank you bye')
+        exit()
+
+def make_3D(array):
+    if len(array.shape)==2:
+        return np.expand_dims(array, axis=0)
+    elif len(array.shape) == 3:
+        return array
+    else:
+        print('bad array')
+        exit()
 
 def boxplot_with_test(data, x, y, pairs):
     plotting_parameters = {
@@ -299,6 +333,7 @@ def find_max_saliency_ind(indices, saliency_values):
     else:
         return []
 
+
 def filter_indices_in_saliency_peak(indices, saliency_values, window=300):
     '''filter motifs within a window around the max saliency'''
     max_point = np.argmax(saliency_values)
@@ -306,6 +341,7 @@ def filter_indices_in_saliency_peak(indices, saliency_values, window=300):
         return list(np.array(indices)[(np.abs(indices-max_point)<window/2)])
     else:
         return []
+
 
 def select_indices(motif_pattern, str_seq, saliency_values=None,
                    max_only=False, filter_window=False):
@@ -346,12 +382,15 @@ def randomize_motif_dict_in_seq(motifs_and_indices, selected_seq, n_occlusions=2
         modified_seqs.append(modified_seq)
     return np.array(modified_seqs)
 
+
 def randomize_multiple_seqs(onehot_seqs, tandem_motifs_to_remove, model,
-                            cell_line, window_size=None):
+                            cell_line=None, window_size=None):
     seqs_with_motif = []
     seqs_removed_motifs = []
     # saliency_all_seqs = explain.get_multiple_saliency_values(onehot_seqs, model, cell_line)
-    for o, onehot_seq in enumerate(onehot_seqs):
+    n_instances_per_seq = []
+    incl_idx = []
+    for o, onehot_seq in tqdm(enumerate(onehot_seqs)):
         str_seq = ''.join(util.onehot_to_str(onehot_seq))
         motifs_and_indices = find_multiple_motifs(tandem_motifs_to_remove, str_seq,
                              # saliency_values=saliency_all_seqs[o],
@@ -361,7 +400,11 @@ def randomize_multiple_seqs(onehot_seqs, tandem_motifs_to_remove, model,
             seqs_with_motif.append(onehot_seq.copy())
             seqs_removed_motifs.append(randomize_motif_dict_in_seq(motifs_and_indices,
                                                               onehot_seq))
-    return (seqs_with_motif, seqs_removed_motifs)
+            n_instances_per_seq.append([str(len(v)) for k,v in motifs_and_indices.items()])
+            incl_idx.append(o)
+    n_instances_per_seq = [', '.join(n) for n in n_instances_per_seq]
+    return (seqs_with_motif, seqs_removed_motifs, n_instances_per_seq, incl_idx)
+
 
 def get_avg_preds(seqs_removed, model):
     N,B,L,C = seqs_removed.shape
