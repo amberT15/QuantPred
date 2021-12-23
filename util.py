@@ -65,7 +65,9 @@ def dna_one_hot(seq, seq_len=None, flatten=True, n_random=False):
     if flatten:
         seq_vec = seq_code.flatten()[None, :]
 
-    return seq_vec
+        return seq_vec
+    else:
+        return seq_code
 
 
 def hash_sequences_1hot(fasta_file, extend_len=None):
@@ -376,3 +378,10 @@ def convert_tfr_to_np(testset, number_data_types=2):
 def batch_np(whole_dataset, batch_size):
     for i in range(0, whole_dataset.shape[0], batch_size):
         yield whole_dataset[i:i+batch_size]
+
+def onehot_to_str(onehot):
+    full_str = []
+    for one_onehot in onehot:
+        assert one_onehot.shape == (4,)
+        full_str.append(list('ACGT')[np.argwhere(one_onehot)[0][0]])
+    return ''.join(full_str)
