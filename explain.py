@@ -864,26 +864,31 @@ def get_h5_with_cells(dsq_path, window=3072, out_dir='.',
 class Explainer():
   """wrapper class for attribution maps"""
 
-  def __init__(self, model, class_index=None, func=tf.math.reduce_mean):
+  def __init__(self, model, class_index=None, func=tf.math.reduce_mean, binary=False):
 
     self.model = model
     self.class_index = class_index
     self.func = func
+    self.binary = binary
 
   def saliency_maps(self, X, batch_size=128):
 
     return function_batch(X, saliency_map, batch_size, model=self.model,
-                          class_index=self.class_index, func=self.func)
+                          class_index=self.class_index, func=self.func,
+                          binary=self.binary)
 
 @tf.function
-def saliency_map(X, model, class_index=None, func=tf.math.reduce_mean):
+def saliency_map(X, model, class_index=None, func=tf.math.reduce_mean, binary=False):
   """fast function to generate saliency maps"""
   if not tf.is_tensor(X):
     X = tf.Variable(X)
 
   with tf.GradientTape() as tape:
     tape.watch(X)
-    outputs = tf.math.reduce_mean(model(X)[:,:,class_index], axis=1)
+    if binary:
+      outputs = model(X)[:,class_index]
+    else:
+      outputs = tf.math.reduce_mean(model(X)[:,:,class_index], axis=1)
   return tape.gradient(outputs, X)
 
 
@@ -893,7 +898,8 @@ def function_batch(X, fun, batch_size=128, **kwargs):
   dataset = tf.data.Dataset.from_tensor_slices(X)
   outputs = []
   for x in dataset.batch(batch_size):
-    outputs.append(fun(x, **kwargs))
+    f = fun(x, **kwargs)
+    outputs.append(f)
   return np.concatenate(outputs, axis=0)
 
 
@@ -1004,3 +1010,54 @@ def plot_saliency_logos(saliency_scores, X_sample, window=20, num_plot=25, title
         ax.set_title(titles[i])
 #     plt.savefig('plots/UMAP/saliency_plots/{}.svg'.format(i))
   plt.tight_layout()
+
+
+def plot_saliency_logos_oneplot(saliency_scores, X_sample, window=20,
+                                num_plot=25, titles=[], vline_pos=None,
+                                filename=None):
+    N,L,A = X_sample.shape
+    fig, axs = plt.subplots(N,1,figsize=[20, 2*N])
+    #   fig = plt.figure(figsize=(20,22))
+    for i in range(N):
+      ax=axs[i]
+      x_sample = np.expand_dims(X_sample[i], axis=0)
+      scores = np.expand_dims(saliency_scores[i], axis=0)
+
+      # find window to plot saliency maps (about max saliency value)
+      index = np.argmax(np.max(np.abs(scores), axis=2), axis=1)[0]
+      if index - window < 0:
+        start = 0
+        end = window*2+1
+      elif index + window > L:
+        start = L - window*2 - 1
+        end = L
+      else:
+        start = index - window
+        end = index + window
+
+      saliency_df = tfomics.impress.grad_times_input_to_df(x_sample[:,start:end,:], scores[:,start:end,:])
+
+    #     ax = plt.subplot(num_plot,1,i+1)
+      tfomics.impress.plot_attribution_map(saliency_df, ax, figsize=(20,1))
+      if vline_pos:
+          ax.axvline(vline_pos, linewidth=2, color='r')
+      if len(titles):
+          ax.set_title(titles[i])
+    #     plt.savefig('plots/UMAP/saliency_plots/{}.svg'.format(i))
+    plt.tight_layout()
+    if filename:
+        assert not os.path.isfile(filename), 'File exists!'
+        plt.savefig(filename, format='svg')
+
+def get_multiple_saliency_values(seqs, model, class_index):
+    explainer = Explainer(model, class_index=class_index)
+    saliency_scores = explainer.saliency_maps(seqs)
+    grad_times_input = np.sum(saliency_scores*seqs, axis=-1)
+    return grad_times_input
+
+def get_saliency_values(seq, model, class_index):
+    explainer = explain.Explainer(model, class_index=class_index)
+    x = np.expand_dims(seq, axis=0)
+    saliency_scores = explainer.saliency_maps(x)
+    grad_times_input = np.sum(saliency_scores[0]*seq, axis=1)
+    return grad_times_input
