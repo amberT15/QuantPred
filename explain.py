@@ -11,6 +11,7 @@ import util
 import custom_fit
 import seaborn as sns
 import tfomics
+from operator import itemgetter
 
 def get_center_coordinates(coord, conserve_start, conserve_end):
     '''Extract coordinates according to robsutness test procedure'''
@@ -487,64 +488,119 @@ def vcf_test(ref,alt,coords,model):
     return vcf_diff_list
 
 
-
-def visualize_vcf(ref,alt,model,background_size = 100,title = None):
+def visualize_vcf(ref,alt,model,vcf_output,cagi_df):
+    idx = {'A':0,'C':1,'G':2,'T':3}
     #ref and alternative prediction for the task with most signal
-    ref = tf.expand_dims(ref,axis=0)
-    alt = tf.expand_dims(alt,axis=0)
-    ref_pred = model.predict(ref)
-    alt_pred = model.predict(alt)
-    ref_pred_cov = np.sum(ref_pred,axis = 1)
-    alt_pred_cov = np.sum(alt_pred,axis = 1)
-    diff = np.absolute(np.log2(alt_pred_cov / ref_pred_cov))
-    max_task = np.argmax(diff,axis = 1)
-    ref_pred = np.squeeze(ref_pred[:,:,max_task])
-    alt_pred = np.squeeze(alt_pred[:,:,max_task])
+    for exp in cagi_df['8'].unique():
 
-    input_size = ref.shape[1]
-    pred_size = ref_pred.shape[0]
-    bin_size = input_size / pred_size
+        saliency_range =0
 
-    full_ref_pred = np.repeat(ref_pred,bin_size)
-    full_alt_pred = np.repeat(alt_pred,bin_size)
+        exp_df = cagi_df[cagi_df['8']==exp]
+        idx_df = exp_df[['0','1','2']].drop_duplicates().sort_values(by=['1'])
+        exp_len = len(exp_df['1'].unique())
+        effect_size = np.zeros((4,exp_len))
+        predict_size = np.zeros((4,exp_len))
 
-    #generate covergae difference plot
-    plt.figure(figsize = (20,4))
-    plt.plot(full_ref_pred,label = 'reference', color = 'black')
-    plt.plot(full_alt_pred,label = 'alternative',color = 'red')
-    plt.xlabel('Position')
-    plt.ylabel('Coverage')
-    plt.legend()
-    if title:
-        plt.title(title)
+        #plot max difference in prediction and saliency
+        max_idx = exp_df.index[np.argmax(np.absolute(vcf_output[exp_df.index]))]
+        max_ref = ref[max_idx:max_idx+1]
+        max_alt = alt[max_idx:max_idx+1]
+        ref_pred = model.predict(max_ref)
+        alt_pred = model.predict(max_alt)
+        ref_pred_cov = np.sum(ref_pred,axis = 1)
+        alt_pred_cov = np.sum(alt_pred,axis = 1)
+        diff = np.absolute(np.log2(alt_pred_cov / ref_pred_cov))
+        max_task = np.argmax(diff,axis = 1)
+        ref_pred = np.squeeze(ref_pred[:,:,max_task])
+        alt_pred = np.squeeze(alt_pred[:,:,max_task])
 
-    #Saliency of center 256 neucleotid
-    with tf.GradientTape() as tape:
-        tape.watch(ref)
-        pred = model(ref)
-        saliency_range = 256
+        input_size = ref.shape[1]
+        pred_size = ref_pred.shape[0]
+        bin_size = input_size / pred_size
 
-        window_range = saliency_range/bin_size
-
-        outputs = pred[:,int(pred_size/2-window_range/2):int(pred_size/2+window_range/2),max_task[0]]
-        saliency = tape.gradient(outputs, ref)
-
-        saliency_start = int(input_size/2 - saliency_range/2)
-        saliency_end = int(input_size/2 + saliency_range/2)
-        peak_saliency = np.transpose(saliency[0,saliency_start:saliency_end])
-
-        #saliency_logo
-        logo_saliency = peak_saliency.T * ref[0,saliency_start:saliency_end]
-        logo_plot = plot_saliency(np.expand_dims(logo_saliency,axis=0))
-        logo_plot.show
+        full_ref_pred = np.repeat(ref_pred,bin_size)
+        full_alt_pred = np.repeat(alt_pred,bin_size)
 
         plt.figure(figsize = (20,2))
-        ax = sns.heatmap(peak_saliency,cbar_kws = dict(use_gridspec=False,location="bottom"),cmap = 'vlag')
-        ax.tick_params(left=True, bottom=False)
-        ax.set_yticklabels(['A','C','G','T'])
+        plt.plot(full_ref_pred,label = 'reference', color = 'black')
+        plt.plot(full_alt_pred,label = 'alternative',color = 'red')
+        plt.xlabel('Position')
+        plt.ylabel('Coverage')
+        plt.legend()
+
+        center_idx = idx_df.index[int(exp_len/2)]
+        center_ref = ref[center_idx:center_idx+1]
+
+        with tf.GradientTape() as tape:
+
+            tape.watch(center_ref)
+            pred = model(center_ref)
+            if saliency_range == 0:
+                saliency_range = exp_len
+
+            window_range = saliency_range/bin_size
+
+            outputs = pred[:,int(pred_size/2-window_range/2):int(pred_size/2+window_range/2),max_task[0]]
+            saliency = tape.gradient(outputs, center_ref)
+
+            saliency_start = int(input_size/2 - saliency_range/2)
+            saliency_end = int(input_size/2 + saliency_range/2)
+            peak_saliency = np.transpose(saliency[0,saliency_start:saliency_end])
+
+            #saliency_logo
+            logo_saliency = peak_saliency.T * ref[0,saliency_start:saliency_end]
+            logo_plot = plot_saliency(np.expand_dims(logo_saliency,axis=0))
+            logo_plot.show
+
+            #saliency heat map
+            plt.figure(figsize = (20,2))
+            ax = sns.heatmap(peak_saliency,cmap = 'vlag',
+                             center = 0,
+                             cbar_kws = dict(use_gridspec=False,location="bottom")
+                            )
+            ax.tick_params(left=True, bottom=False)
+            ax.set_yticklabels(['A','C','G','T'])
+            ax.set_xticklabels([])
+            ax.set_title(exp+' saliency heatmap')
+
+        for pos in range(0,exp_len):
+            row = idx_df.iloc[pos]
+            loci_df = exp_df[(exp_df['0']==row['0'])&(exp_df['1']==row['1'])&(exp_df['2']==row['2'])]
+            loci_idx = loci_df.index
+            ref_allele = loci_df['3'].drop_duplicates().values
+            alt_allele = loci_df['4'].values.tolist()
+            diff = loci_df['6'].values
+
+            #alternative allele
+            effect_size[itemgetter(*alt_allele)(idx),pos] =diff
+            predict_size [itemgetter(*alt_allele)(idx),pos] =vcf_output[loci_idx]
+
+            #reference allele
+            effect_size[idx[ref_allele[0]],pos] = 0
+            predict_size[idx[ref_allele[0]],pos] = 0
+
+
+        plt.figure(figsize = (20,2))
+        ax = sns.heatmap(effect_size,cmap = 'vlag',
+                         center = 0,
+                         #annot = exp_annot,fmt = '',
+                        cbar_kws = dict(use_gridspec=False,location="bottom"));
+        ax.tick_params(left=True, bottom=False);
+        ax.set_yticklabels(['A','C','G','T']);
+        ax.set_xticklabels([]);
+        ax.set_title(exp+' ground truth')
+
+        plt.figure(figsize = (20,2))
+        ax = sns.heatmap(predict_size,cmap = 'vlag',
+                         center = 0,
+                         #annot = pred_annot,fmt = '',
+                         cbar_kws = dict(use_gridspec=False,location="bottom"));
+        ax.tick_params(left=True, bottom=False);
+        ax.set_yticklabels(['A','C','G','T']);
         ax.set_xticklabels([])
+        ax.set_title(exp+' mutagenesis')
 
-
+def
 
 def complete_saliency(X,model,class_index,func = tf.math.reduce_mean):
   """fast function to generate saliency maps"""
@@ -859,8 +915,8 @@ def get_h5_with_cells(dsq_path, window=3072, out_dir='.',
     else:
         for f in interm_files:
             os.remove(f)
-            
-            
+
+
 class Explainer():
   """wrapper class for attribution maps"""
 
@@ -871,9 +927,9 @@ class Explainer():
     self.func = func
 
   def saliency_maps(self, X, batch_size=128):
-    
-    return function_batch(X, saliency_map, batch_size, model=self.model, 
-                          class_index=self.class_index, func=self.func) 
+
+    return function_batch(X, saliency_map, batch_size, model=self.model,
+                          class_index=self.class_index, func=self.func)
 
 @tf.function
 def saliency_map(X, model, class_index=None, func=tf.math.reduce_mean):
@@ -901,7 +957,7 @@ def function_batch(X, fun, batch_size=128, **kwargs):
 
 
 def plot_embedding(embedding, cluster_index):
-  fig = plt.figure(figsize=[10,10]) 
+  fig = plt.figure(figsize=[10,10])
   sns.scatterplot(
       x=embedding[:, 1],
       y=embedding[:, 0],
@@ -913,10 +969,10 @@ def plot_embedding(embedding, cluster_index):
       y=embedding[cluster_index, 0],
       alpha=1
   )
-  
+
 
 def plot_embedding_with_box(embedding, anchors, w=1.2, h=1.5, colors = ['r', 'g', 'b']):
-  fig, ax = plt.subplots(1,1,figsize=[10,10]) 
+  fig, ax = plt.subplots(1,1,figsize=[10,10])
   plt.rcParams.update({'font.size': 18})
   sns.scatterplot(
       x=embedding[:, 1],
@@ -931,9 +987,9 @@ def plot_embedding_with_box(embedding, anchors, w=1.2, h=1.5, colors = ['r', 'g'
   for a, anchor in enumerate(anchors):
     rect = patches.Rectangle(anchor, w, h, linewidth=3, edgecolor=colors[a], facecolor='none')
     ax.add_patch(rect)
-    cluster_index = np.argwhere((anchor[0]<embedding[:, 1]) & 
-                                ((anchor[0]+w)>embedding[:, 1]) & 
-                                (anchor[1]<embedding[:, 0]) & 
+    cluster_index = np.argwhere((anchor[0]<embedding[:, 1]) &
+                                ((anchor[0]+w)>embedding[:, 1]) &
+                                (anchor[1]<embedding[:, 0]) &
                                 ((anchor[1]+h)>embedding[:, 0])).flatten()
     cluster_index_list.append(cluster_index)
   plt.savefig('plots/UMAP/UMAP.svg')
@@ -993,5 +1049,3 @@ def plot_saliency_logos(saliency_scores, X_sample, window=20, num_plot=25, title
         ax.set_title(titles[i])
 #     plt.savefig('plots/UMAP/saliency_plots/{}.svg'.format(i))
   plt.tight_layout()
-
-
