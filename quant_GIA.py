@@ -22,9 +22,10 @@ import embed
 import metrics
 from tqdm import tqdm
 from dinuc_shuffle import dinuc_shuffle
-
+import itertools
 from functools import wraps
 import time
+
 
 def timeit(my_func):
     @wraps(my_func)
@@ -87,6 +88,11 @@ class GlobalImportance():
                                     reshape_to_2D=False)
         del_preds = get_avg_preds(self.seqs_removed[motif_key],
                                                     self.model)
+        if ori_preds.ndim == 2 and del_preds.ndim == 2:
+            print('Reshaping to 3D!')
+            ori_preds = np.expand_dims(ori_preds, axis=1)
+            del_preds = np.expand_dims(del_preds, axis=1)
+        print(ori_preds.shape)
         max_ori_pc3 = eval('np.'+func)(make_3D(ori_preds), axis=1)
         max_pred_pc3 = eval('np.'+func)(make_3D(del_preds), axis=1)
         df_all = pd.DataFrame({
@@ -95,11 +101,7 @@ class GlobalImportance():
                                 'cell line': np.concatenate([np.tile(self.targets, max_ori_pc3.shape[0]) for i in range(2)]),
                                 'N instances':np.concatenate([np.repeat(self.n_instances, len(self.targets)) for i in range(2)])
                                 })
-        # df = pd.DataFrame({func+' coverage': np.concatenate([max_ori_pc3, max_pred_pc3]),
-        #            'sequence':['original' for i in range(len(max_ori_pc3))]+['removed' for i in range(len(max_pred_pc3))],
-        #            'N instances':np.concatenate([self.n_instances, self.n_instances])})
         df_all['motif pattern'] = motif_key
-        # df_all = [max_ori_pc3, max_pred_pc3]
         return df_all
 
 
@@ -152,16 +154,19 @@ class GlobalImportance():
         pattern_label = ' & '.join(['{} at {}'.format(m, str(p)) for m,p in patterns])
         self.embedded_predictions[pattern_label] = self.model.predict(one_hot)
         assert self.embedded_predictions[pattern_label].shape == self.null_profiles.shape
-        return self.embedded_predictions[pattern_label] - self.null_profiles
+        if self.embedded_predictions[pattern_label].ndim == 2:
+            return np.expand_dims(self.embedded_predictions[pattern_label] - self.null_profiles, axis=1)
+        else:
+            return self.embedded_predictions[pattern_label] - self.null_profiles
 
     def positional_bias(self, motif, positions, targets):
         """GIA to find positional bias"""
         # loop over positions and measure effect size of intervention
         all_scores = []
-        for position in positions:
+        for position in tqdm(positions):
             all_scores.append(self.embed_predict_quant_effect([(motif, position)]))
         mean_per_pos = np.array(all_scores).mean(axis=1).mean(axis=1)
-        df = pd.DataFrame({'position':np.repeat(list(range(0,2048//2,200)), len(targets)),
+        df = pd.DataFrame({'position':np.repeat(positions, len(targets)),
                             'mean difference':np.array(mean_per_pos).flatten(),
                             'cell line': np.tile(targets, mean_per_pos.shape[0])})
         df['motif'] = motif
@@ -414,3 +419,32 @@ def get_avg_preds(seqs_removed, model):
 #     removed_preds = removed_preds.reshape(N,B,L)
     avg_removed_preds = removed_preds.reshape(N,B,L,C).mean(axis=1)
     return avg_removed_preds
+
+def test_flanks(gi, all_flanks, targets, position=1024, output_path=''):
+    all_scores = []
+    for motif in tqdm(all_flanks):
+        diff_scores = gi.embed_predict_quant_effect([(motif, position)])
+        # if diff_scores.ndim == 2:
+        #     diff_scores = np.expand_dims(diff_scores, axis=1)
+        all_scores_per_motif=(diff_scores).mean(axis=0).mean(axis=0)
+        all_scores.append(all_scores_per_motif)
+
+    df = pd.DataFrame({'motif':np.repeat(all_flanks, len(targets)),
+                  'mean difference':np.array(all_scores).flatten(),
+                 'cell line': np.tile(targets, len(all_flanks))})
+    df.to_csv(output_path, index=None)
+    return df
+
+
+def generate_flanks(motif_pattern):
+    dot_positions = np.argwhere(np.array(list(motif_pattern))=='.').flatten()
+    kmer_size = len(dot_positions)
+    kmers = ["".join(p) for p in itertools.product(list('ACGT'), repeat=kmer_size)]
+    all_motifs = []
+    for kmer in tqdm(kmers):
+        motif_with_flanking_nucls = list(motif_pattern)
+        for p, pos in enumerate(dot_positions):
+            motif_with_flanking_nucls[pos] = kmer[p]
+        motif_with_flanking_nucls = ''.join(motif_with_flanking_nucls)
+        all_motifs.append(motif_with_flanking_nucls)
+    return all_motifs

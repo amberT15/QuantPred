@@ -25,23 +25,44 @@ from optparse import OptionParser
 
 
 def main():
-    usage = 'usage: %prog [options] <motif> <background_model> <cell_line_name>'
+    usage = 'usage: %prog [options] <run_path> <motif> <background_model> <cell_line_name>'
     parser = OptionParser(usage)
+
+    parser.add_option('-o', dest='out_dir',
+        default='seamonster/add_GIA',
+        help='Output directory [Default: %default]')
+    parser.add_option('-n','--n_background', dest='n_background',
+        default=1000, type='int',
+        help='Sample number for background [Default: %default]')
+    parser.add_option('--logits', dest='logits',
+        default=False, action='store_true',
+        help='Save umap array into TFRecords [Default: %default]')
     (options, args) = parser.parse_args()
-
-    if len(args) != 3:
-      parser.error('Must provide motifs and cell line.')
+    if len(args) != 4:
+      parser.error('Must provide run path, motifs, background model and cell line.')
     else:
-      motif_cluster = args[0].split(',')
-      background_model = args[1]
-      cell_line_name = args[2]
+      run_path = args[0]
+      motif_cluster = args[1].split(',')
+      background_model = args[2]
+      cell_line_name = args[3]
 
+
+    util.make_dir(options.out_dir)
     testset, targets = tfr_evaluate.collect_whole_testset(coords=True)
-    gia_add_dir = util.make_dir('seamonster/add_GIA_csvs')
+    # quant model
+    # run_path = 'paper_runs/new_models/32_res/run-20211023_095131-w6okxt01'
+    # run_path = 'paper_runs/binary/basset/run-20210825_040148-nieq47kf/files/model-best.h5'
+    model = tf.keras.models.load_model(run_path)
+    if options.logits:
+        print('USING LOGITS!')
+        model = tf.keras.Model(inputs=model.input,
+                                  outputs=model.output.op.inputs[0].op.inputs[0])
+        suffix = 'logits_'
+    else:
+        suffix = ''
 
-
-    run_path = 'paper_runs/new_models/32_res/run-20211023_095131-w6okxt01'
-    model, bin_size = read_model(run_path, compile_model=False)
+    run_name = suffix + [p for p in run_path.split('/') if 'run-' in p][0]
+    gia_add_dir = util.make_dir(os.path.join(options.out_dir, run_name))
     C, X, Y = util.convert_tfr_to_np(testset, 3)
 
     if background_model == 'dinuc':
@@ -50,14 +71,14 @@ def main():
         X_set = quant_GIA.select_set('cell_low', C, X, Y)
 
     gi = quant_GIA.GlobalImportance(model, targets)
-    gi.set_null_model(background_model, base_sequence=X_set, num_sample=1000)
+    gi.set_null_model(background_model, base_sequence=X_set, num_sample=options.n_background)
     optimized_motifs = []
     for motif in motif_cluster:
+        print('Optimizing motif '+motif)
         base_dir = util.make_dir(os.path.join(gia_add_dir, '{}_{}'.format(cell_line_name, motif)))
         output_dir = util.make_dir(os.path.join(base_dir, background_model))
         flanks_path = os.path.join(output_dir, 'flanks.csv')
         positional_bias_path = os.path.join(output_dir, 'positional_bias_analysis.csv')
-
         optimized_motifs.append(optimize_one_motif(gi, motif, targets, cell_line_name, flanks_path,
                               positional_bias_path))
     if len(motif_cluster)==2:
@@ -66,7 +87,8 @@ def main():
         output_dir = util.make_dir(os.path.join(gia_add_dir, '{}_{}_and_{}'.format(cell_line_name, motif_cluster[0], motif_cluster[1])))
 
         test_interaction(gi, optimized_motifs, targets, output_dir, 'optimal_position_interaction.csv')
-        for first_motif_pos in [800, 1024, 1200]:
+        # for first_motif_pos in [800, 1024, 1200]:
+        for first_motif_pos in [1024]:
             print(first_motif_pos)
             distance_path = os.path.join(output_dir, str(first_motif_pos)+'_distance.csv')
             df = optimize_distance(gi, optimized_motifs, targets, distance_path, first_motif_pos)
@@ -91,23 +113,6 @@ def test_interaction(gi, optimized_motifs, targets, output_dir, filename):
         df['motif'] = pattern_label
         interaction_test_dfs.append(df)
     pd.concat(interaction_test_dfs).to_csv(os.path.join(output_dir, filename))
-
-# def test_interaction(gi, optimized_motifs, best_position, targets, output_dir, first_motif_pos):
-#     filenames = ['best_distance_interaction.csv', 'optimal_position_interaction.csv']
-#     for i, second_pos in enumerate([best_position, optimized_motifs[1][1]]):
-#         motifs_to_test = [ [(optimized_motifs[0][0], first_motif_pos)],
-#                                 [(optimized_motifs[1][0], second_pos)],
-#                                 [(optimized_motifs[0][0], first_motif_pos), (optimized_motifs[1][0], second_pos)] ]
-#         interaction_test_dfs = []
-#         for motif_to_test in motifs_to_test:
-#             pattern_label = ' & '.join(['{} at {}'.format(m, str(p)) for m,p in motif_to_test])
-#             diff = gi.embed_predict_quant_effect(motif_to_test).mean(axis=1)
-#             df = pd.DataFrame({
-#                                 'mean difference':np.array(diff).flatten(),
-#                                 'cell line': np.tile(targets, diff.shape[0])})
-#             df['motif'] = pattern_label
-#             interaction_test_dfs.append(df)
-#         pd.concat(interaction_test_dfs).to_csv(os.path.join(output_dir, filenames[i]))
 
 def optimize_distance(gi, optimized_motifs, targets, distance_path, first_motif_pos):
     two_motifs_pos_scores = []
@@ -137,6 +142,7 @@ def optimize_one_motif(gi, motif, targets, cell_line_name, flanks_path,
             flank_scores = pd.read_csv(flanks_path)
         else:
             all_motifs = quant_GIA.generate_flanks(motif)
+            print('Testing flanks')
             flank_scores = quant_GIA.test_flanks(gi, all_motifs, targets,
                                  output_path=flanks_path)
         best_flank = flank_scores[flank_scores['cell line'] == cell_line_name].sort_values('mean difference').iloc[-1,0]
@@ -147,6 +153,7 @@ def optimize_one_motif(gi, motif, targets, cell_line_name, flanks_path,
     if os.path.isfile(positional_bias_path):
         df = pd.read_csv(positional_bias_path)
     else:
+        print('Analysing positional bias')
         df = gi.positional_bias(best_flank, range(0,2048-len(motif),2), targets)
         df.to_csv(positional_bias_path, index=None)
     best_position = df[df['cell line']==cell_line_name].sort_values('mean difference').iloc[-1,0]
