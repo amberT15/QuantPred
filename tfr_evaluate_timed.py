@@ -11,19 +11,24 @@ from scipy.spatial import distance
 from scipy import stats
 from test_to_bw_fast import get_config, read_model
 import util
-import metrics
+import metrics_timed as metrics
+from memory_profiler import memory_usage
+from time import time
 
-def describe_run(run_path, columns_of_interest=['model_fn', 'bin_size', 'crop', 'rev_comp']):
-    metadata = tfr_evaluate.get_run_metadata(run_path)
-    if 'data_dir' in metadata.columns:
-        model_id = [metadata['data_dir'].values[0].split('/i_3072_w_1')[0].split('/')[-1]]
-    else:
-        model_id = []
-    for c in columns_of_interest:
-        if c in metadata.columns:
-            model_id.append(str(metadata[c].values[0]))
-    return ' '.join(model_id) 
 
+def timer_func(func):
+    # This function shows the execution time of
+    # the function object passed
+    def wrap_func(*args, **kwargs):
+        t1 = time()
+        result = func(*args, **kwargs)
+        t2 = time()
+        print(f'Function {func.__name__!r} executed in {(t2-t1):.4f}s')
+        return result
+    return wrap_func
+
+
+@timer_func
 def get_true_pred(model, bin_size, testset):
     # model, bin_size = read_model(run_path, compile_model=False)
     all_truth = []
@@ -36,11 +41,13 @@ def get_true_pred(model, bin_size, testset):
         all_pred.append(p)
     return np.concatenate(all_truth), np.concatenate(all_pred)
 
+@timer_func
 def change_resolution(truth, bin_size_orig, eval_bin):
     N, L, C  = truth.shape
     binned_truth = truth.reshape(N, L*bin_size_orig//eval_bin, eval_bin//bin_size_orig, C).mean(axis=2)
     return (binned_truth)
 
+@timer_func
 def split_into_2k_chunks(x, input_size=2048):
     N = tf.shape(x)[0]
     L = tf.shape(x)[1]
@@ -49,11 +56,13 @@ def split_into_2k_chunks(x, input_size=2048):
     x_split_to_2k = tf.reshape(x_4D, (N*L//input_size, input_size, C))
     return x_split_to_2k
 
+@timer_func
 def combine_into_6k_chunks(x, chunk_number=3):
     N, L, C = x.shape
     x_6k = np.reshape(x, (N//chunk_number, chunk_number*L, C))
     return x_6k
 
+@timer_func
 def choose_corr_func(testset_type):
     if testset_type == 'whole':
         get_pr = metrics.get_correlation_concatenated
@@ -61,6 +70,7 @@ def choose_corr_func(testset_type):
         get_pr = metrics.get_correlation_per_seq
     return get_pr
 
+@timer_func
 def get_performance(all_truth, all_pred, targets, testset_type):
     assert all_truth.shape[-1] == all_pred.shape[-1], 'Incorrect number of cell lines for true and pred'
     mse = metrics.get_mse(all_truth, all_pred).mean(axis=1).mean(axis=0)
@@ -83,6 +93,7 @@ def get_performance(all_truth, all_pred, targets, testset_type):
                     'targets':targets}
     return pd.DataFrame(performance)
 
+@timer_func
 def get_scaling_factors(all_truth, all_pred):
     N, L, C = all_pred.shape
     flat_pred = all_pred.reshape(N*L, C)
@@ -92,6 +103,7 @@ def get_scaling_factors(all_truth, all_pred):
     scaling_factors =  truth_per_cell_line_sum / pred_per_cell_line_sum
     return scaling_factors
 
+@timer_func
 def get_performance_raw_scaled(truth, targets, pred_labels, eval_type):
     complete_performance = []
     for label, pred in pred_labels.items():
@@ -102,7 +114,7 @@ def get_performance_raw_scaled(truth, targets, pred_labels, eval_type):
         complete_performance.append(performance)
     return pd.concat(complete_performance)
 
-
+@timer_func
 def evaluate_run_whole(model, bin_size, testset, targets):
     # make predictions
     truth, raw_pred = get_true_pred(model, bin_size, testset)
@@ -117,6 +129,7 @@ def evaluate_run_whole(model, bin_size, testset, targets):
                                                       sets_to_process, 'whole')
     return (complete_performance, scaling_factors)
 
+@timer_func
 def extract_datasets(path_pattern='/mnt/1a18a49e-9a31-4dbf-accd-3fb8abbfab2d/shush/15_IDR_test_sets_6K/cell_line_*/i_6144_w_1/'):
     paths = glob.glob(path_pattern)
     assert len(paths)>0
@@ -130,6 +143,7 @@ def extract_datasets(path_pattern='/mnt/1a18a49e-9a31-4dbf-accd-3fb8abbfab2d/shu
         target_dataset[(int(i), target)] = testset_2K
     return target_dataset
 
+@timer_func
 def evaluate_run_idr(model, bin_size, target_dataset, scaling_factors):
     complete_performance = []
     for (i, target), one_testset in target_dataset.items():
@@ -148,6 +162,7 @@ def evaluate_run_idr(model, bin_size, target_dataset, scaling_factors):
 
     return pd.concat(complete_performance)
 
+@timer_func
 def get_run_metadata(run_dir):
     config = get_config(run_dir)
     relevant_config = {k:[config[k]['value']] for k in config.keys() if k not in ['wandb_version', '_wandb']}
@@ -155,19 +170,17 @@ def get_run_metadata(run_dir):
     metadata['run_dir'] = run_dir
     return metadata
 
-def collect_whole_testset(data_dir='/home/shush/profile/QuantPred/datasets/chr8/complete/random_chop/i_2048_w_1/', coords=False, batch_size=512):
-    sts = util.load_stats(data_dir)
-    testset = util.make_dataset(data_dir, 'test', sts, batch_size=batch_size, shuffle=False, coords=coords)
-    targets = pd.read_csv(data_dir+'targets.txt', sep='\t')['identifier'].values
-    return testset, targets
-
+@timer_func
 def collect_datasets(data_dir='/home/shush/profile/QuantPred/datasets/chr8/complete/random_chop/i_2048_w_1/'):
     # get testset
-    testset, targets = collect_whole_testset()
+    sts = util.load_stats(data_dir)
+    testset = util.make_dataset(data_dir, 'test', sts, batch_size=512, shuffle=False)
+    targets = pd.read_csv(data_dir+'targets.txt', sep='\t')['identifier'].values
     # get cell line specific IDR testsets in 6K
     target_dataset_idr = extract_datasets()
     return (testset, targets, target_dataset_idr)
 
+@timer_func
 def evaluate_run_whole_idr(run_dir, testset, targets, target_dataset_idr):
     # load model
     model, bin_size = read_model(run_dir, compile_model=False)
@@ -188,6 +201,7 @@ def evaluate_run_whole_idr(run_dir, testset, targets, target_dataset_idr):
                                             [run_dir for i in range(len(scaling_factors))]))
     return (combined_performance_w_metadata, scaling_factors_per_cell)
 
+@timer_func
 def check_best_model_exists(run_dirs, error_output_filepath):
     bad_runs = []
     for run_dir in run_dirs:
@@ -199,7 +213,8 @@ def check_best_model_exists(run_dirs, error_output_filepath):
         util.writ_list_to_file(bad_runs, error_output_filepath)
     return bad_runs
 
-
+@timer_func
+@profile
 def process_run_list(run_dirs, output_summary_filepath):
     # get datasets
     testset, targets, target_dataset_idr = collect_datasets()
@@ -220,13 +235,15 @@ def process_run_list(run_dirs, output_summary_filepath):
     else:
         print('No runs with saved models found!')
 
-def collect_run_dirs(project_name, wandb_dir='paper_runs/*/*/*'):
+@timer_func
+def collect_run_dirs(project_name, wandb_dir='/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/*/*'):
     wandb.login()
     api = wandb.Api()
     runs = api.runs(project_name)
     run_dirs = [glob.glob(wandb_dir+run.id)[0] for run in runs]
     return run_dirs
 
+@timer_func
 def collect_sweep_dirs(sweep_id, wandb_dir='/mnt/31dac31c-c4e2-4704-97bd-0788af37c5eb/shush/wandb/*/*'):
     api = wandb.Api()
     sweep = api.sweep(sweep_id)
@@ -236,31 +253,29 @@ def collect_sweep_dirs(sweep_id, wandb_dir='/mnt/31dac31c-c4e2-4704-97bd-0788af3
 
 
 if __name__ == '__main__':
-    run_dirs = ['paper_runs/new_models/base_res/run-20211101_111917-v4iozxug']
+    run_dirs = []
+    run_dirs = ['/home/shush/profile/QuantPred/0run']
     # dir_of_all_runs = '/home/shush/profile/QuantPred/paper_runs/basenji/augmentation_basenji'
-    dir_of_all_runs = sys.argv[1]
-    output_dir = 'extra' # output dir
+    # dir_of_all_runs = sys.argv[1]
+    dir_of_all_runs = 'hghghg'
+    # output_dir = 'results_tfr_evaluate' # output dir
+    output_dir = 'delthis'
     util.make_dir(output_dir)
     # project name in wandb or name to use for saving if list of runs provided
-    project_name = 'new_baseres'
+    project_name = 'XXX'
 
     testset, targets, target_dataset_idr = collect_datasets()
     # if pre-assembled directory of runs given then take all
     if os.path.isdir(dir_of_all_runs):
         run_dirs = [os.path.join(dir_of_all_runs, d) for d in os.listdir(dir_of_all_runs)
                     if os.path.isfile(os.path.join(dir_of_all_runs, d, 'files/best_model.h5'))]
-        project_name = os.path.basename(dir_of_all_runs.rstrip('/'))
-        assert len(project_name)>0, 'Invalid project name'
+        project_name = os.path.basename(dir_of_all_runs)
         print('SELECTED ALL RUNS IN DIRECTORY: ' + dir_of_all_runs)
-        print('PROJECT NAME: ' + project_name)
 
     # else check if list of runs also is absent then collect runs
     elif len(run_dirs) == 0:
         run_dirs = collect_run_dirs(project_name)
-        print('COLLECTING RUNS FROM PROJECT IN WANDB')
         print(run_dirs)
-    else:
-        print('USING PREDEFINED LIST OF RUNS')
     csv_filename = project_name + '.csv'
     result_path = os.path.join(output_dir, csv_filename)
     print(result_path)
