@@ -11,6 +11,7 @@ import util
 import custom_fit
 import seaborn as sns
 import tfomics
+from operator import itemgetter
 
 def get_center_coordinates(coord, conserve_start, conserve_end):
     '''Extract coordinates according to robsutness test procedure'''
@@ -318,6 +319,36 @@ def select_top_pred(pred,num_task,top_num):
     task_top_list = np.array(task_top_list)
     return task_top_list
 
+def vcf_fast(ref,alt,model,window_size=2048,batch_size = 64):
+    vcf_diff_list = []
+    i = 0
+    while i < len(ref):
+        if i+ batch_size < len(ref):
+            ref_seq = ref[i:i+batch_size]
+            alt_seq = alt[i:i+batch_size]
+            batch_n = batch_size
+            i = i+batch_size
+        else:
+            ref_seq = ref[i:len(ref)]
+            alt_seq = alt[i:len(ref)]
+            batch_n = len(ref) - i
+            i = len(ref)
+
+        ref_pred = model.predict(ref_seq)
+        alt_pred = model.predict(alt_seq)
+
+        bin_size = window_size / ref_pred.shape[1]
+        ref_pred = np.repeat(ref_pred,bin_size,axis = 1)
+        alt_pred = np.repeat(alt_pred,bin_size,axis = 1)
+
+        ref_pred_1k = ref_pred[:,512:1536,:]
+        alt_pred_1k = alt_pred[:,512:1536,:]
+
+        vcf_diff = np.sum(alt_pred_1k,axis = 1) / np.sum(ref_pred_1k,axis = 1)
+        vcf_diff_list.append(np.log2(vcf_diff))
+
+    return vcf_diff_list
+
 def vcf_robust(ref,alt,model,shift_num=10,window_size=2048,batch_size = 64):
     #calculate the coordinates for sequences to conserve in the center
     vcf_diff_list = []
@@ -374,7 +405,31 @@ def vcf_robust(ref,alt,model,shift_num=10,window_size=2048,batch_size = 64):
 
     return vcf_diff_list
 
-def vcf_binary(ref,alt,model,shift_num=10,window_size=2048,batch_size = 64):
+def vcf_binary_fast(ref,alt,model,batch_size=64,layer = -1,diff_func = 'effect_size'):
+    vcf_diff_list = []
+    i = 0
+    while i < len(ref):
+        if i+ batch_size < len(ref):
+            ref_seq = ref[i:i+batch_size]
+            alt_seq = alt[i:i+batch_size]
+            batch_n = batch_size
+            i = i+batch_size
+        else:
+            ref_seq = ref[i:len(ref)]
+            alt_seq = alt[i:len(ref)]
+            batch_n = len(ref) - i
+            i = len(ref)
+
+        ref_pred = model.predict(ref_seq)
+        alt_pred = model.predict(alt_seq)
+
+        vcf_diff = alt_pred / ref_pred
+        vcf_diff_list.append(np.log2(vcf_diff))
+
+    return vcf_diff_list
+
+
+def vcf_binary(ref,alt,model,shift_num=10,window_size=2048,batch_size = 64,layer = -1,diff_func = 'effect_size'):
     #calculate the coordinates for sequences to conserve in the center
     vcf_diff_list = []
     chop_size = ref.shape[1]
@@ -400,38 +455,31 @@ def vcf_binary(ref,alt,model,shift_num=10,window_size=2048,batch_size = 64):
         #creat shifted sequence list and make predictions
         shifted_ref,shifted_alt,shift_idx = util.window_shift(ref_seq,alt_seq,
                                                               window_size,shift_num,both_seq = True)
-        ref_pred = model.predict(shifted_ref)
-        alt_pred = model.predict(shifted_alt)
+        if int(layer) == -1:
+            ref_pred = model.predict(shifted_ref)
+            alt_pred = model.predict(shifted_alt)
+        elif int(layer) == -2:
+            intermediate_layer_model = tf.keras.Model(inputs=model.input,
+                                          outputs=model.output.op.inputs[0].op.inputs[0])
+            ref_pred = intermediate_layer_model.predict(shifted_ref)
+            alt_pred = intermediate_layer_model.predict(shifted_alt)
 
         #seperate label per seq
         sep_ref = np.array(np.array_split(ref_pred,batch_n))
         sep_alt = np.array(np.array_split(alt_pred,batch_n))
         ##shape(batch_size,shift_num,15)
 
-        #get mode from predictions across shifts
-        # batch_alt = []
-        # batch_ref = []
-        # for seq_i in range(0,batch_n):
-        #     exp_alt = []
-        #     exp_ref = []
-        #     for exp in range(0,sep_ref.shape[-1]):
-        #         ref_exp = sep_ref[seq_i,:,exp]
-        #         alt_exp = sep_alt[seq_i,:,exp]
-        #         mode_alt = max(set(alt_exp), key=list(alt_exp).count)
-        #         mode_ref = max(set(ref_exp), key=list(ref_exp).count)
-        #         exp_alt.append(mode_alt)
-        #         exp_ref.append(mode_ref)
-
-            # batch_alt.append(exp_alt)
-            # batch_ref.append(exp_ref)
-
         average_ref = np.mean(sep_ref,axis = 1)
         average_alt = np.mean(sep_alt,axis = 1)
         ##shape(batch_size,15)
 
         #get difference between average coverage value
-        vcf_diff = average_alt / average_ref
-        vcf_diff_list.append(np.log2(vcf_diff))
+        if diff_func == 'effect_size':
+            vcf_diff = average_alt / average_ref
+            vcf_diff_list.append(np.log2(vcf_diff))
+        elif diff_func == 'log_ratio':
+            vcf_diff = np.log2(average_alt) / np.log2(average_ref)
+            vcf_diff_list.append(vcf_diff)
 
     return vcf_diff_list
 
@@ -487,63 +535,86 @@ def vcf_test(ref,alt,coords,model):
     return vcf_diff_list
 
 
-
-def visualize_vcf(ref,alt,model,background_size = 100,title = None):
+def visualize_vcf(ref,alt,model,vcf_output,cagi_df):
+    idx = {'A':0,'C':1,'G':2,'T':3}
     #ref and alternative prediction for the task with most signal
-    ref = tf.expand_dims(ref,axis=0)
-    alt = tf.expand_dims(alt,axis=0)
-    ref_pred = model.predict(ref)
-    alt_pred = model.predict(alt)
-    ref_pred_cov = np.sum(ref_pred,axis = 1)
-    alt_pred_cov = np.sum(alt_pred,axis = 1)
-    diff = np.absolute(np.log2(alt_pred_cov / ref_pred_cov))
-    max_task = np.argmax(diff,axis = 1)
-    ref_pred = np.squeeze(ref_pred[:,:,max_task])
-    alt_pred = np.squeeze(alt_pred[:,:,max_task])
+    for exp in cagi_df['8'].unique():
 
-    input_size = ref.shape[1]
-    pred_size = ref_pred.shape[0]
-    bin_size = input_size / pred_size
 
-    full_ref_pred = np.repeat(ref_pred,bin_size)
-    full_alt_pred = np.repeat(alt_pred,bin_size)
+        exp_df = cagi_df[cagi_df['8']==exp]
+        idx_df = exp_df[['0','1','2']].drop_duplicates().sort_values(by=['1'])
+        exp_len = len(exp_df['1'].unique())
+        effect_size = np.zeros((4,exp_len))
+        predict_size = np.zeros((4,exp_len))
 
-    #generate covergae difference plot
-    plt.figure(figsize = (20,4))
-    plt.plot(full_ref_pred,label = 'reference', color = 'black')
-    plt.plot(full_alt_pred,label = 'alternative',color = 'red')
-    plt.xlabel('Position')
-    plt.ylabel('Coverage')
-    plt.legend()
-    if title:
-        plt.title(title)
+        #plot max difference in prediction and saliency
+        max_idx = exp_df.index[np.argmax(np.absolute(vcf_output[exp_df.index]))]
+        max_ref = ref[max_idx:max_idx+1]
+        max_alt = alt[max_idx:max_idx+1]
+        ref_pred = model.predict(max_ref)
+        alt_pred = model.predict(max_alt)
+        if len(ref_pred.shape) == 2:
+            ref_pred = np.expand_dims(ref_pred,1)
+            alt_pred = np.expand_dims(alt_pred,1)
 
-    #Saliency of center 256 neucleotid
-    with tf.GradientTape() as tape:
-        tape.watch(ref)
-        pred = model(ref)
-        saliency_range = 256
+        ref_pred_cov = np.sum(ref_pred,axis = 1)
+        alt_pred_cov = np.sum(alt_pred,axis = 1)
+        diff = np.absolute(np.log2(alt_pred_cov / ref_pred_cov))
+        max_task = np.argmax(diff,axis = 1)
+        ref_pred = np.squeeze(ref_pred[:,:,max_task],axis = (0,2))
+        alt_pred = np.squeeze(alt_pred[:,:,max_task],axis = (0,2))
 
-        window_range = saliency_range/bin_size
 
-        outputs = pred[:,int(pred_size/2-window_range/2):int(pred_size/2+window_range/2),max_task[0]]
-        saliency = tape.gradient(outputs, ref)
+        input_size = ref.shape[1]
+        pred_size = ref_pred.shape[0]
+        bin_size = input_size / pred_size
 
-        saliency_start = int(input_size/2 - saliency_range/2)
-        saliency_end = int(input_size/2 + saliency_range/2)
-        peak_saliency = np.transpose(saliency[0,saliency_start:saliency_end])
-
-        #saliency_logo
-        logo_saliency = peak_saliency.T * ref[0,saliency_start:saliency_end]
-        logo_plot = plot_saliency(np.expand_dims(logo_saliency,axis=0))
-        logo_plot.show
+        full_ref_pred = np.repeat(ref_pred,bin_size)
+        full_alt_pred = np.repeat(alt_pred,bin_size)
 
         plt.figure(figsize = (20,2))
-        ax = sns.heatmap(peak_saliency,cbar_kws = dict(use_gridspec=False,location="bottom"),cmap = 'vlag')
-        ax.tick_params(left=True, bottom=False)
-        ax.set_yticklabels(['A','C','G','T'])
-        ax.set_xticklabels([])
+        plt.plot(full_ref_pred,label = 'reference', color = 'black')
+        plt.plot(full_alt_pred,label = 'alternative',color = 'red')
+        plt.xlabel('Position')
+        plt.ylabel('Coverage')
+        plt.legend()
 
+        for pos in range(0,exp_len):
+            row = idx_df.iloc[pos]
+            loci_df = exp_df[(exp_df['0']==row['0'])&(exp_df['1']==row['1'])&(exp_df['2']==row['2'])]
+            loci_idx = loci_df.index
+            ref_allele = loci_df['3'].drop_duplicates().values
+            alt_allele = loci_df['4'].values.tolist()
+            diff = loci_df['6'].values
+
+            #alternative allele
+            effect_size[itemgetter(*alt_allele)(idx),pos] =diff
+            predict_size [itemgetter(*alt_allele)(idx),pos] =vcf_output[loci_idx]
+
+            #reference allele
+            effect_size[idx[ref_allele[0]],pos] = 0
+            predict_size[idx[ref_allele[0]],pos] = 0
+
+
+        plt.figure(figsize = (20,2))
+        ax = sns.heatmap(effect_size,cmap = 'vlag',
+                         center = 0,
+                         #annot = exp_annot,fmt = '',
+                        cbar_kws = dict(use_gridspec=False,location="bottom"));
+        ax.tick_params(left=True, bottom=False);
+        ax.set_yticklabels(['A','C','G','T']);
+        ax.set_xticklabels([]);
+        ax.set_title(exp+' ground truth')
+
+        plt.figure(figsize = (20,2))
+        ax = sns.heatmap(predict_size,cmap = 'vlag',
+                         center = 0,
+                         #annot = pred_annot,fmt = '',
+                         cbar_kws = dict(use_gridspec=False,location="bottom"));
+        ax.tick_params(left=True, bottom=False);
+        ax.set_yticklabels(['A','C','G','T']);
+        ax.set_xticklabels([])
+        ax.set_title(exp+' mutagenesis')
 
 
 def complete_saliency(X,model,class_index,func = tf.math.reduce_mean):
@@ -1010,7 +1081,6 @@ def plot_saliency_logos(saliency_scores, X_sample, window=20, num_plot=25, title
         ax.set_title(titles[i])
 #     plt.savefig('plots/UMAP/saliency_plots/{}.svg'.format(i))
   plt.tight_layout()
-
 
 def plot_saliency_logos_oneplot(saliency_scores, X_sample, window=20,
                                 num_plot=25, titles=[], vline_pos=None,
