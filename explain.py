@@ -71,109 +71,6 @@ def batch_pred_robustness_test(testset, sts, model, batch_size=64,
             center_ground_truth_1K.append(Y.numpy()[:,conserve_start:conserve_end+1,:])
     return predictions_and_variance, center_1K_coordinates, center_ground_truth_1K
 
-def task_robustness(selected_read,model, task_idx, batch_size = 50, shift_num = 10, window_size = 2048, visualize = True, smooth_saliency = True):
-    var_saliency_list = []
-    var_pred_list = []
-    chop_size = selected_read.shape[1]
-    center_idx = int(0.5*(chop_size-window_size))
-    center_range = np.array(range(center_idx,center_idx+window_size))
-    conserve_size = window_size*2 - chop_size
-    conserve_start = chop_size//2 - conserve_size//2
-    conserve_end = conserve_start + conserve_size-1
-
-    i = 0
-    while i < len(selected_read):
-        if i+ batch_size < len(selected_read):
-            seq = selected_read[i:i+batch_size]
-            #target = selected_target[i:i+batch_size][:,:,task_idx]
-            batch_n = batch_size
-            i = i+batch_size
-        else:
-            seq = selected_read[i:len(selected_read)]
-            #target = selected_target[i:len(selected_read)][:,:,task_idx]
-            batch_n = len(selected_read) - i
-            i = len(selected_read)
-
-
-        shifted_seq,_,shift_idx = util.window_shift(seq,seq,window_size,shift_num)
-        #get prediction for shifted read
-        shift_pred = model.predict(shifted_seq)[:,:,task_idx]
-        bin_size = window_size / shift_pred.shape[1]
-        shift_pred = np.repeat(shift_pred,bin_size,axis = 1)
-
-        #get saliency for shifted read
-        shift_saliency = complete_saliency(shifted_seq,model,class_index = task_idx)
-        shift_saliency = shift_saliency * shifted_seq
-
-        #Select conserve part only
-        crop_start_i = conserve_start - shift_idx - center_idx
-        crop_idx = crop_start_i[:,None] + np.arange(conserve_size)
-        crop_idx = crop_idx.reshape(conserve_size*shift_num*batch_n)
-        crop_row_idx = np.repeat(range(0,shift_num*batch_n),conserve_size)
-        crop_f_index = np.vstack((crop_row_idx,crop_idx)).T.reshape(shift_num*batch_n,conserve_size,2)
-
-        #get saliency 1k part
-        shift_saliency_1k=tf.gather_nd(shift_saliency,crop_f_index)
-
-        sep_saliency =np.array(np.array_split(shift_saliency_1k,batch_n))
-        average_saliency = np.average(np.array(sep_saliency),axis = 1)
-
-        var_saliency = np.std(np.sum(sep_saliency,axis = -1),axis = 1)
-        var_saliency_sum = np.sum(var_saliency,axis = 1)
-
-        #get pred 1k part
-        shift_pred_1k=tf.gather_nd(shift_pred,crop_f_index)
-        sep_pred = np.array(np.array_split(shift_pred_1k,batch_n))
-        var_pred = np.std(sep_pred,axis = 1)
-        var_pred_sum = np.sum(var_pred,axis = 1)
-
-        #add var result to list
-        var_saliency_list.append(var_saliency_sum)
-        var_pred_list.append(var_pred_sum)
-
-        if visualize == True:
-        #make 2 subplots per sequence
-            for a in range(0,batch_n):
-
-                fig, (ax1, ax2,ax3) = plt.subplots(3,1,figsize = (15,6))
-                # if ground_truth == True:
-                #     #plot ground truth pred
-                #     sns.lineplot(x = range(0,chop_size),
-                #                 y = np.squeeze(target[a]),ax = ax1,color = 'lightblue')
-
-
-                for shift_n in range(0,shift_num):
-                    #visualize prediction
-                    sns.lineplot(x = center_range + shift_idx[shift_n],
-                                 y = shift_pred[a*shift_num + shift_n,:],ax = ax1,
-                                 alpha = 0.35)
-                    #visualize saliency
-                    tmp_saliency = shift_saliency[a*shift_num + shift_n]
-                    sns.lineplot(x = center_range + shift_idx[shift_n],
-                                y =np.sum(tmp_saliency.numpy(),axis = 1),ax=ax2,
-                                alpha = 0.35)
-
-                if smooth_saliency==True:
-                    #plot average saliency
-                    sns.lineplot(x = range(conserve_start,conserve_end+1),
-                             y = np.sum(average_saliency[a],axis = 1),
-                             ax = ax2, color = 'lightblue' )
-
-                line_saliency = np.sum(average_saliency[a],axis = 1)
-
-                sns.lineplot(x = range(0,conserve_size),
-                             y = line_saliency,
-                             ax = ax3)
-                ax3.fill_between(range(0,conserve_size),
-                                line_saliency-var_saliency[a],
-                                line_saliency+var_saliency[a], alpha=.8,
-                                color = 'black')
-
-                plt.tight_layout()
-                plt.show()
-
-    return np.hstack(var_saliency_list),np.hstack(var_pred_list)
-
 def batch_robustness_test(selected_read,selected_target,model,visualize = True,ground_truth = True, batch_size = 50,
                             smooth_saliency = True, shift_num = 10, window_size = 2048):
     var_saliency_list = []
@@ -318,6 +215,7 @@ def select_top_pred(pred,num_task,top_num):
         task_top_list.append(task_index)
     task_top_list = np.array(task_top_list)
     return task_top_list
+
 
 def vcf_fast(ref,alt,model,window_size=2048,batch_size = 64):
     vcf_diff_list = []
@@ -483,57 +381,6 @@ def vcf_binary(ref,alt,model,shift_num=10,window_size=2048,batch_size = 64,layer
 
     return vcf_diff_list
 
-def vcf_test(ref,alt,coords,model):
-    # score for reference and alternative allele without robustenss
-    #calculate the coordinates for sequences to conserve in the center
-    vcf_diff_list = []
-    chop_size = ref.shape[1]
-    center_idx = int(0.5*(chop_size-window_size))
-    center_range = np.array(range(center_idx,center_idx+window_size))
-    conserve_size = window_size*2 - chop_size
-    conserve_start = chop_size//2 - conserve_size//2
-    conserve_end = conserve_start + conserve_size-1
-
-    i = 0
-    while i < len(ref):
-        if i+ batch_size < len(ref):
-            ref_seq = ref[i:i+batch_size]
-            alt_seq = alt[i:i+batch_size]
-            batch_n = batch_size
-            i = i+batch_size
-        else:
-            ref_seq = ref[i:len(ref)]
-            alt_seq = alt[i:len(ref)]
-            batch_n = len(ref) - i
-            i = len(ref)
-
-        #creat shifted sequence list and make predictions
-        ref_pred = model.predict(ref_seq[center_range[0]:center_range[-1]+1])
-        alt_pred = model.predict(alt_seq[center_range[0]:center_range[-1]+1])
-        bin_size = window_size / ref_pred.shape[1]
-
-
-        #Select conserved part
-        crop_start_i = conserve_start - center_idx
-        crop_idx = crop_start_i + np.arange(conserve_size)
-        crop_idx = crop_idx.reshape(conserve_size*batch_n)
-        crop_row_idx = np.repeat(range(0,batch_n),conserve_size)
-        crop_f_index = np.vstack((crop_row_idx,crop_idx)).T.reshape(batch_n,conserve_size,2)
-
-        #get pred 1k part
-        ref_pred_1k=tf.gather_nd(ref_pred,crop_f_index)
-        alt_pred_1k=tf.gather_nd(alt_pred,crop_f_index)
-
-        sep_ref = np.array(np.array_split(ref_pred_1k,batch_n))
-        sep_alt = np.array(np.array_split(alt_pred_1k,batch_n))
-
-
-        #get difference between average coverage value
-        vcf_diff = np.sum(sep_alt,axis = 1) / np.sum(sep_ref,axis = 1)
-        vcf_diff_list.append(np.log2(vcf_diff))
-
-    return vcf_diff_list
-
 
 def visualize_vcf(ref,alt,model,vcf_output,cagi_df):
     idx = {'A':0,'C':1,'G':2,'T':3}
@@ -659,31 +506,7 @@ def peak_saliency_map(X, model, class_index,window_size,func=tf.math.reduce_mean
             outputs = func(tf.gather_nd(pred[:,:,class_index],batch_indices),axis=2)
 
         return tape.gradient(outputs, X)
-
-# def vcf_pct(vcf_df):
-#     pct_list = []
-#     for (i,alt) in enumerate(vcf_df['alt']):
-#         small_pct = len(np.where(np.array(vcf_df['background'][i]) < alt)[0])
-#         large_pct = len(np.where(np.array(vcf_df['background'][i]) > alt)[0])
-#         pct_list.append(np.minimum(small_pct,large_pct)/100)
-#     vcf_df['pct'] = pct_list
-#     return vcf_df
-#
-# def merge_background_vcf(vcf_df):
-#     centered_background = vcf_df['background'] - vcf_df['ref']
-#     centered_background = np.concatenate(centered_background)
-#     centered_alt = np.array(vcf_df['alt'] - vcf_df['ref'])
-#
-#     pct_merged = []
-#     for alt_i in centered_alt:
-#         small_pct = len(np.where(centered_background < alt_i)[0])
-#         large_pct = len(np.where(centered_background > alt_i)[0])
-#         pct_merged.append(np.minimum(small_pct,large_pct)/len(centered_background))
-#
-#     vcf_df['pct_merged'] = pct_merged
-#     return vcf_df
-
-
+        
 def fasta2list(fasta_file):
     fasta_coords = []
     seqs = []
