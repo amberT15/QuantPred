@@ -26,7 +26,7 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
                output_dir, config={},):
 
   default_config = {'num_epochs':30, 'batch_size':64, 'shuffle':True,
-  'metrics':['mse','pearsonr', 'poisson'], 'es_start_epoch':50,
+  'metrics':['mse','pearsonr', 'poisson'], 'es_start_epoch':1,
   'l_rate':0.001, 'es_patience':6, 'es_metric':'loss',
   'es_criterion':'min', 'lr_decay':0.3, 'lr_patience':10,
   'lr_metric':'loss', 'lr_criterion':'min', 'verbose' : True,
@@ -70,7 +70,7 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   json_path = os.path.join(data_dir, 'statistics.json')
   with open(json_path) as json_file:
     params = json.load(json_file)
-
+  print(params['num_targets'])
   if loss_type_str == 'poisson' and model_name_str == 'bpnet':
     model = model((window_size, 4),(output_len, params['num_targets']), softplus = True, wandb_config=config)
   else:
@@ -84,12 +84,12 @@ def fit_robust(model_name_str, loss_type_str, window_size, bin_size, data_dir,
   train_seq_len = params['train_seqs']
   if model_name_str == 'ori_bpnet':
   # create trainer class
-    trainer =custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, default_config['metrics'],
+    trainer =custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, params['num_targets'], default_config['metrics'],
                                     ori_bpnet_flag = True,rev_comp=default_config['rev_comp'],crop=default_config['crop'],
                                     smooth = default_config['smooth'],smooth_window=default_config['smooth_window'],
                                     sigma = default_config['sigma'])
   else:
-    trainer =custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, default_config['metrics'],
+    trainer =custom_fit.RobustTrainer(model, loss, optimizer, window_size, bin_size, params['num_targets'],default_config['metrics'],
                                     ori_bpnet_flag = False,rev_comp=default_config['rev_comp'],crop=default_config['crop'],
                                     smooth = default_config['smooth'],smooth_window=default_config['smooth_window'],
                                     sigma = default_config['sigma'])
