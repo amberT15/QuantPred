@@ -98,10 +98,10 @@ def get_poiss_nll(y_true, y_pred):
 
 
 class PearsonR(tf.keras.metrics.Metric):
-  def __init__(self, summarize=True, name='pearsonr', **kwargs):
+  def __init__(self, num_targets,summarize=True, name='pearsonr', **kwargs):
     super(PearsonR, self).__init__(name=name, **kwargs)
     self._summarize = summarize
-    self._shape = (15,)
+    self._shape = (num_targets,)
     self._count = self.add_weight(name='count', shape=self._shape, initializer='zeros')
 
     self._product = self.add_weight(name='product', shape=self._shape, initializer='zeros')

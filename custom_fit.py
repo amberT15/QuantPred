@@ -12,7 +12,7 @@ import tensorflow_probability as tfp
 class RobustTrainer():
     """Custom training loop with flags incoporated"""
     def __init__(self, model, loss, optimizer,
-                  input_window, bin_size, metrics, ori_bpnet_flag,
+                  input_window, bin_size, num_targets, metrics, ori_bpnet_flag,
                   rev_comp,crop,smooth,smooth_window,sigma):
         #Added for data augmentation
         self.window_size = input_window
@@ -27,17 +27,19 @@ class RobustTrainer():
         self.smooth = smooth
         self.smooth_window = smooth_window
         self.sigma =sigma
+        self.num_targets = num_targets
 
         metric_names = []
         for metric in metrics:
             metric_names.append(metric)
 
         self.metrics = {}
-        self.metrics['train'] = MonitorMetrics(metric_names, 'train')
-        self.metrics['val'] = MonitorMetrics(metric_names, 'val')
-        self.metrics['test'] = MonitorMetrics(metric_names, 'test')
+        self.metrics['train'] = MonitorMetrics(metric_names, 'train', self.num_targets)
+        self.metrics['val'] = MonitorMetrics(metric_names, 'val', self.num_targets)
+        self.metrics['test'] = MonitorMetrics(metric_names, 'test', self.num_targets)
 
     @tf.function
+    #change
     def robust_train_step(self,x,y,metrics):
         #smooth
         if self.smooth == 'average':
@@ -297,7 +299,7 @@ class EarlyStopping():
 
 class MonitorMetrics():
   """class to monitor metrics during training"""
-  def __init__(self, metric_names, name):
+  def __init__(self, metric_names, name, num_targets):
     self.name = name
     self.loss = []
     self.running_loss = []
@@ -305,6 +307,7 @@ class MonitorMetrics():
     self.metric_update = {}
     self.metric = {}
     self.metric_names = metric_names
+    self.num_targets = num_targets
     self.initialize_metrics(metric_names)
 
   def initialize_metrics(self, metric_names):
@@ -313,7 +316,7 @@ class MonitorMetrics():
       self.metric_update['acc'] = tf.keras.metrics.BinaryAccuracy()
       self.metric['acc'] = []
     if 'pearsonr' in metric_names:
-      self.metric_update['pearsonr'] = metrics.PearsonR(15)
+      self.metric_update['pearsonr'] = metrics.PearsonR(self.num_targets)
       self.metric['pearsonr'] = []
     if 'auroc' in metric_names:
       self.metric_update['auroc'] = tf.keras.metrics.AUC(curve='ROC')

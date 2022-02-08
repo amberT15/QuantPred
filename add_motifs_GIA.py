@@ -29,14 +29,14 @@ def main():
     parser = OptionParser(usage)
 
     parser.add_option('-o', dest='out_dir',
-        default='seamonster/add_GIA',
+        default='seamonster/add_GIA_fin',
         help='Output directory [Default: %default]')
     parser.add_option('-n','--n_background', dest='n_background',
         default=1000, type='int',
         help='Sample number for background [Default: %default]')
     parser.add_option('--logits', dest='logits',
         default=False, action='store_true',
-        help='Save umap array into TFRecords [Default: %default]')
+        help='take logits [Default: %default]')
     (options, args) = parser.parse_args()
     if len(args) != 4:
       parser.error('Must provide run path, motifs, background model and cell line.')
@@ -67,8 +67,8 @@ def main():
 
     if background_model == 'dinuc':
         X_set = quant_GIA.select_set('all_threshold', C, X, Y)
-    elif background_type == 'none':
-        X_set = quant_GIA.select_set('cell_low', C, X, Y)
+    elif background_model == 'none':
+        X_set = quant_GIA.select_set('cell_low', C, X, Y, cell_line=np.argwhere(targets==cell_line_name)[0][0])
 
     gi = quant_GIA.GlobalImportance(model, targets)
     gi.set_null_model(background_model, base_sequence=X_set, num_sample=options.n_background)
