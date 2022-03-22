@@ -1,0 +1,27 @@
+{
+    "os": "Linux-5.13.0-28-generic-x86_64-with-glibc2.29",
+    "python": "3.8.10",
+    "heartbeatAt": "2022-03-04T21:08:29.066483",
+    "startedAt": "2022-03-04T21:08:26.738038",
+    "docker": null,
+    "gpu": "NVIDIA RTX A4000",
+    "gpu_count": 8,
+    "cpu_count": 32,
+    "cuda": null,
+    "args": [
+        "toneyan/NEW_MODELS_BASERES/sweeps/2cpeg768",
+        "1"
+    ],
+    "state": "running",
+    "program": "wandb_train.py",
+    "codePath": "scripts/wandb_train.py",
+    "git": {
+        "remote": "git@github.com:shtoneyan/groundhog.git",
+        "commit": "f5c605e165b009f09a45ec346db907e4ad7b64a5"
+    },
+    "email": "tikinbobo@gmail.com",
+    "root": "/home/shush/groundhog",
+    "host": "citra",
+    "username": "shush",
+    "executable": "/home/shush/tf_2/bin/python"
+}
